@@ -2526,9 +2526,26 @@ proportional — its vocoder emits ~1.7× dp seconds on the host SDK, exactly
 
 Against the Kokoro 3.01 RTF / ~834 MB PSS baseline: **Piper is the first
 engine measured realtime on this device** — ~6× faster than Kokoro at ~¼
-the session footprint, with 18 s of intelligible audio produced on-device
-(WAVs in `docs/prints/d4/`). Host previews (ORT 1.23.2, 8-thread x86):
-Piper 0.024, Supertonic 3 0.162.
+the session footprint, with audio produced on-device (the staged WAVs were
+later found corrupt — see the correction below; RTF and memory numbers
+stand). Host previews (ORT 1.23.2, 8-thread x86): Piper 0.024, Supertonic 3
+0.162.
+
+  **Correction (2026-09-12, owner's listening pass): the staged Piper WAVs were
+  garbage — every other sample of the render (18 s files at 2× speed). The
+  frontend was never the problem: the recorded ids decode to clean English
+  phonemes and match official piper-tts ids head-for-head; the model file
+  sha256-matches `rhasspy/piper-voices`; the invocation is bit-identical to
+  piper's own session (bare ORT vs `phoneme_ids_to_audio`, max-abs-diff 0.0).
+  The `audio_s` fields recorded the FULL render (device runs 35.83/35.16/35.19 s,
+  RTF 0.57) while the written WAVs carried half — an ORT-android 1.23.2-era
+  artifact (#100 bumped the pin to 1.29.0 that same day). Re-run on
+  ORT-android 1.29 on the B6 (2026-09-12): Piper audio 35.35–35.42 s,
+  **RTF 0.566–0.575**, ~234 MB PSS / ~880 MB VmHWM, WAV written full-length
+  (35.42 s) — "intelligible audio" was an unverified claim in the original
+  entry; the RTF numbers stand (the ratio is invariant to the halving). The
+  listening set is regenerated in `docs/prints/d4/` (device + host renders,
+  both 35 s @ 22.05 kHz); the blind quality gate is REOPENED.
 
 - **Piper** — the direct-ORT VITS port thesis holds: shared espeak-ng
   phonemization (host 1.52 ids are clean against the stock export; no
