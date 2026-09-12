@@ -4,7 +4,55 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
-## 152. Spike corpora published — the measurement is re-runnable, not just readable (2026-09-11)
+## 153. D5 Pocket TTS spike — first ARM datapoint: RTF ~5.5–6.4 on the HiBreak, pregen-only, faithful-but-ISA-noisy (2026-09-11)
+
+Owner asked for the Pocket TTS spike with the B6 connected. The `KevinAHM/pocket-tts-onnx`
+export @ `58a6d00c` (english_2026-04, sha256-pinned per file from the HF LFS blobs) ran
+end-to-end on the HiBreak through ORT-android 1.29, mirroring the `PocketTTS.cpp` loop
+exactly (voice+text conditioning through the text slot, KV snapshot/restore, NaN-first
+`curr`, EOS −4.0 + 3 extra frames, per-frame decode). Text arrived pre-tokenized (host
+SentencePiece) — the on-device tokenizer/G2P is a D5 integration gap, not a spike leg.
+
+**Measured (int8 main/flow/decoder, fp32 encoder+conditioner, HiBreak):**
+
+- **RTF 5.54–6.87** (best 5.54 at threads=4; 2/4/6 threads are within ±10% — the int8
+  graphs barely parallelize). Kokoro fp32 baseline on the same device: RTF 2.84–3.12 —
+  **Pocket is ~2× slower despite 20× smaller weights.** Per-frame cost at threads=4:
+  main ~236 ms, decoder ~147 ms, flow ~6 ms — ~390 ms against an 80 ms realtime budget,
+  so the live-cloning question is answered NO on this device; it is a pregen candidate.
+- **PSS ~1.40 GB, VmHWM ~1.56–1.60 GB** (the 1000-frame KV tensors + ORT arena; the
+  device survived, but this is 4× the CosyVoice3 kill threshold class on paper). Cold
+  open ~6 s total (flow_lm_main_int8 alone 3.9–4.2 s); voice encoding 5.6–11.2 s per
+  voice (fp32 encoder over 6.3 s of audio).
+- **Parity vs the host reference (temp-0, deterministic):** EOS frame 171 and 174 frames
+  match the host run exactly at threads=4; latents max-abs-diff 0.081 and audio 0.41 —
+  frame 0 already differs (0.052), so the divergence is **int8-kernel ISA variation
+  (x86 vs ARM), not accumulated AR drift and not the #86 stub failure mode**. Threads=2/6
+  drift ±1 EOS frame (logit −3.93 sits right on the −4.0 threshold). Waveform compare is
+  the wrong gate for an AR pipeline; EOS/frame match + rms profile are the substantive
+  checks, both pass. Audio is unlistened — WAVs staged for the owner.
+- Host reference: PocketTTS.cpp CLI RTFx 3.50 (int8, incl. voice conditioning), python
+  ORT driver RTF 0.232–0.243.
+
+**Recorded findings for future legs:** decoder chunking is not transparent — 15-frame
+chunks vs per-frame differ (host max-abs-diff 0.13, chunk-size-dependent), so the
+canonical streaming unit is 1 frame and any adoption must pin the chunking convention;
+the decoder `first` bool fill is irrelevant per-frame (ones vs zeros: 0.0 diff);
+`bos_before_voice.npy` ([1,1,1024], concatenated before the voice prompt by upstream
+python) is skipped by the C++ reference and by this port — a fidelity risk to re-check
+if EOS ever misbehaves; energy is unmeasured (device on USB; the PowerProbe validity
+rule reads that as "energy not measured") and ThermalManager is unavailable on this
+Android build.
+
+**Consequences:** D5's engine choice now has an ARM datapoint for Pocket TTS: on the
+HiBreak it is a pregen-only candidate, slower than Kokoro per audio-second, at 4× the
+pack size (148 MB int8 vs 92–325 MB Kokoro) but the only zero-shot cloning candidate
+inside a phone RAM budget. The S22/Fold leg (Kokoro 0.66–0.76 baseline) is the next
+measurement if the owner wants the flagship picture; the G0 blind read still gates
+adoption. Harness: `PocketProbeRunner` + `PocketProbeBenchmarkTest` (staging recipe in
+build.md "D5 Pocket TTS staging").
+
+ ## 152. Spike corpora published — the measurement is re-runnable, not just readable (2026-09-11)
 
 **Question.** `docs/kokoro-on-device-perf.md` (#148/#150) inlines every number, but shipped
 no passage text: the 2-passage corpus existed only as a generated host file

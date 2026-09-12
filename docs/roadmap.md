@@ -346,6 +346,17 @@ and blind read exist.
   resolution) beside our espeak-ng/JNA path — #97's one-convention rule wants that
   justified, not assumed, and read-along timing is unverified (Mimi frames are 12.5 Hz).
 
+  **First ARM datapoint measured (2026-09-11, HiBreak, decisions #153):** the ungated
+  english_2026-04 export (int8 heavy graphs) runs RTF **5.54–6.87** at 2/4/6 threads
+  (no meaningful scaling), PSS ~1.40 GB, cold open ~6 s, voice encoding 5.6–11.2 s —
+  ~390 ms against the 80 ms/frame realtime budget, so **the live-cloning question is
+  answered NO on the HiBreak and Pocket TTS is a pregen candidate**; it is also ~2×
+  slower per audio-second than the Kokoro fp32 baseline on the same device (RTF
+  2.84–3.12). Parity vs the host reference holds structurally (EOS frame and frame
+  count match exactly at threads=4); residual latents/audio differences are int8-kernel
+  ISA variation, and decoder chunking is not transparent (1-frame is the canonical
+  unit). The S22/Fold leg and the G0 blind read remain D5's open gates.
+
 ### Phase H — TODAY reading and listening stats
 
 Use the capture, aggregation and UI design in

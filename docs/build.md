@@ -559,6 +559,54 @@ adb logcat -d -s TranslateProbe:V
 chr-F per `pair × model` is computed host-side from the recorded `output_ids`
 (sacréBLEU, `--remove_whitespace`) against the FLORES refs.
 
+## D5 Pocket TTS staging (2026-09-11, `spike-tts`)
+
+Stages the Kyutai Pocket TTS ONNX export for `PocketProbeBenchmarkTest` (roadmap D5,
+decisions #149/#153): the ungated CC-BY-4.0 `KevinAHM/pocket-tts-onnx` @ `58a6d00c`
+(english_2026-04 bundle, int8 main/flow/decoder + fp32 encoder/conditioner, ~148 MB).
+Every file is sha256-pinned from the HF LFS blob listing before download — the #149
+parity gate. Text arrives pre-tokenized (host SentencePiece over the bundle's
+`tokenizer.model`, C++-reference `prepare_text` semantics: capitalize, terminal
+punctuation, 8-space pad under 5 words, eos_extra 3/5). The temperature-0 parity leg
+compares device latents/audio against a host ORT reference produced with the same
+semantics (PocketTTS.cpp loop, deterministic zero-noise AR).
+
+```bash
+# 1. download + hash-pin (host)
+mkdir -p ~/.cache/ayvu-spike/pocket-tts/english_2026-04 && cd ~/.cache/ayvu-spike/pocket-tts
+BASE=https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/58a6d00cf13d239b6748cb0769f35c580a8f606c/onnx/english_2026-04
+for f in generate.py bundle.json tokenizer.model bos_before_voice.npy \
+    flow_lm_main_int8.onnx flow_lm_flow_int8.onnx mimi_decoder_int8.onnx \
+    mimi_encoder_int8.onnx text_conditioner_int8.onnx mimi_encoder.onnx \
+    text_conditioner.onnx flow_lm_flow.onnx flow_lm_main.onnx mimi_decoder.onnx; do
+  [ -s "english_2026-04/$f" ] || curl -sSL -O \
+    "https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/58a6d00cf13d239b6748cb0769f35c580a8f606c/onnx/english_2026-04/$f"
+done
+# sha256 of every .onnx/.npy must equal the HF LFS listing at the pinned revision.
+# 2. voice: a CC-BY-4.0/CC0 sample (kyutai/tts-voices voice-zero/*), resampled to
+#    24 kHz float32 mono on the host -> voice_24k.f32 (byte-identical host/device).
+# 3. host parity reference (python ORT + sentencepiece): temp-0 AR over the ref
+#    sentence -> pocket_ref_{meta.json,latents.f32,audio.f32}.
+# 4. stage onto the device
+adb push english_2026-04/*.onnx english_2026-04/tokenizer.model /data/local/tmp/
+adb push voice_24k.f32 d5_inputs.json pocket_ref_meta.json pocket_ref_latents.f32 pocket_ref_audio.f32 /data/local/tmp/
+adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+  'mkdir -p files/models/pocket/english_2026-04 && \
+   cp /data/local/tmp/*.onnx files/models/pocket/english_2026-04/ && \
+   cp /data/local/tmp/tokenizer.model files/models/pocket/english_2026-04/ && \
+   cp /data/local/tmp/voice_24k.f32 files/ && cp /data/local/tmp/d5_inputs.json files/ && \
+   cp /data/local/tmp/pocket_ref_*.f32 files/ && cp /data/local/tmp/pocket_ref_meta.json files/'"
+adb shell svc power stayon true
+adb shell am instrument -w -e class com.moronigranja.localttsreader.spiketts.PocketProbeBenchmarkTest \
+  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d5_pocket_results.json
+adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d5_ref.wav   # + d5_p1/d5_p2
+adb logcat -d -s PocketSpike:V
+```
+
+Measured HiBreak results (2026-09-11, decisions #153): RTF **5.54–6.87**, PSS ~1.40 GB,
+cold open ~6 s — see `docs/prints/d5/` when copied in; WAVs staged for the owner.
+
 ## espeak-ng Android bundle (decision #32)
 
 Cross-compiles `libespeak-ng.so` (arm64-v8a) at the pinned espeak-ng release tag
