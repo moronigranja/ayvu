@@ -52,6 +52,16 @@ measurement if the owner wants the flagship picture; the G0 blind read still gat
 adoption. Harness: `PocketProbeRunner` + `PocketProbeBenchmarkTest` (staging recipe in
 build.md "D5 Pocket TTS staging").
 
+**fp32 control (owner's precision question, 2026-09-12):** the same export with fp32
+heavy graphs ran RTF **5.81–7.44** (threads 2/4), PSS ~1.64 GB, main open 5.0–5.1 s —
+so on this device **int8 stands as the better Pocket config** (≈5% faster, 15% less
+memory, same no-thread-scaling shape), consistent with the one Kokoro HiBreak
+counterexample (2.62 int8 vs 2.89 fp32, #148) and against the flagship int8-loses
+pattern (leg G). The pregen-only verdict is precision-robust. Quality caveat for the
+listening pass: the fp32 path diverges qualitatively (ref speaks 27.8 s vs int8's
+13.9 s at rms 0.0011; p2's second sentence never EOSes at temp 0.7) — the runner
+now takes `precision` from `d5_inputs.json` so both graphs stay runnable.
+
  ## 152. Spike corpora published — the measurement is re-runnable, not just readable (2026-09-11)
 
 **Question.** `docs/kokoro-on-device-perf.md` (#148/#150) inlines every number, but shipped

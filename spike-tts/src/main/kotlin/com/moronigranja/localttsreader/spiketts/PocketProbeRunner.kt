@@ -137,12 +137,14 @@ class PocketProbeRunner(
             log("  open $name: ${openMs.getLong(name)} ms")
             return s
         }
+        val precision = inputs.optString("precision", "int8")
+        val sfx = if (precision == "int8") "_int8" else ""
         val enc = open("mimi_encoder", "mimi_encoder.onnx")
         val txt = open("text_conditioner", "text_conditioner.onnx")
-        val mainS = open("flow_lm_main_int8", "flow_lm_main_int8.onnx")
-        val flowS = open("flow_lm_flow_int8", "flow_lm_flow_int8.onnx")
-        val decS = open("mimi_decoder_int8", "mimi_decoder_int8.onnx")
-        legJson.put("open_ms", openMs)
+        val mainS = open("flow_lm_main$sfx", "flow_lm_main$sfx.onnx")
+        val flowS = open("flow_lm_flow$sfx", "flow_lm_flow$sfx.onnx")
+        val decS = open("mimi_decoder$sfx", "mimi_decoder$sfx.onnx")
+        legJson.put("open_ms", openMs).put("precision", precision)
 
         val main = StatefulGraph(env, mainS)
         val dec = StatefulGraph(env, decS)

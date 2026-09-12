@@ -355,7 +355,10 @@ and blind read exist.
   2.84–3.12). Parity vs the host reference holds structurally (EOS frame and frame
   count match exactly at threads=4); residual latents/audio differences are int8-kernel
   ISA variation, and decoder chunking is not transparent (1-frame is the canonical
-  unit). The S22/Fold leg and the G0 blind read remain D5's open gates.
+  unit). The fp32 control (2026-09-12, decisions #153) confirms the verdict is
+  precision-robust: fp32 runs RTF 5.81–7.44 at PSS ~1.64 GB, so int8 stands as the
+  better Pocket config on this device (~5% faster, 15% less memory). The S22/Fold leg
+  and the G0 blind read remain D5's open gates.
 
 ### Phase H — TODAY reading and listening stats
 
