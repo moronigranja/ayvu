@@ -3,6 +3,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,14 +51,18 @@ import com.moronigranja.localttsreader.ui.SectionHeader
 import kotlin.math.roundToInt
 
 /**
- * Settings, grouped by concern (Phase K item 1): Speech (engine, packs,
- * generation threads, voice, playback volume), Reading & sharing (match
- * threshold, OCR languages), Storage & data (offline audio, backup &
- * restore), Appearance (theme), About (build identity, license, third-party
- * notices, privacy). Every row maps directly to a
- * [SettingsViewModel] call — no logic in the view.
+ * Settings root, grouped by concern (Phase K item 1): Speech (one entry row
+ * into the Speech subpane), Reading & sharing (match threshold, OCR
+ * languages), Storage & data (offline audio, backup & restore), Appearance
+ * (theme), About (build identity, license, third-party notices, privacy).
+ *
+ * Speech is an Android-settings-style subscreen (decisions #156 addendum):
+ * engine + packs + the ~60-row voice selector outgrew the root's one-flick
+ * budget, so the subpane holds them behind the entry row; the rest of the
+ * root stays flat. Every row maps directly to a [SettingsViewModel] call — no
+ * logic in the view.
  */
-private enum class SettingsPane { Root, OcrLanguages }
+private enum class SettingsPane { Root, Speech, OcrLanguages }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,313 +79,393 @@ fun SettingsScreen(
     // read on the ViewModel's background dispatcher, never a poll.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshOfflineUsage() }
     var pane by remember { mutableStateOf(SettingsPane.Root) }
-    // System back mirrors the top-bar arrow: OCR subpane collapses first,
-    // then the settings screen closes back to the library (not app exit).
+    // System back mirrors the top-bar arrow: any subpane (Speech, OCR
+    // languages) collapses first, then the settings screen closes back to the
+    // library (not app exit). Settings is a boolean branch in MainActivity,
+    // not a nav destination, so root back MUST stay intercepted — disabling
+    // the handler here would let the Activity finish and exit the app.
     BackHandler {
-        if (pane == SettingsPane.OcrLanguages) pane = SettingsPane.Root else onBack()
+        if (pane == SettingsPane.Root) onBack() else pane = SettingsPane.Root
     }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (pane == SettingsPane.OcrLanguages) "OCR languages" else "Settings") },
+                title = {
+                    Text(
+                        when (pane) {
+                            SettingsPane.Speech -> "Speech"
+                            SettingsPane.OcrLanguages -> "OCR languages"
+                            SettingsPane.Root -> "Settings"
+                        },
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (pane == SettingsPane.OcrLanguages) pane = SettingsPane.Root else onBack()
-                    }) {
+                    IconButton(onClick = { if (pane == SettingsPane.Root) onBack() else pane = SettingsPane.Root }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
         },
     ) { padding ->
-        if (pane == SettingsPane.Root) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding =
-                    androidx.compose.foundation.layout
-                        .PaddingValues(AyvuSpacing.LG),
-                verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
-            ) {
-                item {
-                    SectionHeader("Speech", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS))
-                }
-                item {
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
-                                        onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
-                                    ).padding(vertical = AyvuSpacing.XS),
-                        ) {
-                            RadioButton(
-                                selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
-                            )
-                            Column {
-                                Text("Kokoro-82M (downloaded)", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    "High-quality offline voices — download required.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
-                                        onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
-                                    ).padding(vertical = AyvuSpacing.XS),
-                        ) {
-                            RadioButton(
-                                selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
-                            )
-                            Column {
-                                Text("Piper (downloaded)", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    "Compact open-weight voices — English (US) and German. Download required; no read-along highlights.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
-                                        onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
-                                    ).padding(vertical = AyvuSpacing.XS),
-                        ) {
-                            RadioButton(
-                                selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
-                            )
-                            Column {
-                                Text("Device voice (system)", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    "Zero-download fallback — degraded quality, no read-along highlights.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
+        when (pane) {
+            SettingsPane.Speech -> SpeechPane(state, viewModel, padding)
+            SettingsPane.OcrLanguages -> OcrLanguagesPane(state, viewModel, padding)
+            SettingsPane.Root ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(AyvuSpacing.LG),
+                    verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
+                ) {
+                    item {
+                        // Android-settings-style subscreen entry (decisions
+                        // #156 addendum): the engine + packs + the ~60-row
+                        // voice selector outgrew the root's one-flick budget.
+                        SpeechEntryRow(
+                            engineLabel = speechEngineLabel(state.ttsEngine),
+                            summary = state.voiceSelector.summary,
+                            onClick = { pane = SettingsPane.Speech },
+                        )
                     }
-                }
-                // K2 (decisions #156): the selected engine's rows derive from
-                // the registered engine descriptors — a new engine adds its
-                // packs with no settings-surface edit.
-                items(
-                    state.packs.filter { it.packId in state.speechPackIds },
-                ) { row ->
-                    PackRow(row, onDownload = { viewModel.download(row.packId) })
-                }
-                item {
-                    Text(
-                        "espeak-ng: ${state.espeakDetail}",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
-                    )
-                }
-                // Decisions #137: generation threads bound the downloaded
-                // open-weight engines (Kokoro AND Piper — D4 #154 addendum);
-                // a degraded session never touches ORT, so the row hides.
-                if (state.ttsEngine != SettingsStore.SYSTEM_TTS_ENGINE) {
+
+                    item { SectionHeader("Reading & sharing", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
                     item {
                         Column {
+                            Text("Match threshold: ${"%.2f".format(state.matchThreshold)}", style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "Generation threads: ${state.ttsThreads}",
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                "Cores used while generating audio. Fewer keep the phone snappier; more generate faster. Applies after restart.",
+                                "How closely a shared snippet must match a book passage.",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             Slider(
-                                value = state.ttsThreads.toFloat(),
-                                onValueChange = { viewModel.setTtsThreads(it.roundToInt()) },
-                                valueRange = SettingsStore.MIN_TTS_THREADS.toFloat()..SettingsStore.MAX_TTS_THREADS.toFloat(),
+                                value = state.matchThreshold.toFloat(),
+                                onValueChange = { viewModel.setThreshold(it.toDouble()) },
+                                valueRange = 0.3f..0.9f,
                             )
                         }
                     }
-                }
-                // C1.5: with the degraded voice active but the open-weight
-                // upgrade packs missing, Settings offers the same install
-                // plan the setup flow shows — K2: the rows are the same
-                // descriptor-derived set the Speech section filters on.
-                if (state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE &&
-                    state.packs.any { it.packId in state.speechPackIds && it.status != PackStatus.Ready }
-                ) {
+
                     item {
-                        PacksPlanCard(
-                            rows = state.packs.filter { it.packId in state.speechPackIds }.map { it.toPlanRow() },
-                            onDownload = { viewModel.download(it) },
-                            onCancel = { /* settings downloads are not user-cancelled */ },
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { pane = SettingsPane.OcrLanguages }
+                                    .padding(vertical = AyvuSpacing.SM),
+                        ) {
+                            Text(
+                                "OCR languages",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        }
                     }
-                }
 
-                // C2 shared selector: persistent "Selected voice:" summary, one
-                // radio indicator, favorites independent, per-row Preview/Stop,
-                // missing packs → the explicit download action.
-                item {
-                    com.moronigranja.localttsreader.ui.VoiceSelector(
-                        state = state.voiceSelector,
-                        onSelect = viewModel::selectVoice,
-                        onToggleFavorite = viewModel::toggleFavorite,
-                        onPreview = viewModel::previewVoice,
-                        onStopPreview = viewModel::stopPreview,
-                        onDownload = { viewModel.downloadVoicePacks() },
-                    )
-                }
-                item {
-                    Column {
-                        Text("Playback volume: ${"%.1f".format(state.playbackGain)}×", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "Multiplier applied to the generated voice on top of the device media volume.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = state.playbackGain,
-                            onValueChange = viewModel::setPlaybackGain,
-                            valueRange = SettingsStore.PLAYBACK_GAIN_MIN..SettingsStore.PLAYBACK_GAIN_MAX,
-                        )
+                    item { SectionHeader("Storage & data", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
+                    if (offlineRows.isEmpty()) {
+                        item {
+                            Text(
+                                "No pre-generated audio — the library row's Pre-generate fills it.",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = AyvuSpacing.XS),
+                            )
+                        }
+                    } else {
+                        item {
+                            Text(
+                                "Total: ${formatBytes(offlineRows.sumOf { it.bytes })} — one listened hour ≈ 170 MB",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
+                            )
+                        }
+                        items(offlineRows, key = { it.bookId }) { row ->
+                            OfflineAudioRow(
+                                title = row.title,
+                                bytes = row.bytes,
+                                onDelete = { viewModel.deleteOffline(row.bookId) },
+                            )
+                        }
                     }
-                }
 
-                item { SectionHeader("Reading & sharing", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
-                item {
-                    Column {
-                        Text("Match threshold: ${"%.2f".format(state.matchThreshold)}", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "How closely a shared snippet must match a book passage.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = state.matchThreshold.toFloat(),
-                            onValueChange = { viewModel.setThreshold(it.toDouble()) },
-                            valueRange = 0.3f..0.9f,
-                        )
-                    }
-                }
-
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { pane = SettingsPane.OcrLanguages }
-                                .padding(vertical = AyvuSpacing.SM),
-                    ) {
-                        Text(
-                            "OCR languages",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                    }
-                }
-
-                item { SectionHeader("Storage & data", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
-                if (offlineRows.isEmpty()) {
+                    item { SectionHeader("Appearance", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
                     item {
-                        Text(
-                            "No pre-generated audio — the library row's Pre-generate fills it.",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(horizontal = AyvuSpacing.XS),
-                        )
-                    }
-                } else {
-                    item {
-                        Text(
-                            "Total: ${formatBytes(offlineRows.sumOf { it.bytes })} — one listened hour ≈ 170 MB",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
-                        )
-                    }
-                    items(offlineRows, key = { it.bookId }) { row ->
-                        OfflineAudioRow(
-                            title = row.title,
-                            bytes = row.bytes,
-                            onDelete = { viewModel.deleteOffline(row.bookId) },
-                        )
-                    }
-                }
-
-                item { SectionHeader("Appearance", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
-                item {
-                    Column {
-                        ThemeMode.entries.forEach { mode ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .selectable(
-                                            selected = state.themeMode == mode,
-                                            onClick = { viewModel.setTheme(mode) },
-                                        ).padding(vertical = AyvuSpacing.XS),
-                            ) {
-                                RadioButton(selected = state.themeMode == mode, onClick = { viewModel.setTheme(mode) })
-                                Text(
-                                    when (mode) {
-                                        ThemeMode.SYSTEM -> "Follow system"
-                                        ThemeMode.LIGHT -> "Light"
-                                        ThemeMode.DARK -> "Dark"
-                                    },
-                                )
+                        Column {
+                            ThemeMode.entries.forEach { mode ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .selectable(
+                                                selected = state.themeMode == mode,
+                                                onClick = { viewModel.setTheme(mode) },
+                                            ).padding(vertical = AyvuSpacing.XS),
+                                ) {
+                                    RadioButton(selected = state.themeMode == mode, onClick = { viewModel.setTheme(mode) })
+                                    Text(
+                                        when (mode) {
+                                            ThemeMode.SYSTEM -> "Follow system"
+                                            ThemeMode.LIGHT -> "Light"
+                                            ThemeMode.DARK -> "Dark"
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
+
+                    item { BackupSection() }
+
+                    // Release 0.1.1: build identity + license/notices + the
+                    // on-device claim, last in the list.
+                    item {
+                        aboutSection(
+                            versionName = viewModel.appVersion,
+                            onOpenLink = viewModel::openLink,
+                        )
+                    }
                 }
+        }
+    }
+}
 
-                item { BackupSection() }
-
-                // Release 0.1.1: build identity + license/notices + the
-                // on-device claim, last in the list.
-                item {
-                    aboutSection(
-                        versionName = viewModel.appVersion,
-                        onOpenLink = viewModel::openLink,
+/**
+ * The Speech subpane (decisions #156 addendum): engine radios + the selected
+ * engine's descriptor-derived pack rows + espeak detail + the generation-
+ * threads bound + the voice selector + playback volume, moved off the root
+ * unchanged.
+ */
+@Composable
+private fun SpeechPane(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+    padding: PaddingValues,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(AyvuSpacing.LG),
+        verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
+    ) {
+        item {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
+                                onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
+                            ).padding(vertical = AyvuSpacing.XS),
+                ) {
+                    RadioButton(
+                        selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
+                        onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
                     )
+                    Column {
+                        Text("Kokoro-82M (downloaded)", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "High-quality offline voices — download required.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
+                                onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
+                            ).padding(vertical = AyvuSpacing.XS),
+                ) {
+                    RadioButton(
+                        selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
+                        onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
+                    )
+                    Column {
+                        Text("Piper (downloaded)", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Compact open-weight voices — English (US) and German. Download required; no read-along highlights.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                                onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
+                            ).padding(vertical = AyvuSpacing.XS),
+                ) {
+                    RadioButton(
+                        selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                        onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
+                    )
+                    Column {
+                        Text("Device voice (system)", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Zero-download fallback — degraded quality, no read-along highlights.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-            ) {
-                item { SectionHeader("OCR languages", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
-                items(state.packs.filter { it.engineId == TESS_ENGINE_ID }) { row ->
-                    PackRow(row, onDownload = { viewModel.download(row.packId) })
-                    OcrLanguageRow(
-                        packId = row.packId,
-                        enabled = row.staged,
-                        selected = row.packId in state.ocrLanguages,
-                        onToggle = { viewModel.setOcrLanguage(row.packId, it) },
-                    )
-                }
-                item {
+        }
+        // K2 (decisions #156): the selected engine's rows derive from
+        // the registered engine descriptors — a new engine adds its
+        // packs with no settings-surface edit.
+        items(
+            state.packs.filter { it.packId in state.speechPackIds },
+        ) { row ->
+            PackRow(row, onDownload = { viewModel.download(row.packId) })
+        }
+        item {
+            Text(
+                "espeak-ng: ${state.espeakDetail}",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
+            )
+        }
+        // Decisions #137: generation threads bound the downloaded
+        // open-weight engines (Kokoro AND Piper — D4 #154 addendum);
+        // a degraded session never touches ORT, so the row hides.
+        if (state.ttsEngine != SettingsStore.SYSTEM_TTS_ENGINE) {
+            item {
+                Column {
                     Text(
-                        "Selected languages are used for shared-image snippets; the bundle installs once.",
+                        "Generation threads: ${state.ttsThreads}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "Cores used while generating audio. Fewer keep the phone snappier; more generate faster. Applies after restart.",
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(vertical = AyvuSpacing.XS),
+                    )
+                    Slider(
+                        value = state.ttsThreads.toFloat(),
+                        onValueChange = { viewModel.setTtsThreads(it.roundToInt()) },
+                        valueRange = SettingsStore.MIN_TTS_THREADS.toFloat()..SettingsStore.MAX_TTS_THREADS.toFloat(),
                     )
                 }
             }
         }
+        // C1.5: with the degraded voice active but the open-weight
+        // upgrade packs missing, Settings offers the same install
+        // plan the setup flow shows — K2: the rows are the same
+        // descriptor-derived set the Speech section filters on.
+        if (state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE &&
+            state.packs.any { it.packId in state.speechPackIds && it.status != PackStatus.Ready }
+        ) {
+            item {
+                PacksPlanCard(
+                    rows = state.packs.filter { it.packId in state.speechPackIds }.map { it.toPlanRow() },
+                    onDownload = { viewModel.download(it) },
+                    onCancel = { /* settings downloads are not user-cancelled */ },
+                )
+            }
+        }
+
+        // C2 shared selector: persistent "Selected voice:" summary, one
+        // radio indicator, favorites independent, per-row Preview/Stop,
+        // missing packs → the explicit download action.
+        item {
+            com.moronigranja.localttsreader.ui.VoiceSelector(
+                state = state.voiceSelector,
+                onSelect = viewModel::selectVoice,
+                onToggleFavorite = viewModel::toggleFavorite,
+                onPreview = viewModel::previewVoice,
+                onStopPreview = viewModel::stopPreview,
+                onDownload = { viewModel.downloadVoicePacks() },
+            )
+        }
+        item {
+            Column {
+                Text("Playback volume: ${"%.1f".format(state.playbackGain)}×", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Multiplier applied to the generated voice on top of the device media volume.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Slider(
+                    value = state.playbackGain,
+                    onValueChange = viewModel::setPlaybackGain,
+                    valueRange = SettingsStore.PLAYBACK_GAIN_MIN..SettingsStore.PLAYBACK_GAIN_MAX,
+                )
+            }
+        }
     }
 }
+
+/** The OCR-languages picker subpane (decisions #144) — unchanged body. */
+@Composable
+private fun OcrLanguagesPane(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+    padding: PaddingValues,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding),
+    ) {
+        item { SectionHeader("OCR languages", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
+        items(state.packs.filter { it.engineId == TESS_ENGINE_ID }) { row ->
+            PackRow(row, onDownload = { viewModel.download(row.packId) })
+            OcrLanguageRow(
+                packId = row.packId,
+                enabled = row.staged,
+                selected = row.packId in state.ocrLanguages,
+                onToggle = { viewModel.setOcrLanguage(row.packId, it) },
+            )
+        }
+        item {
+            Text(
+                "Selected languages are used for shared-image snippets; the bundle installs once.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(vertical = AyvuSpacing.XS),
+            )
+        }
+    }
+}
+
+/** The root's Speech entry row: engine label + voice summary, opens the subpane. */
+@Composable
+private fun SpeechEntryRow(
+    engineLabel: String,
+    summary: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.SM),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Speech", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "$engineLabel · $summary",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+    }
+}
+
+/** The root row's engine label, mirroring the Speech pane's radio copy. */
+private fun speechEngineLabel(engine: String): String =
+    when (engine) {
+        SettingsStore.PIPER_ENGINE -> "Piper (downloaded)"
+        SettingsStore.SYSTEM_TTS_ENGINE -> "Device voice (system)"
+        else -> "Kokoro-82M (downloaded)"
+    }
 
 @Composable
 private fun OfflineAudioRow(

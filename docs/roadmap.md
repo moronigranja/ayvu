@@ -257,18 +257,25 @@ reference for the German gap. `en_US-lessac-medium` stays the measured D4 leg (H
 
 **Status: selection wired end-to-end (2026-09-13, decisions #154 + its addendum).**
 `PiperEngine` is registered as `piper-v1` (PRIMARY) with the `en_US-lessac-medium` +
-`de_DE-thorsten-high` packs pinned and downloading through the existing registry flow;
-the host smoke runs end-to-end (finite mono PCM @ 22050, `:core-tts:piperSmoke`). The
-phoneme-id framing is verified head-for-head against official piper-tts and pinned in a
-JVM test. The runtime selection wiring landed (decisions #154 addendum): `PiperRuntime`
-opens the engine over the downloaded packs behind `EngineSelector`'s explicit
-`piper-v1` branch, the voice sheet/catalog resolves through the #144 availability
-shape, and #30b's segment-less read-along degrades exactly like system-tts. Remaining
-for this slice family: further voice-pack pins (es/it/pt-BR/ko) — the passage-level-only
-read-along stays recorded degradation (#30b). **Engine device smoke verified on both
-devices** (2026-09-13, `PiperDeviceSmokeTest`): B6 RTF 0.579 / S22 RTF 0.094, finite
-22.05 kHz mono PCM, segments=null on device — `docs/prints/d4/d4-piper-engine-smoke-*.wav`
-(a listening pass on the engine output is still open).
+`de_DE-thorsten-high` packs pinned and downloading through the existing registry flow.
+The phoneme-id framing is verified head-for-head against official piper-tts and pinned
+in a JVM test. The runtime selection wiring landed (decisions #154 addendum):
+`PiperRuntime` opens the engine over the downloaded packs behind `EngineSelector`'s
+explicit `piper-v1` branch, the voice sheet/catalog resolves through the #144
+availability shape, and #30b's segment-less read-along degrades exactly like
+system-tts. **Speech subscreen (2026-09-13, the owner's Android-settings-style IA
+pass):** the root pane carries a Speech entry row (current engine + a summary line);
+the `SettingsPane.Speech` subpane holds engine + pack rows + generation threads + the
+voice selector + playback volume; back/up mirror the OCR-languages pattern. The rest
+of the root stays flat — ~40 rows in 5 sections is still one-flick territory; the
+subscreen threshold is a section whose content is a multi-row picker or a list longer
+than the root viewport, which only Speech (engine + packs + ~60 voice rows) crosses.
+Remaining for this slice family: further voice-pack pins (es/it/pt-BR/ko) — the
+passage-level-only read-along stays recorded degradation (#30b). **Engine device smoke
+verified on both devices** (2026-09-13, `PiperDeviceSmokeTest`): B6 RTF 0.579 / S22
+RTF 0.094, finite 22.05 kHz mono PCM, segments=null on device —
+`docs/prints/d4/d4-piper-engine-smoke-*.wav` (a listening pass on the engine output is
+still open).
 
 ### Phase G — narration quality
 

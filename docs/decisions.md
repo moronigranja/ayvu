@@ -127,6 +127,17 @@ green (652-suite base plus the new tests). Device proof for the override UX (she
 per-book scope, restart + backup/restore on device, pregen under an override) remains
 device-instrumentation territory and is explicitly not claimed here.
 
+**Addendum (2026-09-13, Speech subscreen — the owner's Android-settings-style IA
+question):** the settings root grew past one flick with D4+K2 (engine rows + per-engine
+packs + the ~60-row voice selector), so Speech moves to a `SettingsPane.Speech`
+subscreen behind an entry row (current engine + summary), reusing the existing pane +
+BackHandler pattern the OCR-languages picker introduced. The rest of the root stays
+flat — ~40 rows in 5 sections is still one-flick territory, and a subscreen pays a
+navigation cost per setting; the recorded threshold for promoting another section is
+its content being a multi-row picker or a list longer than the root viewport. The
+per-book voice selector inside the subpane writes the `book.voice.<bookId>` override
+for the active book unchanged.
+
 ## 155. D1 — instant ±30-second seek horizon: 30 s audio-time horizon, survive-seek join/restart, no hot-zone persistence (2026-09-13)
 
 Roadmap D1. The survive-seek half landed as #91; the deferred "narrower horizon is a
