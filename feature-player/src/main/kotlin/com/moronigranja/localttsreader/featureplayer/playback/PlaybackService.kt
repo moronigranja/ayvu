@@ -79,6 +79,30 @@ import kotlin.coroutines.coroutineContext
  */
 @AndroidEntryPoint
 class PlaybackService : Service() {
+
+    /**
+     * Foreground enter/exit seam. Production talks to the framework service
+     * (the startForegroundService contract, #50). The device-acceptance
+     * scaffold attaches a service instance manually, where framework-attached
+     * foreground calls cannot run (no ActivityThread binder) — it injects a
+     * no-op implementation here. Same injection pattern as the other fields.
+     */
+    internal var foregroundOps: ForegroundOps = object : ForegroundOps {
+        override fun enter(notification: Notification) {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        override fun exit() {
+            ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        }
+    }
+
+    internal interface ForegroundOps {
+        fun enter(notification: Notification)
+
+        fun exit()
+    }
+
     @Inject lateinit var store: PlayerStore
 
     @Inject lateinit var libraryStore: RoomLibraryStore
@@ -295,11 +319,10 @@ class PlaybackService : Service() {
         // Measurement probe (goals §Measurement): the tap timestamp is taken
         // at dispatch — before the foreground/when block — and consumed at
         // the first output.play (tap-to-audio, L1/L2/L3).
-        if (probesActive) probeTap(intent.action)
         // Every command arrives via startForegroundService: enter the
         // foreground FIRST so an early return (no engine/book/machine) can
         // never trip ForegroundServiceDidNotStartInTimeException (#50).
-        startForeground(NOTIFICATION_ID, buildNotification())
+        foregroundOps.enter(buildNotification())
         when (intent.action) {
             ACTION_OPEN -> openBook(intent.bookId())
             ACTION_PLAY -> startPlayback(intent.bookId(), explicit = false)
@@ -364,7 +387,7 @@ class PlaybackService : Service() {
             if (!active(generation)) return@launchCommand
             PlaybackStateHolder.update { it.copy(failure = null) }
             publish()
-            ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            foregroundOps.exit()
         }
     }
 
@@ -422,7 +445,7 @@ class PlaybackService : Service() {
             if (!active(generation)) return@launchCommand
             PlaybackStateHolder.update { it.copy(failure = null) }
             publish()
-            ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            foregroundOps.exit()
         }
     }
 
@@ -473,7 +496,7 @@ class PlaybackService : Service() {
             if (!active(generation)) return@launchCommand
             PlaybackStateHolder.update { it.copy(failure = null) }
             publish()
-            ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            foregroundOps.exit()
         }
     }
 
@@ -548,7 +571,7 @@ class PlaybackService : Service() {
             // G2: the session window starts here and ends only when the
             // post-stop fill completes (markStopped in startPostStopPrefill).
             PlaybackActive.markStarted()
-            startForeground(NOTIFICATION_ID, buildNotification())
+            foregroundOps.enter(buildNotification())
             publish()
             startLoop()
         }
@@ -604,12 +627,12 @@ class PlaybackService : Service() {
                 // prior full LOSS may have left us without the grant; re-ask
                 // so this resumed session is a focus participant again.
                 requestFocus()
-                startForeground(NOTIFICATION_ID, buildNotification())
+                foregroundOps.enter(buildNotification())
                 publish()
                 startLoop()
             } else {
                 publish()
-                ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                foregroundOps.exit()
             }
         }
     }
@@ -648,7 +671,7 @@ class PlaybackService : Service() {
             // G2: the session window starts here and ends only when the
             // post-stop fill completes (markStopped in startPostStopPrefill).
             PlaybackActive.markStarted()
-            startForeground(NOTIFICATION_ID, buildNotification())
+            foregroundOps.enter(buildNotification())
             publish()
             startLoop()
         }
@@ -818,7 +841,7 @@ class PlaybackService : Service() {
         // post-stop fill resumes from where listening stopped.
         val stopPos = machine?.state?.value?.position
         captureAndStop()
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        foregroundOps.exit()
         // Keep filling the next buffer after STOP so the next open reads it from
         // disk (no cold gap), then self-stop when full or the budget elapses.
         if (stopPos != null) {

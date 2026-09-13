@@ -52,7 +52,12 @@ updated to the 30 s horizon (≥3 × 10 s fills the cushion);
 `D1SeekHorizonBenchmarkTest` (androidTest, spike-tts pattern — `AyvuD1` rows +
 `d1_seek_results.json`: ten ±30 s seeks classified `buffer|pregen|disk`, strict
 zero-sync-synthesis assert, cold-first-play + Choreographer-skip count, per-row
-queue size/ahead/PSS) — S22/HiBreak legs owner-run pending.
+queue size/ahead/PSS). **Device-verified 2026-09-13 (both devices, strict mode):**
+ten ±30 s seeks each — B6 29–61 ms per seek (forward `pregen`, backward `disk`),
+S22 19–31 ms, **0 synchronous-synthesis seeks and 0 Choreographer skips on either**;
+cold first play 236 s (B6, Kokoro RTF 2.9 filling the horizon once) / 44.8 s (S22).
+Full rows: `docs/prints/d4/d1-seek-{hibreak,s22}.json`; roadmap D1 and the bugs.md
+±30 s row are closed as FIXED, device-verified.
 
 ## 154. D4 PiperEngine adopted — `piper-v1` registered with two pinned voices, one-voice-per-instance, no word-timestamp read-along (2026-09-13)
 
@@ -92,13 +97,16 @@ threads and memory-patterns/CPU-arena off (the #93 weak-device lesson).
 - **Speed flows through the VITS length scale** (durations ÷ speed, clamped to the
   0.5–2.0 contract bounds); otherwise the scales are the voice json's measured
   values (lessac 0.667/1.0/0.8).
-- **Registration shape:** `PackModule`'s registry picks the engine up through
-  `DefaultEngines.descriptors` — no extra DI binding, because nothing consumes a
-  `PiperEngine` instance yet. Packs are registered, downloadable, sha-verified state
-  (the settings Engine section still enumerates the Kokoro rows); runtime selection
-  through `EngineSelector`/`KokoroRuntime` (feature-player) is the follow-up slice
-  and was deliberately untouched. `PregenSpaceEstimator` falls back to its 24 kHz
-  default for `piper-v1` — over-estimates space ~9%, the safe direction.
+- **Registration + selection shape:** `PackModule`'s registry picks the engine up
+  through `DefaultEngines.descriptors` — no extra DI binding. Selection is wired
+  end-to-end (same-day follow-up): `EngineSelector` routes `ttsEngine == piper-v1`
+  through a `PiperRuntime` (the `KokoroRuntime` pattern — one-voice-per-instance over
+  `PackCache` targets, the shared espeak bundle, user intra-op threads, #93 session
+  options); `PlaybackService.activeVoice()` resolves through the selector (the #144
+  availability shape: a stored Kokoro voice falls back to the engine's default); the
+  Settings engine row, engine-aware pack-row filter and audition phrases are in; the
+  K2 descriptor refactor stays a separate slice. `PregenSpaceEstimator` maps
+  `piper-v1` to 22_050 exactly.
 - `pcm16` moved out of `KokoroEngine`'s companion into a shared internal helper
   (`tts/Pcm16.kt`): one implementation of the `SynthesisOutcome.Audio` encoding for
   both engines.
@@ -166,8 +174,13 @@ Evidence: `:core-tts:test` 138 (PiperVoiceMetadataTest roster/phrase pins),
 (`EngineSelectorPiperTest` — routing/voice-resolution/failure-surface + never-touches-
 Kokoro; `PlaybackServicePiperSelectTest` — piper-v1 end-to-end through the service
 seam with the resolved voice and no fabricated read-along), `:feature-settings:test` 5,
-`:app:testDebugUnitTest` 24, `:app:compileDebugKotlin` green. Device legs (select
-Piper, play, no word-timing claims) owner-run.
+`:app:testDebugUnitTest` 24, `:app:compileDebugKotlin` green. **Device smoke
+verified on both devices** (`PiperDeviceSmokeTest`, 2026-09-13): the REAL
+`PiperEngine` opened over staged packs synthesizes the P&P opening sentence —
+B6 (HiBreak) RTF **0.579**, 6.16 s audio, ~219 MB PSS / 374 MB VmHWM, open 9.2 s;
+S22 RTF **0.094**, 5.98 s audio, ~400 MB PSS, open 1.5 s — matching the #99 spike
+numbers; WAVs at `docs/prints/d4/d4-piper-engine-smoke-{hibreak,s22}.wav`
+(segments=null confirmed on device; listen for quality, not just finiteness).
 
 ## 153. D5 Pocket TTS spike — first ARM datapoint: RTF ~5.5–6.4 on the HiBreak, pregen-only, faithful-but-ISA-noisy (2026-09-11)
 

@@ -90,6 +90,11 @@ dependencies {
     // AAR's natives still ship app-side only and are never loaded in tests.
     testImplementation(libs.onnxruntime.jvm)
 
+    // The D1 androidTest drives the production engine path; core-tts is
+    // compileOnly on ORT and the standalone test app has no app-module
+    // runtime to supply it (Failed resolution of OrtSession$SessionOptions).
+    androidTestImplementation(libs.onnxruntime.android)
+
     androidTestImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

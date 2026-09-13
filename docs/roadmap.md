@@ -16,9 +16,10 @@ read-along → share-and-resume, plus settings, OCR, offline pre-generation, sto
 controls, backup & restore, and the app-wide player card. The current module and test
 snapshot lives in the [README](../README.md#status).
 
-Queue order (dependency-first): the **owner's G0 listening pass** → **D1** seek horizon →
-**D7** cross-app performance spike (measurement-only, decisions #148) → **D4** (Piper
-adoption, which unblocks K2) → **K5** per-book voice plus the settings-surface defect →
+Queue order (dependency-first): the **owner's G0 listening pass** → ~~D1~~ **done,
+device-verified** (2026-09-13, #155) → **D7** cross-app performance spike
+(measurement-only, decisions #148) → ~~D4~~ **adoption landed** (PiperEngine,
+#154/#155 — K2 unblocked) → **K5** per-book voice plus the settings-surface defect →
 **Phase H** stats → **D5** high-end engine choice with the ORT int4 reference. G1's rule
 set and D5 are gated on G0; H is independent, so its position
 is preference rather than dependency. This order, the release-state correction and the
@@ -168,7 +169,7 @@ D7 legs.
 
 ### Phase D — playback latency and weak-device performance
 
-#### D1 — Instant ±30-second seek horizon (implemented 2026-09-13, decisions #91/#155 — device acceptance pending)
+#### D1 — Instant ±30-second seek horizon (implemented 2026-09-13, decisions #91/#155 — device-verified on both devices)
 
 Landed in two halves: survive-seek (decisions #91 — `PregenQueue.ensure(from, rearm)`,
 `stopEverything(stopFill = false)` on the nav paths, guarded fill restart) and the
@@ -191,8 +192,11 @@ Acceptance on both reference devices:
 **Measured 2026-08-29 (pre-implementation baseline):** cross-boundary ±30 s seek to an
 uncached passage is 79.6 s (S22) / 107.0 s (HiBreak). The 60 s dead-owner ensure wait
 was fixed (decisions #78) — remaining cost was the cold target's synchronous
-synthesis, which is what the horizon + survive-seek now cover. Re-measure with
-`D1SeekHorizonBenchmarkTest` (ten ±30 s seeks, `AyvuD1` rows, `d1_seek_results.json`).
+synthesis, now covered by the horizon + survive-seek. **Re-measured on both
+devices (2026-09-13, decisions #155):** ten ±30 s seeks each — B6 29–61 ms per seek,
+S22 19–31 ms, 0 synchronous-synthesis seeks and 0 Choreographer skips on either;
+cold first play 236 s (B6, Kokoro RTF 2.9) / 44.8 s (S22). Rows:
+`docs/prints/d4/d1-seek-{hibreak,s22}.json`. Acceptance met.
 
 #### D7 — Cross-app performance spike (legs A–F) — decisions #148
 
@@ -260,9 +264,11 @@ JVM test. The runtime selection wiring landed (decisions #154 addendum): `PiperR
 opens the engine over the downloaded packs behind `EngineSelector`'s explicit
 `piper-v1` branch, the voice sheet/catalog resolves through the #144 availability
 shape, and #30b's segment-less read-along degrades exactly like system-tts. Remaining
-for this slice family: further voice-pack pins (es/it/pt-BR/ko), the passage-level-only
-read-along stays recorded degradation (#30b), and the owner device legs (select piper
-on the S22/HiBreak, play, verify no word-timing claims).
+for this slice family: further voice-pack pins (es/it/pt-BR/ko) — the passage-level-only
+read-along stays recorded degradation (#30b). **Engine device smoke verified on both
+devices** (2026-09-13, `PiperDeviceSmokeTest`): B6 RTF 0.579 / S22 RTF 0.094, finite
+22.05 kHz mono PCM, segments=null on device — `docs/prints/d4/d4-piper-engine-smoke-*.wav`
+(a listening pass on the engine output is still open).
 
 ### Phase G — narration quality
 

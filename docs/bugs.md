@@ -23,13 +23,14 @@ Pass: cold start → play → card → ±30s → reader, Wind and Truth (Kokoro 
 - **[perf] ±30s cross-boundary seek ~58 s (B6 re-measure 2026-08-29: 107.0 s; S22: 79.6 s — both worse)** — `+30s` (or −30s) onto a passage in neither the RAM queue nor the disk tier synthesizes ~50 s+ on this SoC. Same layering as the S22 (5–25 s there); adds urgency to the roadmap "instant ±30s seek horizon" slice (time-bounded look-ahead + survive-seek ensure).
   **Mechanism pinned (2026-08-29, build af431c4+):** the fill's cushion NEVER builds on EITHER device — every passage logs `buffer: waiting for 45.0 s ahead` → `ahead=0.0s after 60007-60041ms` (the full budget expires producing nothing) → `loop: source=synthesized`, repeatedly. Seek decomposition is identical in shape on both devices: ~1 s command + **60.0 s contended ensure (0 yield)** + synthesis (S22: ~19 s at RTF 0.69 → 79.6 s total; B6: ~46 s at RTF 2.9 → 107.0 s total). The 60 s ensure block is the device-independent dominant cost — suspected fill/loop engine contention (QW4's `startFill` vs the loop's on-demand ensure sharing the singleton engine). Per-passage synthesis is healthy on both (RTF matches the D2 benchmark).
   **Fix verified on device (2026-08-29, build 7d27226):** after Playa's fix (fill restarted on every loop-restart command, decisions #78 addendum), the B6 shows `loop: source=buffer` on first play (was `synthesized`), the fill builds real cushion in the same budget (`ahead=5.79s after 60023ms` — was `ahead=0.0s`), and a +30s seek lands `source=pregen` for the target followed by consecutive `pregen` hits (was `synthesized` every passage after a full 60 s dead-owner wait). The seek's one `synthesized` is the cold target — the wasted 60 s owner-less ensure is gone.
-  **Fix implemented, device acceptance pending (2026-09-13, decisions #91/#155):** the
-  remaining cold-target sync synthesis is covered by the D1 horizon (45 s → 30 s
-  audio at the playhead, one constant for the queue bound / buffer wait / notification
-  denominator) plus survive-seek (in-flight ensure survives, dead fill restarted by
-  the loop-restart command). Host-tested (`PlaybackServiceSeekHorizonTest`: a seek
-  inside the horizon resolves with zero target synthesis; dead-fill seek restarts and
-  plays within one budget); re-measure both devices with `D1SeekHorizonBenchmarkTest`.
+  **FIXED, device-verified (2026-09-13, decisions #155, `D1SeekHorizonBenchmarkTest`):**
+  the D1 horizon (45 s → 30 s audio at the playhead, one constant for the queue bound /
+  buffer wait / notification denominator) plus survive-seek (in-flight ensure survives,
+  dead fill restarted, joined without the dead-owner wait) closes it. Measured (ten ±30 s
+  seeks each, strict mode): **B6 29–61 ms per seek, 0 synchronous-synthesis seeks,
+  0 Choreographer skips** (cold first play 236 s — Kokoro RTF 2.9 filling the horizon
+  once); **S22 19–31 ms per seek, 0 sync-synthesis, 0 skips** (cold 44.8 s). Forward
+  seeks resolve `pregen`, backward `disk`. Full rows: `docs/prints/d4/d1-seek-*.json`.
 
 - **[perf] App memory 834 MB PSS / 919 MB RSS** — `dumpsys meminfo` TOTAL during a play session on a 3.9 GB device (~26% of usable RAM). ONNX Runtime sessions + audio pipeline; candidates: session reuse, buffer pooling, or the 0.5 / accel path — to tune in the weak-device slice, not here.
 - **[perf] UI frame-skip jank** — 14,978 `Choreographer: Skipped` events accumulated during the pass (e-ink panel + slow SoC; not app-crash). No interaction froze (card buttons responded), but scrolling/animations (card expand) will be rough on this class of device.

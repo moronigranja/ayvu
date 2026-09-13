@@ -1,7 +1,9 @@
 package com.moronigranja.localttsreader.featureplayer.playback
 
 import android.app.ActivityManager
+import android.app.Notification
 import android.content.Context
+import android.content.Intent
 import android.content.ContextWrapper
 import android.os.Build
 import android.util.Log
@@ -191,6 +193,12 @@ class D1SeekHorizonBenchmarkTest {
             val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
             attach.isAccessible = true
             attach.invoke(this, context)
+            // A manually-attached service has no framework foreground binding
+            // (no ActivityThread binder) — foreground enter/exit become no-ops.
+            this.foregroundOps = object : PlaybackService.ForegroundOps {
+                override fun enter(notification: Notification) = Unit
+                override fun exit() = Unit
+            }
             val audioManager = PlaybackService::class.java.getDeclaredField("audioManager")
             audioManager.isAccessible = true
             audioManager.set(this, context.getSystemService(Context.AUDIO_SERVICE))
@@ -229,8 +237,25 @@ class D1SeekHorizonBenchmarkTest {
             // (the engine opens during it), then start the loop at the opening.
             val cushionDeadline = System.currentTimeMillis() + 240_000
             while (aheadSeconds() < horizonSeconds && System.currentTimeMillis() < cushionDeadline) Thread.sleep(200)
-            service.seekBy(0.0) // starts the loop at the opening (cold first play)
-            await("cold first audio", 180_000) { output.playAt.isNotEmpty() }
+            // startPlayback through the real command path: the loop only runs
+            // while phase == LOADING, and an opened-not-played book sits IDLE —
+            // a seekBy(0.0) can never start it.
+            service.onStartCommand(
+                Intent(context, PlaybackService::class.java)
+                    .setAction(PlaybackService.ACTION_PLAY)
+                    .putExtra(PlaybackService.EXTRA_BOOK_ID, book.id),
+                0,
+                1,
+            )
+            await("cold first audio", 180_000, dump = {
+                "phase=" + machine.state.value.phase +
+                    " failure=" + PlaybackStateHolder.state.value.failure +
+                    " calls=" + runtime.calls.size +
+                    " rtFailure=" + runtime.failureReason +
+                    " publishedBookId=" + PlaybackStateHolder.state.value.bookId
+            }) {
+                output.playAt.isNotEmpty()
+            }
             val coldFirstPlayMs = output.playAt.first() - openedAt
             val coldSynthCalls = runtime.calls.size
             val choreographerSkips = choreographerSkips()
@@ -343,10 +368,10 @@ class D1SeekHorizonBenchmarkTest {
             process.destroy()
             text.lineSequence().count { it.contains("Choreographer") && it.contains("Skipped") }
         }.getOrDefault(-1)
-
     private fun await(
         label: String,
         timeoutMs: Long,
+        dump: (() -> String)? = null,
         condition: () -> Boolean,
     ) {
         val deadline = System.currentTimeMillis() + timeoutMs
@@ -354,7 +379,9 @@ class D1SeekHorizonBenchmarkTest {
             if (condition()) return
             Thread.sleep(50)
         }
-        throw AssertionError("timed out waiting for: $label")
+        throw AssertionError(
+            "timed out waiting for: $label" + (dump?.invoke()?.let { " [$it]" } ?: ""),
+        )
     }
 
     private companion object {
