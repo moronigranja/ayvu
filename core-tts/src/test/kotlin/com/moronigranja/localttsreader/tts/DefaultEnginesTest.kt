@@ -89,6 +89,7 @@ class DefaultEnginesTest {
         assertEquals(63_201_294L, model.sizeBytes, "en_US-lessac-medium.onnx @ 1162a917 (HF LFS oid)")
         assertEquals(PackKind.VOICE, PiperPacks.lessacConfig.kind, "the .onnx.json is the voice config asset")
         assertEquals(4_885L, PiperPacks.lessacConfig.sizeBytes, "the voice config travels with its model")
+        assertEquals(model.id, PiperPacks.lessacConfig.companionOf, "the config is a companion of its model")
 
         val thorsten = PiperPacks.thorstenModel
         assertEquals(
@@ -98,5 +99,6 @@ class DefaultEnginesTest {
         assertEquals("9df1c43c61149ef9b39e618e2b861fbe41e1fcea9390b2dac62e8761573ea4f1", thorsten.sha256Hex)
         assertEquals(113_895_201L, thorsten.sizeBytes, "de_DE-thorsten-high.onnx @ 1162a917 (HF LFS oid)")
         assertEquals(4_875L, PiperPacks.thorstenConfig.sizeBytes)
+        assertEquals(thorsten.id, PiperPacks.thorstenConfig.companionOf, "the config is a companion of its model")
     }
 }

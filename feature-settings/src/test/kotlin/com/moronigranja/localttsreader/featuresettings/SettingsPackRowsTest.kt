@@ -110,17 +110,13 @@ class SettingsPackRowsTest {
                 vm.state.first { it.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE }.speechPackIds,
             )
 
-            // Selecting piper-v1 surfaces Piper's rows — derived from its
-            // registered descriptor, nothing edited on this surface.
+            // Selecting piper-v1 surfaces its voice rows — derived from its
+            // registered descriptor, nothing edited on this surface. The
+            // per-voice `.onnx.json` companions are NOT rows: they download
+            // with their model, so one voice is one row, not two.
             vm.setEngine(SettingsStore.PIPER_ENGINE)
             assertEquals(
-                setOf(
-                    "piper-lessac-medium",
-                    "piper-lessac-medium-config",
-                    "piper-thorsten-high",
-                    "piper-thorsten-high-config",
-                    "espeak-ng",
-                ),
+                setOf("piper-lessac-medium", "piper-thorsten-high", "espeak-ng"),
                 vm.state.first { it.ttsEngine == SettingsStore.PIPER_ENGINE }.speechPackIds,
             )
 

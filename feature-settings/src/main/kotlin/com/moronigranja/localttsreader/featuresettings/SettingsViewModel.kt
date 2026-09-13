@@ -233,12 +233,15 @@ class SettingsViewModel
             )
 
         fun download(packId: String) {
-            val isTess =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == packId }
-                    ?.pack
-                    ?.engineId == TESS_ENGINE_ID
+            val packs = registry.packs.value
+            val isTess = packs.firstOrNull { it.pack.id == packId }?.pack?.engineId == TESS_ENGINE_ID
             downloadInternal(packId, isTess)
+            // A companion artifact is never listed as its own row: its base
+            // row's Download must fetch it too, or the voice is left unusable
+            // (Piper model ready, `.onnx.json` missing).
+            packs
+                .filter { it.pack.companionOf == packId }
+                .forEach { downloadInternal(it.pack.id, isTess = false) }
         }
 
         /** C2: the explicit download action every voice row shows while the
@@ -378,14 +381,17 @@ class SettingsViewModel
          * system voice, which registers no packs) shows the open-weight
          * upgrade path — Kokoro's rows, the same set the install plan card
          * offers. Adding an engine to the registry adds its rows here with
-         * no settings-surface edit.
+         * no settings-surface edit. Companion artifacts ([TtsPack.companionOf],
+         * e.g. Piper's per-voice `.onnx.json`) are excluded: they are fetched
+         * with their base pack, so listing them would show one voice as two
+         * rows and offer a download that leaves the voice unusable.
          */
         private fun speechPackIds(engineId: String): Set<String> {
             val engines = registry.engines()
             val engine =
                 engines.firstOrNull { it.spec.id == engineId }
                     ?: engines.firstOrNull { it.spec.id == SettingsStore.DEFAULT_TTS_ENGINE }
-            return engine?.packs.orEmpty().map { it.id }.toSet() + ESPEAK_PACK_ID
+            return engine?.packs.orEmpty().filter { it.companionOf == null }.map { it.id }.toSet() + ESPEAK_PACK_ID
         }
 
         private fun shortReason(reason: DownloadFailureReason): String =

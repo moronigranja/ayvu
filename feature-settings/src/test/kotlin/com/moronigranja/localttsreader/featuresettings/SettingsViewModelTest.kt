@@ -178,4 +178,54 @@ class SettingsViewModelTest {
         assertTrue(row.status is PackStatus.Failed)
         assertEquals("checksum mismatch", row.error)
     }
+
+    @Test
+    fun `downloading a base pack also fetches its companion`() = runTest(dispatcher) {
+        val dao = FakeSettingsDao()
+        val bytes = ByteArray(4096) { (it % 251).toByte() }
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val base = TtsPack(
+            id = "test-model",
+            engineId = "test-engine",
+            kind = PackKind.MODEL,
+            displayName = "Test model",
+            url = "https://example.invalid/test-model.onnx",
+            sha256Hex = digest,
+            sizeBytes = bytes.size.toLong(),
+        )
+        val config = TtsPack(
+            id = "test-model-config",
+            engineId = "test-engine",
+            kind = PackKind.VOICE,
+            displayName = "Test model config",
+            url = "https://example.invalid/test-model.onnx.json",
+            sha256Hex = digest,
+            sizeBytes = bytes.size.toLong(),
+            companionOf = base.id,
+        )
+        val cache = PackCache(tempDir)
+        val registry = PackRegistry(
+            cache,
+            PackDownloader(cache, FakeTransport(bytes)),
+            listOf(
+                EngineDescriptor(
+                    EngineSpec("test-engine", "Test", EngineTier.PRIMARY, setOf("en")),
+                    listOf(base, config),
+                ),
+            ),
+        )
+        val vm = viewModel(registry, dao)
+        backgroundScope.launch { vm.state.collect {} }
+
+        vm.download("test-model")
+
+        // A partial fetch (model without its config) leaves the voice
+        // unusable — the base row must bring the companion with it. Wait
+        // like the sibling download tests: the IO-hop resumption lands in
+        // real time, so a withTimeout would race the virtual test clock.
+        vm.state.first { s -> s.packs.all { it.status == PackStatus.Ready } }
+        val rows = vm.state.value.packs.associateBy { it.packId }
+        assertEquals(PackStatus.Ready, rows.getValue("test-model").status)
+        assertEquals(PackStatus.Ready, rows.getValue("test-model-config").status)
+    }
 }

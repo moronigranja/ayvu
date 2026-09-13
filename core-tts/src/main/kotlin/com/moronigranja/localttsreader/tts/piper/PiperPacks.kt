@@ -28,7 +28,9 @@ object PiperVoices {
  *   Kokoro v1.0 pack ships no German voices).
  * - each `*-config`: the voice's `.onnx.json` — phoneme_id_map, inference
  *   scales, sample rate, espeak voice — the data the engine needs besides the
- *   weights. Small git blobs, hashed from the downloaded artifacts.
+ *   weights. Small git blobs, hashed from the downloaded artifacts. Each is a
+ *   [TtsPack.companionOf] its model: the settings surface lists the model
+ *   rows only and a model download fetches its config with it.
  *
  * A descriptor change (new artifact, re-export) is a version bump + re-pin:
  * download once, hash, commit (same flow as [com.moronigranja.localttsreader.tts.kokoro.KokoroPacks]).
@@ -61,6 +63,7 @@ object PiperPacks {
             sha256Hex = "efe19c417bed055f2d69908248c6ba650fa135bc868b0e6abb3da181dab690a0",
             sizeBytes = 4_885,
             version = "1",
+            companionOf = lessacModel.id,
         )
 
     val thorstenModel =
@@ -87,6 +90,7 @@ object PiperPacks {
             sha256Hex = "6de734444e4c3f9e33b7ebe2746dbc19b71e85f613e79c65acf623200b99a76a",
             sizeBytes = 4_875,
             version = "1",
+            companionOf = thorstenModel.id,
         )
 
     val all: List<TtsPack> = listOf(lessacModel, lessacConfig, thorstenModel, thorstenConfig)

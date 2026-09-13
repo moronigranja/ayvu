@@ -241,6 +241,7 @@ private fun SpeechPane(
     viewModel: SettingsViewModel,
     padding: PaddingValues,
 ) {
+    val speechRows = state.packs.filter { it.packId in state.speechPackIds }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding),
         contentPadding = PaddingValues(AyvuSpacing.LG),
@@ -319,13 +320,25 @@ private fun SpeechPane(
                 }
             }
         }
-        // K2 (decisions #156): the selected engine's rows derive from
-        // the registered engine descriptors — a new engine adds its
-        // packs with no settings-surface edit.
-        items(
-            state.packs.filter { it.packId in state.speechPackIds },
-        ) { row ->
-            PackRow(row, onDownload = { viewModel.download(row.packId) })
+        // C1.5: with the degraded voice active but the open-weight upgrade
+        // packs missing, the section IS the install plan the setup flow shows
+        // — the same rows once, never a second copy beside the plain rows.
+        if (state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE && speechRows.any { it.status != PackStatus.Ready }) {
+            item {
+                PacksPlanCard(
+                    rows = speechRows.map { it.toPlanRow() },
+                    onDownload = { viewModel.download(it) },
+                    onCancel = { /* settings downloads are not user-cancelled */ },
+                )
+            }
+        } else {
+            // K2 (decisions #156): the selected engine's rows derive from the
+            // registered engine descriptors — a new engine adds its packs with
+            // no settings-surface edit (companion artifacts are excluded
+            // upstream; a base row's download fetches them).
+            items(speechRows) { row ->
+                PackRow(row, onDownload = { viewModel.download(row.packId) })
+            }
         }
         item {
             Text(
@@ -356,22 +369,6 @@ private fun SpeechPane(
                 }
             }
         }
-        // C1.5: with the degraded voice active but the open-weight
-        // upgrade packs missing, Settings offers the same install
-        // plan the setup flow shows — K2: the rows are the same
-        // descriptor-derived set the Speech section filters on.
-        if (state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE &&
-            state.packs.any { it.packId in state.speechPackIds && it.status != PackStatus.Ready }
-        ) {
-            item {
-                PacksPlanCard(
-                    rows = state.packs.filter { it.packId in state.speechPackIds }.map { it.toPlanRow() },
-                    onDownload = { viewModel.download(it) },
-                    onCancel = { /* settings downloads are not user-cancelled */ },
-                )
-            }
-        }
-
         // C2 shared selector: persistent "Selected voice:" summary, one
         // radio indicator, favorites independent, per-row Preview/Stop,
         // missing packs → the explicit download action.

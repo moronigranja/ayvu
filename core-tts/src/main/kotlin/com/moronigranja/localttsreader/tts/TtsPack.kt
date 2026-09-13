@@ -27,6 +27,14 @@ data class TtsPack(
     val sha256Hex: String,
     val sizeBytes: Long,
     val version: String = "1",
+    /**
+     * The base pack this artifact accompanies ([id] of the base), or null for a
+     * standalone pack. A companion travels with its base — Piper's per-voice
+     * `.onnx.json` is useless without the model and the model is unusable
+     * without it — so the settings surface lists only base packs and a base
+     * download also requests its companions.
+     */
+    val companionOf: String? = null,
 ) {
     init {
         require(id.isNotBlank()) { "pack id must not be blank" }
