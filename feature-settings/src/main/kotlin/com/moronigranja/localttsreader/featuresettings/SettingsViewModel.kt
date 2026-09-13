@@ -41,9 +41,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
+internal const val TESS_ENGINE_ID = "tess-two"
 
 data class PackRow(
     val packId: String,
+    val engineId: String,
     val displayName: String,
     val sizeBytes: Long,
     val status: PackStatus,
@@ -54,6 +56,16 @@ data class PackRow(
 
 data class SettingsUiState(
     val packs: List<PackRow> = emptyList(),
+    /**
+     * K2 (decisions #156): the pack rows the Speech section shows, derived
+     * from the registered engines' descriptors — the selected engine's own
+     * packs plus the shared espeak-ng bundle every open-weight engine
+     * phonemizes through. The degraded system voice has no packs of its
+     * own: its rows are the open-weight upgrade path (Kokoro's), the same
+     * set the install plan card offers. A newly registered engine adds its
+     * packs with no settings-surface edit.
+     */
+    val speechPackIds: Set<String> = emptySet(),
     /** C2: the shared voice selector state (core-ui rows + "Selected voice:"
      * summary + unavailable-saved-voice), built from the static catalog +
      * pack readiness + the one audition. */
@@ -120,6 +132,7 @@ class SettingsViewModel
             combine(packState, auditionFlow, settings.state, espeakStageTick) { (packs, prog, err), audition, prefs, _ ->
                 SettingsUiState(
                     packs = packs.map { packRow(it, prog[it.pack.id], err[it.pack.id]) },
+                    speechPackIds = speechPackIds(prefs.ttsEngine),
                     voiceSelector = voiceSelector(packs, prefs, audition),
                     ttsEngine = prefs.ttsEngine,
                     matchThreshold = prefs.threshold,
@@ -210,12 +223,13 @@ class SettingsViewModel
         ): PackRow =
             PackRow(
                 packId = pack.pack.id,
+                engineId = pack.pack.engineId,
                 displayName = pack.pack.displayName,
                 sizeBytes = pack.pack.sizeBytes,
                 status = pack.status,
                 progress = prog,
                 error = err,
-                staged = pack.pack.engineId == TessEngineId && TessDataStager.isStaged(filesDir, pack.pack),
+                staged = pack.pack.engineId == TESS_ENGINE_ID && TessDataStager.isStaged(filesDir, pack.pack),
             )
 
         fun download(packId: String) {
@@ -223,7 +237,7 @@ class SettingsViewModel
                 registry.packs.value
                     .firstOrNull { it.pack.id == packId }
                     ?.pack
-                    ?.engineId == TessEngineId
+                    ?.engineId == TESS_ENGINE_ID
             downloadInternal(packId, isTess)
         }
 
@@ -355,6 +369,25 @@ class SettingsViewModel
                 kokoroPackIds
             }
 
+        /**
+         * K2 (decisions #156): the Speech section's pack rows, derived from
+         * the registry's engine descriptors instead of hardcoded id lists —
+         * the selected engine's own packs plus the shared espeak-ng bundle
+         * (Kokoro's descriptor registers it; every open-weight engine
+         * phonemizes through it). An unknown/absent engine id (the degraded
+         * system voice, which registers no packs) shows the open-weight
+         * upgrade path — Kokoro's rows, the same set the install plan card
+         * offers. Adding an engine to the registry adds its rows here with
+         * no settings-surface edit.
+         */
+        private fun speechPackIds(engineId: String): Set<String> {
+            val engines = registry.engines()
+            val engine =
+                engines.firstOrNull { it.spec.id == engineId }
+                    ?: engines.firstOrNull { it.spec.id == SettingsStore.DEFAULT_TTS_ENGINE }
+            return engine?.packs.orEmpty().map { it.id }.toSet() + ESPEAK_PACK_ID
+        }
+
         private fun shortReason(reason: DownloadFailureReason): String =
             when (reason) {
                 is DownloadFailureReason.HttpStatus -> "HTTP ${reason.status}"
@@ -364,7 +397,6 @@ class SettingsViewModel
             }
 
         private companion object {
-            const val TessEngineId = "tess-two"
             const val ESPEAK_PACK_ID = "espeak-ng"
             private val kokoroPackIds =
                 setOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)

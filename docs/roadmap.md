@@ -388,7 +388,7 @@ and blind read exist.
   better Pocket config on this device (~5% faster, 15% less memory). The S22/Fold leg
   and the G0 blind read remain D5's open gates.
 
-### Phase H — TODAY reading and listening stats
+### Phase H — TODAY reading and listening stats — LANDED (2026-09-13, decisions #157)
 
 Use the capture, aggregation and UI design in
 [post-v1-plan.md](post-v1-plan.md#slice-a-today-stats-dashboard). Store whole seconds
@@ -399,8 +399,13 @@ wall-clock while `PLAYING`; reading = **page-flip-active** reader dwell (screen-
 foreground, accrued only while the user is actively turning pages) with sub-10-second
 spans dropped — not raw foreground dwell.
 
-A full event/session timeline is not a prerequisite for the dashboard. Add it later only
-if a user-visible history view needs event-level data.
+Landed: Room v3 `activity_seconds` (add-only migration, add-upsert accumulate,
+book-removal drop), listening capture at the PlaybackService edge (D1 untouched),
+flip-active reading capture in the reader, pure aggregation in core-player
+(`DailyTotals`/`WeekSummary`/`Streak`) and the `TodayCard` header on the library
+home. A full event/session timeline is still not built — add it later only if a
+user-visible history view needs event-level data. Reading-dwell tuning (the 180 s
+active-window bound chosen in #157) may revisit after device use.
 
 ### Phase K — Settings review and improvements
 
@@ -450,9 +455,16 @@ when the active engine lacks the voice.
 Status: items 1, 3 and 4 landed (decisions #142, #144) — sections Speech / Reading &
 sharing / Storage & data / Appearance, arbitrary listening-time entry in the pregen
 dialog, per-book speed deferred to the #71 revisit and per-book voice kept as item 5.
-Item 2 stays gated on a second engine: **D4 (Piper adoption) is the near-term one**, D5's
-outcome the other — its pack rows are the first non-Kokoro shape the settings surface
-must ingest. Item 6 is a tracked open defect (see open-bugs.md), not a new feature.
+Item 2 landed (decisions #156): the Speech rows and the OCR pane derive from the
+registered engines' descriptors — piper-v1's rows came with D4 with no settings edit,
+and the gate note is cleared. Item 5's contract landed (decisions #156): the
+`book.voice.<bookId>` settings key with backup/restore ride-along, the
+`EngineSelector.effectiveVoice`/`engineFor` + `PiperRuntime.engineFor` pairing seam, and
+the AppSettings mirror; the player-side layer (activeVoice, reader voice sheet per-book
+scope, pregen input, per-book delete drop) rides the Phase H slice's landed service/reader
+hooks per the agreed sequence. Item 6 closed: the stale usage-row defect had already been
+fixed in the 0.1.1 release pass (ON_RESUME refresh, `SettingsOfflineUsageTest`); the
+docs (open-bugs.md, decisions #156) now record it.
 
 ## Later — strategic and dependency-gated work
 

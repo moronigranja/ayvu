@@ -178,8 +178,11 @@ fun SettingsScreen(
                         }
                     }
                 }
+                // K2 (decisions #156): the selected engine's rows derive from
+                // the registered engine descriptors — a new engine adds its
+                // packs with no settings-surface edit.
                 items(
-                    state.packs.filter { it.packId in visiblePackIds(state.ttsEngine) },
+                    state.packs.filter { it.packId in state.speechPackIds },
                 ) { row ->
                     PackRow(row, onDownload = { viewModel.download(row.packId) })
                 }
@@ -212,14 +215,16 @@ fun SettingsScreen(
                         }
                     }
                 }
-                // C1.5: with the degraded voice active but Kokoro packs missing,
-                // Settings offers the same install plan the setup flow shows.
+                // C1.5: with the degraded voice active but the open-weight
+                // upgrade packs missing, Settings offers the same install
+                // plan the setup flow shows — K2: the rows are the same
+                // descriptor-derived set the Speech section filters on.
                 if (state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE &&
-                    state.packs.any { it.packId in KOKORO_PACK_IDS && it.status != PackStatus.Ready }
+                    state.packs.any { it.packId in state.speechPackIds && it.status != PackStatus.Ready }
                 ) {
                     item {
                         PacksPlanCard(
-                            rows = state.packs.filter { it.packId in KOKORO_PACK_IDS }.map { it.toPlanRow() },
+                            rows = state.packs.filter { it.packId in state.speechPackIds }.map { it.toPlanRow() },
                             onDownload = { viewModel.download(it) },
                             onCancel = { /* settings downloads are not user-cancelled */ },
                         )
@@ -357,7 +362,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
                 item { SectionHeader("OCR languages", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS)) }
-                items(state.packs.filter { it.packId in OCR_PACK_IDS }) { row ->
+                items(state.packs.filter { it.engineId == TESS_ENGINE_ID }) { row ->
                     PackRow(row, onDownload = { viewModel.download(row.packId) })
                     OcrLanguageRow(
                         packId = row.packId,
@@ -483,30 +488,6 @@ private fun OcrLanguageRow(
         )
     }
 }
-
-private val OCR_PACK_IDS = setOf("eng", "spa", "fra", "deu", "por", "ita")
-
-private val KOKORO_PACK_IDS = setOf("kokoro-model", "kokoro-voices", "espeak-ng")
-
-/** The Piper pack rows the Speech section shows when piper-v1 is the engine
- * (D4 #154 addendum) — both voices' model + config, plus the shared espeak
- * bundle both open-weight engines phonemize through. The KOKORO_PACK_IDS
- * plan-card hardcode above stays (K2 owns the engine-agnostic-rows refactor). */
-private val PIPER_PACK_IDS =
-    setOf(
-        "piper-lessac-medium",
-        "piper-lessac-medium-config",
-        "piper-thorsten-high",
-        "piper-thorsten-high-config",
-    )
-
-/** Pack rows visible in the Speech section: the selected engine's own packs
- * plus the shared espeak bundle (Kokoro rows keep the historical filter). */
-private fun visiblePackIds(ttsEngine: String): Set<String> =
-    when (ttsEngine) {
-        SettingsStore.PIPER_ENGINE -> PIPER_PACK_IDS + "espeak-ng"
-        else -> KOKORO_PACK_IDS
-    }
 
 /** C1.5: settings PackRow → the shared plan card's neutral row shape. */
 private fun PackRow.toPlanRow(): PlanPackRow {

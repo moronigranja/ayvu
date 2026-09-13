@@ -14,6 +14,11 @@ interface SettingsDao {
     @Upsert
     suspend fun put(setting: SettingEntity)
 
+    /** Removes one row — the per-book override clear and the book-delete
+     * drop (decisions #144); absent keys are unaffected. */
+    @Query("DELETE FROM settings WHERE key = :key")
+    suspend fun delete(key: String)
+
     /** One-shot read of every row, key-sorted — the backup snapshot source (E1). */
     @Query("SELECT * FROM settings ORDER BY key")
     suspend fun all(): List<SettingEntity>

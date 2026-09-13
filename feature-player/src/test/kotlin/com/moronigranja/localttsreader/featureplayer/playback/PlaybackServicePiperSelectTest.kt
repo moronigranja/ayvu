@@ -89,6 +89,9 @@ class PlaybackServicePiperSelectTest {
         private val engine: TTSEngine,
     ) : PiperRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+        // The per-book path pairs the engine with the resolved voice — the
+        // fake must serve both entry points.
+        override fun engineFor(voice: String): TTSEngine? = engine
         override val failureReason: String? = null
     }
 

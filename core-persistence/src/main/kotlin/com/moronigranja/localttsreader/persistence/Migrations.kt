@@ -44,3 +44,22 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_position_history_bookId` ON `position_history` (`bookId`)")
     }
 }
+
+/** Phase H (decisions #109, post-v1-plan Slice A): the per-day consumption
+ * table arrives as a pure add — v2 tables are untouched. */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `activity_seconds` (
+                `dayKey` TEXT NOT NULL,
+                `bookId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `seconds` INTEGER NOT NULL,
+                PRIMARY KEY(`dayKey`, `bookId`, `kind`)
+            )
+            """,
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_activity_seconds_bookId` ON `activity_seconds` (`bookId`)")
+    }
+}

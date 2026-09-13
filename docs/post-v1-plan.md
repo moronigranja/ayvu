@@ -24,7 +24,7 @@ actually starts.
 
 ## Shared facts this plan builds on
 
-- **Room v2** (`LibraryDatabase`, `exportSchema = false`): `books`, `passages`
+- **Room v3** (v2 + `activity_seconds`, #157) (`LibraryDatabase`, `exportSchema = false`): `books`, `passages`
   (cached parse, FK-cascade), `progress` (resume row, one per book),
   `settings` (generic key-value), `bookmarks`, `position_history` (capped ring).
   Forward-only migrations, no destructive fallback (decisions #22).
@@ -50,7 +50,14 @@ actually starts.
 
 ---
 
-## Slice A — TODAY stats dashboard
+## Slice A — TODAY stats dashboard — LANDED (2026-09-13, decisions #157)
+
+> **Status:** implemented as designed, with three documented deltas: the reading
+> capture is the #109 page-flip-active dwell (not the plan's raw-dwell option 1),
+> with a 180 s active-window bound the plan left open; the Room schema bumped to v3
+> (v2 → v3 additive, matching #109's whole-seconds storage); and the `TodayCard`
+> hides itself until the first activity. Event/session timeline deliberately not
+> built. Capture semantics and evidence: decisions #157.
 
 ### Goal
 

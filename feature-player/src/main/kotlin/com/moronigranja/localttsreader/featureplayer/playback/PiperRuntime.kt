@@ -63,8 +63,15 @@ open class PiperRuntime
          * A resolved-voice change discards the cached instance (one voice per
          * instance) and re-opens on the next call.
          */
-        open fun engine(): TTSEngine? {
-            val voice = voiceFor(settings.state.value.voice)
+        open fun engine(): TTSEngine? = engineFor(voiceFor(settings.state.value.voice))
+
+        /**
+         * The ready engine serving exactly [voice] (the #144 per-book
+         * override path): the one-voice-per-instance re-point when the
+         * resolved voice differs from the cached instance's. Same open/
+         * retry semantics as [engine].
+         */
+        open fun engineFor(voice: String): TTSEngine? {
             engine?.takeIf { engineVoice == voice }?.let { return it }
             synchronized(this) {
                 engine?.takeIf { engineVoice == voice }?.let { return it }

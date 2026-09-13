@@ -12,6 +12,7 @@ import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
+import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.PlayerPhase
 import kotlinx.coroutines.CoroutineScope
@@ -71,7 +72,7 @@ class PlaybackE2eTest {
     @Before
     fun setUp() = runBlocking {
         database = Room.databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         store = RoomLibraryStore(database, scope)

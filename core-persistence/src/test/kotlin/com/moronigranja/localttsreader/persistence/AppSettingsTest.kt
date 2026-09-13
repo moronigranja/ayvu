@@ -22,6 +22,10 @@ class AppSettingsTest {
         override suspend fun putAll(settings: List<SettingEntity>) {
             settings.forEach { rows[it.key] = it.value }
         }
+
+        override suspend fun delete(key: String) {
+            rows.remove(key)
+        }
     }
 
     @Test
@@ -110,6 +114,34 @@ class AppSettingsTest {
         assertTrue("af_heart" in settings.state.value.favorites)
         settings.toggleFavorite("af_heart")
         assertFalse("af_heart" in settings.state.value.favorites)
+    }
+
+    // ------------------------------------------------------------------
+    // Per-book voice override (decisions #144, Phase K item 5): the hot
+    // path reads the mirror with no database; writes land everywhere.
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `book voice override mirrors and survives reload`() = runBlocking {
+        val dao = FakeSettingsDao()
+        val store = SettingsStore(dao)
+        val settings = AppSettings(store)
+        assertNull("no override before any write", settings.bookVoice("b1"))
+
+        settings.setBookVoice("b1", "de_DE-thorsten-high")
+        assertEquals("non-suspend hot-path read", "de_DE-thorsten-high", settings.bookVoice("b1"))
+        assertEquals("global default untouched", SettingsStore.DEFAULT_VOICE, settings.state.value.voice)
+
+        // A cold mirror (a fresh AppSettings over the same store) reloads it.
+        var restarted = AppSettings(store)
+        restarted.reload()
+        assertEquals("de_DE-thorsten-high", restarted.bookVoice("b1"))
+
+        settings.setBookVoice("b1", null)
+        assertNull(settings.bookVoice("b1"))
+        restarted = AppSettings(store)
+        restarted.reload()
+        assertNull(restarted.bookVoice("b1"))
     }
 
     // ------------------------------------------------------------------

@@ -90,6 +90,9 @@ class KokoroRuntimeRetryTest {
         override suspend fun putAll(settings: List<SettingEntity>) {
             settings.forEach { rows[it.key] = it.value }
         }
+        override suspend fun delete(key: String) {
+            rows.remove(key)
+        }
     }
 
     private fun settings(): AppSettings = AppSettings(SettingsStore(FakeSettingsDao()))

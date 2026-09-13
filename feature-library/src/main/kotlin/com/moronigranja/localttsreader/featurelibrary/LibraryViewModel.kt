@@ -20,8 +20,16 @@ import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.ProgressEntity
 import com.moronigranja.localttsreader.player.IoDispatcher
+import com.moronigranja.localttsreader.persistence.ActivitySecondsDao
 import com.moronigranja.localttsreader.player.OfflineStorage
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
+import com.moronigranja.localttsreader.player.ActivityKind
+import com.moronigranja.localttsreader.player.ActivityRow
+import com.moronigranja.localttsreader.player.DailyTotals
+import com.moronigranja.localttsreader.player.LocalDays
+import com.moronigranja.localttsreader.player.Streak
+import com.moronigranja.localttsreader.player.TodayStats
+import com.moronigranja.localttsreader.player.WeekSummary
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerCommands
 import com.moronigranja.localttsreader.player.PregenJobState
@@ -41,6 +49,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -77,6 +87,8 @@ class LibraryViewModel
         private val index: TextIndex? = null,
         // Default null: pure-JVM unit tests skip the book-bytes sidecar (Hilt provides it).
         private val bookFileStore: BookFileStore? = null,
+        // Default null: pure-JVM unit tests skip the activity stats store (Hilt provides it).
+        private val activityDao: ActivitySecondsDao? = null,
         // A6: the app binds the intent-dispatching sender; tests pass a fake.
         private val commands: PlayerCommands,
     ) : ViewModel() {
@@ -191,6 +203,46 @@ class LibraryViewModel
             val before = byBook.filter { it.chapterIndex < row.chapterIndex }.sumOf { it.passageCount } + row.passageIndex
             return ((before + 1).coerceAtMost(total).toFloat() / total).coerceIn(0f, 1f)
         }
+
+        // ------------------------------------------------------------------
+        // TODAY stats (Phase H, decisions #109, post-v1-plan Slice A)
+
+        /** The local day the stats window ends at; [refreshStats] re-pins it
+         * on resume so the card rolls over at midnight (Room flows already
+         * re-emit on every capture write). */
+        private val statsDay = MutableStateFlow(LocalDays.key(System.currentTimeMillis()))
+
+        /** Re-pins the TODAY window; the library screen calls this on resume. */
+        fun refreshStats() {
+            statsDay.value = LocalDays.key(System.currentTimeMillis())
+        }
+
+        /** Today's read/listen minutes + total, the 7-day mini bar and the
+         * streak — pure aggregation over the activity rows. Null DAO (unit
+         * tests) → [TodayStats.EMPTY]. */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val todayStats: StateFlow<TodayStats> =
+            if (activityDao == null) {
+                MutableStateFlow(TodayStats.EMPTY)
+            } else {
+                val dao = activityDao
+                combine(
+                    statsDay.flatMapLatest { key -> dao.observeSince(WeekSummary.startKey(key)) },
+                    dao.observeActiveDays(),
+                    statsDay,
+                ) { rows, activeDays, todayKey ->
+                    val activityRows =
+                        rows.map { row ->
+                            ActivityRow(row.dayKey, ActivityKind.valueOf(row.kind), row.seconds)
+                        }
+                    TodayStats(
+                        dayKey = todayKey,
+                        today = DailyTotals.summarize(todayKey, activityRows),
+                        week = WeekSummary.series(activityRows, todayKey),
+                        streakDays = Streak.count(activeDays.toSet(), todayKey),
+                    )
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayStats.EMPTY)
+            }
 
         /** bookId → offline-audio facts for the row (#44): usage + full-book estimate. */
         data class OfflineBook(

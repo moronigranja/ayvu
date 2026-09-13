@@ -39,6 +39,43 @@ class SettingsStore(private val settingsDao: SettingsDao) {
         settingsDao.put(SettingEntity(KEY_FAVORITE_VOICES, value.joinToString("\n")))
     }
 
+    /**
+     * Per-book voice override (decisions #144, Phase K item 5): one generic
+     * row `book.voice.<bookId>` in this same table — no Room migration, and
+     * it rides the existing backup archive (snapshot dumps every row raw;
+     * the merge's "restored keys overwrite local" precedence applies) and is
+     * dropped with the book ([RoomLibraryStore.delete]). Absent key = no
+     * override; resolution is `override(bookId) ?: [voice]` at the playback
+     * choke point. An explicit override beats the global default, and
+     * changing the global default neither clears nor rewrites overrides.
+     */
+    suspend fun bookVoice(bookId: String): String? =
+        settingsDao.get(bookVoiceKey(bookId))?.takeIf { it.isNotBlank() }
+
+    /** Writes or clears [bookId]'s override (null clears — the sheet's
+     * explicit "use default"). */
+    suspend fun setBookVoice(
+        bookId: String,
+        voice: String?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookVoiceKey(bookId)
+        if (voice == null) {
+            settingsDao.delete(key)
+        } else {
+            require(voice.isNotBlank()) { "voice must not be blank" }
+            settingsDao.put(SettingEntity(key, voice))
+        }
+    }
+
+    /** Every stored override (bookId → voice id) — the mirror's reload read.
+     * The table is tiny, so this is one scan of [SettingsDao.all]. */
+    suspend fun bookVoices(): Map<String, String> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_VOICE_PREFIX) && it.value.isNotBlank() }
+            .associate { it.key.removePrefix(KEY_BOOK_VOICE_PREFIX) to it.value }
+
     /** UI theme: system / light / dark (V1). */
     suspend fun themeMode(): ThemeMode =
         ThemeMode.from(settingsDao.get(KEY_THEME_MODE))
@@ -146,6 +183,13 @@ class SettingsStore(private val settingsDao: SettingsDao) {
         const val KEY_PLAYBACK_GAIN = "playback_gain"
         const val KEY_RTF_WALL_MS = "rtf_wall_ms"
         const val KEY_RTF_AUDIO_MS = "rtf_audio_ms"
+
+        /** Per-book voice override keys (decisions #144, Phase K item 5):
+         * `<prefix><bookId>`, one row per overridden book in this same
+         * generic table. */
+        const val KEY_BOOK_VOICE_PREFIX = "book.voice."
+
+        fun bookVoiceKey(bookId: String): String = KEY_BOOK_VOICE_PREFIX + bookId
     }
 }
 

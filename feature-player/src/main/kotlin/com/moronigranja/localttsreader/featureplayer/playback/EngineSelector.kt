@@ -50,6 +50,34 @@ class EngineSelector
             }
 
         /**
+         * The active engine opened to serve the RESOLVED [voice] — the
+         * result of [resolveVoice]/[effectiveVoice], never a raw stored
+         * id — or null when its prerequisites are missing. Piper's
+         * one-voice-per-instance contract re-points the runtime when the
+         * resolved voice differs from the global one (a per-book override,
+         * decisions #144); Kokoro and the system voice serve any voice.
+         */
+        fun engineFor(voice: String): TTSEngine? =
+            when {
+                isDegraded -> systemTts.get()
+                selected == SettingsStore.PIPER_ENGINE -> piper.engineFor(voice)
+                else -> runtime.engine()
+            }
+
+        /**
+         * The voice the ACTIVE engine serves for [bookId] (decisions #144
+         * item 5): the book's per-book override when one is stored, else the
+         * global default — run through [resolveVoice]'s availability shape,
+         * so playback, coverage keys and pre-generation always name a voice
+         * the engine actually serves (an override the engine does not expose
+         * falls back to the engine's default; the sheet marks the row
+         * unavailable). Changing the global default neither clears nor
+         * rewrites overrides, so this reads the mirror per call.
+         */
+        fun effectiveVoice(bookId: String): String =
+            resolveVoice(settings.state.value.bookVoices[bookId] ?: settings.state.value.voice)
+
+        /**
          * The voice id the ACTIVE engine serves for the stored global voice
          * (decisions #144 availability shape): engine-exposed ids pass
          * through, anything else falls back to that engine's default voice —

@@ -40,6 +40,10 @@ class AppSettings @Inject constructor(
          * rendered audio), `false` = slower, `null` = unmeasured (fewer than
          * 10 s of audio samples accumulated; today's behavior keeps). */
         val realtimeCapable: Boolean? = null,
+        /** Per-book voice overrides (decisions #144, Phase K item 5):
+         * bookId → the voice id that book plays instead of [voice]. The
+         * mirror of `book.voice.<bookId>` rows; absent = no override. */
+        val bookVoices: Map<String, String> = emptyMap(),
     )
 
     private val _state = MutableStateFlow(Snapshot())
@@ -56,6 +60,7 @@ class AppSettings @Inject constructor(
                 ttsEngine = store.ttsEngine(),
                 playbackGain = store.playbackGain(),
                 ttsThreads = store.ttsThreads(),
+                bookVoices = store.bookVoices(),
                 realtimeCapable = deriveRtf(store.rtfWallMs(), store.rtfAudioMs()),
             )
     }
@@ -63,6 +68,27 @@ class AppSettings @Inject constructor(
     suspend fun setVoice(value: String) {
         store.setVoice(value)
         _state.value = _state.value.copy(voice = value)
+    }
+
+    /** The per-book override for [bookId] (decisions #144) — a non-suspend
+     * read for the playback hot path; resolution (override ?: global) lives
+     * at the choke point. */
+    fun bookVoice(bookId: String): String? = _state.value.bookVoices[bookId]
+
+    /** Writes or clears [bookId]'s override (null = "use default") and
+     * mirrors it. The caller re-dispatches the voice change so the service
+     * rebuilds under the new effective voice. */
+    suspend fun setBookVoice(
+        bookId: String,
+        voice: String?,
+    ) {
+        store.setBookVoice(bookId, voice)
+        _state.value =
+            if (voice == null) {
+                _state.value.copy(bookVoices = _state.value.bookVoices - bookId)
+            } else {
+                _state.value.copy(bookVoices = _state.value.bookVoices + (bookId to voice))
+            }
     }
 
     suspend fun setThemeMode(value: ThemeMode) {

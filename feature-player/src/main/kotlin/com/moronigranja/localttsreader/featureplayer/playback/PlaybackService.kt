@@ -39,6 +39,10 @@ import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.PlayerState
 import com.moronigranja.localttsreader.player.PlayerStateMachine
+import com.moronigranja.localttsreader.player.ActivityChunk
+import com.moronigranja.localttsreader.player.ActivityKind
+import com.moronigranja.localttsreader.player.LocalDays
+import com.moronigranja.localttsreader.player.TimeSpanAccumulator
 import com.moronigranja.localttsreader.player.PlayerStore
 import com.moronigranja.localttsreader.player.SleepTimer
 import com.moronigranja.localttsreader.player.passageText
@@ -108,6 +112,24 @@ class PlaybackService : Service() {
     @Inject lateinit var libraryStore: RoomLibraryStore
 
     @Inject lateinit var runtime: KokoroRuntime
+    @Inject lateinit var activityDao: com.moronigranja.localttsreader.persistence.ActivitySecondsDao
+
+    /** Phase H listening capture (decisions #157): whole seconds per local
+     * day, opened at the PLAYING edge and flushed on every audio exit. The
+     * sink is the test seam (the foregroundOps pattern); the service-scoped
+     * default writes through the DAO. The companion [clock] keeps it
+     * test-controllable. */
+    internal var activitySink: suspend (List<ActivityChunk>) -> Unit = { chunks ->
+        for (chunk in chunks) {
+            activityDao.accumulate(chunk.dayKey, chunk.bookId, chunk.kind.name, chunk.seconds)
+        }
+    }
+    internal val listenAccumulator = TimeSpanAccumulator(
+        kind = ActivityKind.LISTEN,
+        clock = { clock() },
+        dayKey = { ms -> LocalDays.key(ms) },
+        dayEnd = { ms -> LocalDays.end(ms) },
+    )
 
     // C1.5 (decisions #102): the engine seam — Kokoro or the degraded device
     // voice, selected by the persisted tts_engine setting.
@@ -860,6 +882,7 @@ class PlaybackService : Service() {
      */
     internal fun captureAndStop(): Double {
         val finalOffset = liveOffsetSeconds()
+        flushListeningSync() // the SCOPE may not get another turn after STOP
         stopEverything()
         releaseAudioFocus()
         finalStopJob =
@@ -949,6 +972,9 @@ class PlaybackService : Service() {
             baselineOffset = position.offsetSeconds
             lastSampleRateHz = audio.sampleRateHz
             active.onAudioStarted()
+            // Phase H: the PLAYING edge opens the listening span; every exit
+            // (stopEverything / advance boundary) flushes it.
+            book?.let { listenAccumulator.start(it.id) }
             val playStart = if (probesActive) clock() else 0L
             val sliced = sliceForSpeed(audio.pcm, baselineOffset, audio.sampleRateHz, current.speed)
             output.play(sliced, audio.sampleRateHz, current.speed)
@@ -1029,6 +1055,9 @@ class PlaybackService : Service() {
             // guessed at.
             val b0 = if (probesActive) clock() else 0L
             val events = active.onPassageFinished()
+            // Phase H: the span closes here; the next passage's PLAYING edge
+            // re-opens it (flushListening is a no-op when nothing is open).
+            flushListening()
             val b1 = if (probesActive) clock() else 0L
             android.util.Log.d("PlaybackService", "loop: onPassageFinished events=$events")
             if (events.isEmpty()) return
@@ -1574,10 +1603,11 @@ class PlaybackService : Service() {
         startCoverageObserver(activeBook.id)
         return PregenQueue(
             book = activeBook,
-            voice = activeVoice(),
+            voice = activeVoiceFor(activeBook.id),
             speed = speed,
             synthesize = { text ->
-                selector.engine()?.synthesize(SynthesisRequest(text, activeVoice(), speed = speed))
+                val voice = activeVoiceFor(activeBook.id)
+                selector.engineFor(voice)?.synthesize(SynthesisRequest(text, voice, speed = speed))
                     ?: SynthesisOutcome.Failed("engine unavailable")
             },
             lookahead = PREFILL_LOOKAHEAD_PASSAGES,
@@ -1717,7 +1747,7 @@ class PlaybackService : Service() {
             PlaybackActive.markEngineUsed()
             val startedAt = System.currentTimeMillis()
             val outcome =
-                selector.engine()?.synthesize(SynthesisRequest(text, voice, speed = speed))
+                selector.engineFor(voice)?.synthesize(SynthesisRequest(text, voice, speed = speed))
                     ?: SynthesisOutcome.Failed("engine unavailable")
             // RTF lazy fallback (item 8): real passages measure the same
             // wall/audio pair as Preview; stop accumulating once a verdict
@@ -1758,7 +1788,41 @@ class PlaybackService : Service() {
      * anything else falls back to that engine's default — the choke point
      * behind synthesis, coverage keys and the queue's engine-keyed paths.
      * D1 semantics unchanged for Kokoro (passthrough, as before). */
-    private fun activeVoice(): String = selector.resolveVoice(settings.state.value.voice)
+    private fun activeVoice(): String = activeVoiceFor(book?.id)
+
+    /** The #144 per-book voice override resolves here: `override(bookId) ?:
+     * global`, through the selector's availability shape. `bookId` null
+     * (no active book yet) means the global default. */
+    private fun activeVoiceFor(bookId: String?): String =
+        if (bookId == null) {
+            selector.resolveVoice(settings.state.value.voice)
+        } else {
+            selector.effectiveVoice(bookId)
+        }
+
+    /** Flushes the open listening span through the sink (Phase H). Runs
+     * INLINE on the caller — the loop's advance boundary and stopEverything
+     * are already off the main thread, the sink is a suspend seam, and a
+     * synchronous call makes the flush observable at every stop (a
+     * fire-and-forget launch could be cancelled before it writes on a
+     * superseded command). Errors never break the playback path. */
+    internal fun flushListening() {
+        val chunks = listenAccumulator.stop()
+        if (chunks.isEmpty()) return
+        runCatching {
+            kotlinx.coroutines.runBlocking { activitySink(chunks) }
+        }.onFailure { android.util.Log.w("PlaybackService", "stats flush failed", it) }
+    }
+
+    /** Synchronous flush for process-death paths ([onDestroy]/STOP's
+     * captureAndStop) — the coroutine scope may not get another turn. */
+    internal fun flushListeningSync() {
+        val chunks = listenAccumulator.stop()
+        if (chunks.isEmpty()) return
+        runCatching {
+            kotlinx.coroutines.runBlocking { activitySink(chunks) }
+        }.onFailure { android.util.Log.w("PlaybackService", "stats flush failed", it) }
+    }
 
     /** Releases the session's audio focus — the counterpart of [requestFocus].
      * Only a true stop calls this ([captureAndStop]'s STOP path and [onDestroy]);
@@ -1796,6 +1860,10 @@ class PlaybackService : Service() {
         }
         stopSignal.complete(Unit)
         stopSignal = CompletableDeferred()
+        // Phase H: every audio exit closes the listening span — pause/FOCUS/
+        // NOISY, seek/navigate/undo, rebuilds, STOP.
+        flushListening()
+        output.stop()
         // Measurement probe baseline (goals §Measurement, GAP1): resume/seek/
         // stop breaks consecutive same-loop plays — the next play is a fresh
         // start, never a gap. The tap arm is deliberately preserved: an
@@ -1806,7 +1874,6 @@ class PlaybackService : Service() {
         lastMarkerAt = 0L // a cancelled track never fires its marker — no stale gap
         lastNotifiedKey = null // a fresh command re-notifies with current state
         lastSessionKey = null // a fresh command re-publishes the session
-        output.stop()
         // Audio focus is SESSION-scoped (decisions #135): [stopEverything] runs
         // on EVERY command — including in-place seek/navigate/undo, whose tails
         // restart the play loop. Abandoning here dropped focus on those paths,
@@ -1846,6 +1913,7 @@ class PlaybackService : Service() {
             // STOP's write; otherwise write the captured playhead ourselves
             // (captured before teardown).
             teardownWrite()
+            flushListeningSync()
             stopEverything()
             releaseAudioFocus() // the session ends with the service
             PlaybackStateHolder.reset()
@@ -1890,8 +1958,9 @@ class PlaybackService : Service() {
         private const val GENERATION_NOTIFICATION_ID = 44
 
         /** In-place refresh cadence for the generation notification. */
-        private const val GENERATION_NOTIFY_THROTTLE_MS = 1_000L
+        internal var clock: () -> Long = System::currentTimeMillis
         private const val TICK_MS = 1_000L
+        private const val GENERATION_NOTIFY_THROTTLE_MS = 1_000L
 
         /** CR-2 live-playhead persistence cadence (roadmap A2). */
         internal const val CHECKPOINT_MS = 5_000L
@@ -1932,7 +2001,6 @@ class PlaybackService : Service() {
         /** Post-STOP fill: keep filling for at most this long before tearing down. */
         private const val POST_STOP_MAX_MS = 120_000L
         private val SETTLED_PHASES = setOf(PlayerPhase.PLAYING, PlayerPhase.PAUSED, PlayerPhase.LOADING)
-        private var clock: () -> Long = System::currentTimeMillis
 
         /** Measurement-probe master toggle (goals §Measurement): one-line
          * kill switch; the runtime gate additionally requires a debuggable

@@ -94,9 +94,15 @@ class VoiceAuditionCoordinator
                         // Phrase lookup follows the ACTIVE engine's catalog:
                         // Kokoro families first, then the Piper voices
                         // (D4 #154 addendum) — unknown names stay null and
-                        // the audition fails typed below.
+                        // the audition fails typed below. The previewed id
+                        // resolves through the #144 availability shape and
+                        // PAIRS with the engine (engineFor): Piper serves
+                        // exactly one voice per instance, so previewing a
+                        // second Piper voice opens its instance instead of
+                        // failing typed on the global one (decisions #144).
+                        val resolved = selector.resolveVoice(voice)
                         val phrase = VoicePreview.phraseFor(voice) ?: PiperVoicePreview.phraseFor(voice)
-                        val engine = withContext(ioDispatcher) { selector.engine() }
+                        val engine = withContext(ioDispatcher) { selector.engineFor(resolved) }
                         if (phrase == null || engine == null) {
                             finishAudition()
                             _state.value =
@@ -117,7 +123,7 @@ class VoiceAuditionCoordinator
                         // crosses the 10 s gate (#93), so it only ever
                         // ACCUMULATES toward the verdict.
                         val startedAt = System.currentTimeMillis()
-                        val outcome = engine.synthesize(SynthesisRequest(phrase, voice))
+                        val outcome = engine.synthesize(SynthesisRequest(phrase, resolved))
                         if (outcome is SynthesisOutcome.Audio) {
                             val wallMs = System.currentTimeMillis() - startedAt
                             val audioMs = outcome.pcm.size * 1000L / (outcome.sampleRateHz * 2L) // mono 16-bit

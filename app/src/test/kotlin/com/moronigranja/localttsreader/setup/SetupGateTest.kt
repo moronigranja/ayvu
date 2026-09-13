@@ -234,4 +234,8 @@ class FakeSettingsDao : SettingsDao {
     override suspend fun putAll(settings: List<SettingEntity>) {
         settings.forEach { rows[it.key] = it.value }
     }
+
+    override suspend fun delete(key: String) {
+        rows.remove(key)
+    }
 }

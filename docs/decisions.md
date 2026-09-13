@@ -4,6 +4,129 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 157. Phase H — TODAY stats: per-day `activity_seconds`, flip-active reading dwell, one-minute streak rule (2026-09-13)
+
+Roadmap Phase H (post-v1-plan Slice A; capture semantics per #109) landed as three
+pure pieces plus one table:
+
+- **Storage — Room v3, pure add.** `activity_seconds` (`dayKey`/`bookId`/`kind`
+  composite PK, `bookId` index, `seconds` INTEGER) is the whole store:
+  `MIGRATION_2_3` creates it and touches nothing else; `ActivitySecondsDao.accumulate`
+  is an `@Query` upsert that ADDS seconds on conflict (Room's `@Upsert` replaces — it
+  would lose earlier sessions); `RoomLibraryStore.delete` drops the book's rows (the
+  #50 housekeeping). Whole seconds are stored, floored per local-day chunk; only the
+  display rounds (#109). No event/session timeline (roadmap): the dashboard consumes
+  per-day seconds only.
+- **Listening = wall-clock while PLAYING, at the PlaybackService edge.**
+  `TimeSpanAccumulator` (core-player) starts at the loop's onAudioStarted call and is
+  closed by `stopEverything` — the choke point every audio exit already goes through
+  (pause/FOCUS/NOISY, seek/navigate/undo, book/voice rebuilds, STOP) — and by the loop
+  after `onPassageFinished` (advance/complete/sleep all leave PLAYING). STOP and kill
+  flush synchronously so the write cannot race teardown's scope cancel; the rest flush
+  async through the `activitySink` seam (foregroundOps pattern; host tests keep the
+  no-op default). D1's 30 s horizon and fill timing are untouched — the flush runs
+  after `output.stop()`. A kill can lose the final sub-second remainder, the same
+  tolerance the CR-2 checkpoint already accepts.
+- **Reading = page-flip-active dwell in the reader.** Each USER page turn (swipe or
+  side-zone tap, in-chapter or across a chapter boundary) marks a flip; playback's
+  follow-turns do not. `ReadingSpanTracker` (core-player) credits the flip window as
+  min(dwell, 180 s) — the active-window bound #109 left open, chosen 180 s to cover a
+  slow page while bounding parked-screen credit; a book left open stops accruing. The
+  window closes at the next flip, screen-off, ON_PAUSE/dispose, or audio starting
+  (state observer — listening time is counted as LISTEN, never double-counted). Spans
+  under 10 s are dropped (#109). Reader-open dwell with no flip counts nothing; the
+  first page read without a flip is deliberately uncredited (conservative,
+  reversible).
+- **Aggregation (core-player, pure, next to BookProgress — no new module).**
+  `DailyTotals.summarize`, `WeekSummary.series` (7 local days ending today) and
+  `Streak.count` over a set of active days; the "≥1 total minute" rule is the DAO's
+  `HAVING SUM(seconds) >= 60` (`Streak.ACTIVE_MINIMUM_SECONDS` is the constant). The
+  streak ends today-or-yesterday. The `TodayCard` header on `LibraryScreen` shows
+  read/listen/total minutes, the 7-day bar and the streak, hidden until the first
+  activity; `refreshStats()` re-pins the today key on resume and Room flows re-emit on
+  every write. All on-device, no network.
+
+Deliberately not built: event/session history, per-book or per-week stats UI beyond
+the 7-day bar, backup-archive inclusion of activity rows (revisit with E1 if a
+restore needs them), and any windowing/clock abstraction beyond the injected
+clock/day-key pair.
+
+Evidence: `ActivityCaptureTest` + `ActivityAggregationTest` (whole-second flooring,
+day-boundary splits, sub-10-second drop, window cap, streak walk over midnight/gap),
+`ActivitySecondsDaoTest` (v1→v3 migration in the RoomPlayerStoreTest raw-DDL style,
+add-upsert, one-minute rule, delete-by-book), `PlaybackServiceStatsTest`
+(stopEverything closes the span exactly once, the advance-boundary flush, the sync
+DAO write); `RoomPlayerStoreTest` updated to `addMigrations(MIGRATION_1_2,
+MIGRATION_2_3)`. `:core-persistence:test :core-player:test` and the stats suite in
+`:feature-player:testDebugUnitTest` green; `:feature-library:compileDebugKotlin`
+green.
+
+## 156. Phase K items 2+5+6 — per-book voice override, descriptor-derived pack rows, usage-row refresh closed (2026-09-13)
+
+Phase K's remaining settings items, on the #144 contract. Run in parallel with the
+Phase H (TODAY stats) slice; the two slices' shared-file sequencing is recorded in
+each evidence line below.
+
+- **Per-book voice (item 5) — storage.** One generic row `book.voice.<bookId>` in the
+  EXISTING settings table (decisions #144 unchanged): `SettingsStore.bookVoice`/
+  `setBookVoice(bookId, voice?)` (null clears — a real `DELETE`, so absent-key
+  semantics hold through backup restore) + `bookVoices()`; `SettingsDao.delete(key)` is
+  the DAO's first delete. No Room migration: the override rides `BackupStore.snapshot`'s
+  raw settings dump and the merge's restored-keys-overwrite precedence unchanged, and
+  `RoomLibraryStore.delete` drops the key alongside its other housekeeping.
+- **Per-book voice — resolution.** The #144 choke point gains book awareness:
+  `EngineSelector.effectiveVoice(bookId) = resolveVoice(bookVoice(bookId) ?: global)`,
+  keeping the availability shape (an exposed id passes; anything else falls back to the
+  engine's default and the sheet's unavailable row renders via `buildVoiceSelectorState`).
+  The playback-side routing (`PlaybackService.activeVoice()` → `effectiveVoice`, the
+  reader voice sheet's per-book scope with an explicit "use default", the pregen
+  `KEY_VOICE` fallback and `PregenStorage.estimateAll()`'s per-book cache-keyed estimate,
+  and the `RoomLibraryStore.delete` drop) is layered on the Phase H slice's landed
+  PlaybackService/Reader hooks by the parallel StatsToday slice per the agreed sequence.
+- **Per-book voice — engine pairing (new, load-bearing).** Piper is one-voice-per-
+  instance: an override naming the OTHER Piper voice would make `selector.engine()`'
+  global-voice instance fail typed ("unknown voice") on every passage. `EngineSelector`
+  gains `engineFor(voice)` (the active engine opened for an already-RESOLVED id) and
+  `PiperRuntime.engineFor(voice)` re-points the cached instance on a resolved-voice
+  change; `engine()` stays as the global-voice convenience (`engineFor(voiceFor(global))`).
+  `VoiceAuditionCoordinator` resolves + pairs the previewed voice the same way — which
+  also fixes the pre-existing D4 gap where previewing the non-global Piper voice failed
+  typed on the global instance. Kokoro/system stay voice-agnostic (D1 passthrough
+  unchanged). No per-book engine override (decisions #144): the engine is a device
+  decision.
+- **Mirror.** `AppSettings.Snapshot.bookVoices` (bookId → voice) loads on `reload()`,
+  `setBookVoice` writes through and mirrors, `AppSettings.bookVoice(bookId)` is the
+  non-suspend hot-path read. Changing the global default neither clears nor rewrites
+  overrides (round-trip test pins it).
+- **K2 engine-agnostic pack rows (item 2).** `SettingsScreen`'s hardcoded
+  `KOKORO_PACK_IDS`/`PIPER_PACK_IDS`/`visiblePackIds` and the OCR `OCR_PACK_IDS` list
+  are gone: `SettingsUiState.speechPackIds` derives from the registry's engine
+  descriptors (selected engine's packs + the shared espeak-ng bundle every open-weight
+  engine phonemizes through; the degraded system voice shows Kokoro's rows — the
+  open-weight upgrade path the install plan card offers), `PackRow` carries `engineId`
+  and the OCR subpane filters on it. Adding an engine to the registry adds its rows
+  with no settings-surface edit (piper rows come straight from `DefaultEngines`).
+  `VoicePackModule`'s reader download action is engine-aware for the same reason —
+  under piper-v1 it must fetch the resolved Piper voice's packs + espeak, not Kokoro's.
+- **Item 6 closed, already fixed.** The "Offline-audio usage row is stale on return to
+  a live Settings screen" defect was fixed during the 0.1.1 release pass (commit
+  7c505ec, 2026-09-10): `SettingsScreen` re-reads `usageByBook()` on every `ON_RESUME`
+  via `LifecycleEventEffect` → `SettingsViewModel.refreshOfflineUsage()`, pinned by
+  `SettingsOfflineUsageTest`. This entry + the roadmap + open-bugs.md close the loop;
+  the defect was a docs-stale row, not open code.
+
+Evidence: `BookVoiceOverrideTest` (set/clear round-trip, override-wins + per-book
+isolation + global-default untouched, blank-is-no-override, backup archive ride-along
+with reattach on a fresh DB through `BackupStore`/`BackupCodec`), `AppSettingsTest`
+(mirror hot-path read + reload survival), `EngineSelectorPiperTest` +2 (override wins /
+non-exposed falls back / only that book changes; `engineFor` opens the resolved voice's
+instance, Kokoro never touched), `SettingsPackRowsTest` (piper rows appear from the
+descriptor with no settings edit; OCR rows derive from the tess-two descriptor),
+`:core-persistence:test :feature-settings:test :feature-player:test :app:compileDebugKotlin`
+green (652-suite base plus the new tests). Device proof for the override UX (sheet
+per-book scope, restart + backup/restore on device, pregen under an override) remains
+device-instrumentation territory and is explicitly not claimed here.
+
 ## 155. D1 — instant ±30-second seek horizon: 30 s audio-time horizon, survive-seek join/restart, no hot-zone persistence (2026-09-13)
 
 Roadmap D1. The survive-seek half landed as #91; the deferred "narrower horizon is a

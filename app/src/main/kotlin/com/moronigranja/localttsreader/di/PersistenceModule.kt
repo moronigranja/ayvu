@@ -8,6 +8,7 @@ import com.moronigranja.localttsreader.persistence.BookDao
 import com.moronigranja.localttsreader.persistence.CorruptDatabaseGuard
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
+import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
@@ -44,7 +45,7 @@ object PersistenceModule {
         CorruptDatabaseGuard.quarantineIfCorrupt(context, DATABASE_NAME)
         return Room
             .databaseBuilder(context, LibraryDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
 
@@ -85,6 +86,9 @@ object PersistenceModule {
 
     @Provides
     fun provideHistoryDao(database: LibraryDatabase) = database.historyDao()
+
+    @Provides
+    fun provideActivitySecondsDao(database: LibraryDatabase) = database.activityDao()
 
     @Provides
     @Singleton

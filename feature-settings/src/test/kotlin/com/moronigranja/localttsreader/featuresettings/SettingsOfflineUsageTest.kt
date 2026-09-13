@@ -62,6 +62,10 @@ class SettingsOfflineUsageTest {
         override suspend fun putAll(settings: List<SettingEntity>) {
             settings.forEach { rows[it.key] = it.value }
         }
+
+        override suspend fun delete(key: String) {
+            rows.remove(key)
+        }
     }
 
     /** Disk tier that changes between reads — what a pre-generation run does

@@ -3,17 +3,26 @@ package com.moronigranja.localttsreader.featurelibrary
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +41,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import android.graphics.BitmapFactory
 import androidx.compose.material3.Card
+import com.moronigranja.localttsreader.player.TodayStats
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -101,9 +112,21 @@ fun LibraryScreen(
     val recent by viewModel.recent.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val stats by viewModel.todayStats.collectAsState()
     var query by remember { mutableStateOf("") }
     // F2: the field drives the VM filter, which re-emits the list reactively.
     LaunchedEffect(query) { viewModel.setQuery(query) }
+    // Phase H: re-pin the TODAY window on resume — listening flushes land on
+    // the back stack (Room flows re-emit) and the local day rolls at midnight.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshStats()
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -268,6 +291,12 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(AyvuSpacing.LG),
                     verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
                 ) {
+                    // Phase H: the TODAY stats header card, above the
+                    // continue-list (post-v1-plan Slice A — no other home
+                    // restructure).
+                    if (!stats.isEmpty) {
+                        item(key = "today-stats") { TodayCard(stats) }
+                    }
                     if (positioned || recentIds.isNotEmpty()) {
                         item { SectionHeader("Continue listening", Modifier.padding(top = AyvuSpacing.SM, bottom = AyvuSpacing.XS)) }
                     }
@@ -692,3 +721,66 @@ private fun PregenBudgetOption(
 }
 
 private const val BYTES_PER_MINUTE = 24_000L * 2 * 60
+
+/**
+ * The TODAY stats header card (Phase H, post-v1-plan Slice A): today's
+ * read/listen minutes, the 7-day mini bar, and the consecutive-days streak.
+ * On-device only — the data is the local activity_seconds table.
+ */
+@Composable
+private fun TodayCard(stats: TodayStats) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AyvuSpacing.MD)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Today",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (stats.streakDays > 0) {
+                    Text(
+                        "${stats.streakDays}-day streak",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Text(
+                "Read ${stats.today.readMinutes}m · Listened ${stats.today.listenedMinutes}m · " +
+                    "${stats.today.totalMinutes}m total",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val maxSeconds = stats.week.maxOfOrNull { it.totalSeconds }?.coerceAtLeast(1L) ?: 1L
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(AyvuSpacing.XS),
+                modifier =
+                    Modifier
+                        .padding(top = AyvuSpacing.SM)
+                        .fillMaxWidth()
+                        .height(32.dp),
+            ) {
+                stats.week.forEach { day ->
+                    // Each day is one bar whose fill height tracks the week's
+                    // busiest day; today's bar uses the primary color.
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height((32.dp * (day.totalSeconds.toFloat() / maxSeconds)).coerceAtLeast(2.dp))
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(
+                                        if (day.dayKey == stats.dayKey) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                    ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
