@@ -2547,16 +2547,22 @@ stand). Host previews (ORT 1.23.2, 8-thread x86): Piper 0.024, Supertonic 3
   listening set is regenerated in `docs/prints/d4/` (device + host renders,
   both 35 s @ 22.05 kHz); the blind quality gate is REOPENED.
 
+  **Gate verdict (2026-09-13, owner): PASS** — the corrected renders are
+  intelligible and the prosody ranks above Android's built-in TTS. The
+  comparison baseline the owner used is the platform voice, not Kokoro; a
+  blind Kokoro A/B was not run and is not required by the gate as written.
+  Adoption is unblocked.
+
 - **Piper** — the direct-ORT VITS port thesis holds: shared espeak-ng
   phonemization (host 1.52 ids are clean against the stock export; no
   sherpa dependency), tiny sessions, per-language packs through the
   existing `TtsPack` flow. **#30b audit result: the stock export exposes a
   single audio output — no alignments, no word timestamps** — so the small
   tier ships **passage-level read-along only** (recorded degradation; a
-  custom re-export could surface VITS alignments later). Flat prosody →
-  **the blind quality gate is PENDING the owner's listening pass** on the
-  staged WAVs; adoption (a `PiperEngine : TTSEngine` + voice pins + hashes
-  + es/de/ko coverage check) starts only after that gate.
+  custom re-export could surface VITS alignments later). Flat prosody judged
+  acceptable by the owner's 2026-09-13 listening pass (verdict above) →
+  adoption (a `PiperEngine : TTSEngine` + voice pins + hashes + es/de/ko
+  coverage check) is unblocked.
 - **Supertonic 3** — vendor RTF claims (~0.3 "on an e-reader") do NOT
   reproduce on the HiBreak (3.92); Kokoro-class speed with ~⅔ the memory.
   Deferred, not dropped: it is the only D4 candidate whose duration

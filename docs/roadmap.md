@@ -239,8 +239,13 @@ German voice candidate (2026-09-11, peer probe): `de_DE-thorsten-high` — the v
 kokoro-reader's Go server runs through sherpa's VITS path (`LengthScale = 1.0`,
 `NumThreads = 4`, both matching our defaults), so it is a working high-quality-tier
 reference for the German gap. `en_US-lessac-medium` stays the measured D4 leg (HiBreak
-RTF 0.50, #99). Adoption remains gated on the owner's blind-quality pass over the staged
-WAVs.
+  RTF 0.566–0.575 on ORT-android 1.29; #99 and its 2026-09-12 correction). The owner's
+  listening pass **passed** (2026-09-13, decisions #99 addendum): the corrected renders
+  are intelligible with prosody above Android's built-in TTS — the quality gate is
+  cleared and adoption is the next actionable slice. Coverage check substantially
+  answered at the pack level (2026-09-13, rhasspy/piper-voices @ `1162a917`, 176 voices,
+  MIT): de ✓ 10 voices, es ✓ 9, it ✓ 4, pt-BR ✓ 4, ko △ 1 (`ko_KR-kss-medium`, single
+  voice) — German (Kokoro's gap) is fully covered.
 
 ### Phase G — narration quality
 
