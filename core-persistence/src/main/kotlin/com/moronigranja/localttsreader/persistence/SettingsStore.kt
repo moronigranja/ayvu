@@ -119,6 +119,9 @@ class SettingsStore(private val settingsDao: SettingsDao) {
         const val DEFAULT_VOICE = "af_heart"
         const val DEFAULT_OCR_LANGUAGE = "eng"
         const val DEFAULT_TTS_ENGINE = "kokoro-82m"
+        /** D4 (decisions #154/#154-addendum): the Piper small tier — the id
+         * matches DefaultEngines.piper; selection is explicit, never auto. */
+        const val PIPER_ENGINE = "piper-v1"
         const val SYSTEM_TTS_ENGINE = "system-tts"
 
         /** Playback gain bounds + default (linear multiplier, 1.0 = unity). */

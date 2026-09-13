@@ -136,6 +136,29 @@ fun SettingsScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .selectable(
+                                        selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
+                                        onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
+                                    ).padding(vertical = AyvuSpacing.XS),
+                        ) {
+                            RadioButton(
+                                selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
+                                onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
+                            )
+                            Column {
+                                Text("Piper (downloaded)", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Compact open-weight voices — English (US) and German. Download required; no read-along highlights.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
                                         selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
                                         onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
                                     ).padding(vertical = AyvuSpacing.XS),
@@ -156,7 +179,7 @@ fun SettingsScreen(
                     }
                 }
                 items(
-                    state.packs.filter { it.packId == "kokoro-model" || it.packId == "kokoro-voices" || it.packId == "espeak-ng" },
+                    state.packs.filter { it.packId in visiblePackIds(state.ttsEngine) },
                 ) { row ->
                     PackRow(row, onDownload = { viewModel.download(row.packId) })
                 }
@@ -167,10 +190,10 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
                     )
                 }
-                // Decisions #137: generation threads only bound the downloaded
-                // Kokoro engine — a degraded session never touches ORT, so the
-                // row hides with it.
-                if (state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE) {
+                // Decisions #137: generation threads bound the downloaded
+                // open-weight engines (Kokoro AND Piper — D4 #154 addendum);
+                // a degraded session never touches ORT, so the row hides.
+                if (state.ttsEngine != SettingsStore.SYSTEM_TTS_ENGINE) {
                     item {
                         Column {
                             Text(
@@ -213,7 +236,7 @@ fun SettingsScreen(
                         onToggleFavorite = viewModel::toggleFavorite,
                         onPreview = viewModel::previewVoice,
                         onStopPreview = viewModel::stopPreview,
-                        onDownload = { viewModel.downloadKokoroPacks() },
+                        onDownload = { viewModel.downloadVoicePacks() },
                     )
                 }
                 item {
@@ -464,6 +487,26 @@ private fun OcrLanguageRow(
 private val OCR_PACK_IDS = setOf("eng", "spa", "fra", "deu", "por", "ita")
 
 private val KOKORO_PACK_IDS = setOf("kokoro-model", "kokoro-voices", "espeak-ng")
+
+/** The Piper pack rows the Speech section shows when piper-v1 is the engine
+ * (D4 #154 addendum) — both voices' model + config, plus the shared espeak
+ * bundle both open-weight engines phonemize through. The KOKORO_PACK_IDS
+ * plan-card hardcode above stays (K2 owns the engine-agnostic-rows refactor). */
+private val PIPER_PACK_IDS =
+    setOf(
+        "piper-lessac-medium",
+        "piper-lessac-medium-config",
+        "piper-thorsten-high",
+        "piper-thorsten-high-config",
+    )
+
+/** Pack rows visible in the Speech section: the selected engine's own packs
+ * plus the shared espeak bundle (Kokoro rows keep the historical filter). */
+private fun visiblePackIds(ttsEngine: String): Set<String> =
+    when (ttsEngine) {
+        SettingsStore.PIPER_ENGINE -> PIPER_PACK_IDS + "espeak-ng"
+        else -> KOKORO_PACK_IDS
+    }
 
 /** C1.5: settings PackRow → the shared plan card's neutral row shape. */
 private fun PackRow.toPlanRow(): PlanPackRow {

@@ -189,7 +189,7 @@ class PlaybackServicePublishGuardTest {
         this.settings = AppSettings(SettingsStore(database.settingsDao()))
         this.runtime = FakeRuntime(context, this.settings, engine)
         this.pregenCache = PregenCache(context)
-        this.selector = EngineSelector(this.runtime, onUnusedSystemTts, this.settings)
+        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
     }
 
     /** `segments` has no test seam (the loop is its only writer, and a

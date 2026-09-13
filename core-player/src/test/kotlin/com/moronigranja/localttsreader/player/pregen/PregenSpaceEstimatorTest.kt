@@ -85,6 +85,7 @@ class PregenSpaceEstimatorTest {
             PregenSpaceEstimator.sampleRateHz("some-future-engine"),
             "unknown engines keep the documented safe default",
         )
+        assertEquals(22_050, PregenSpaceEstimator.sampleRateHz("piper-v1"), "piper-v1 is pinned at 22.05 kHz (D4)")
         // An estimate for an unknown engine uses that same safe rate today.
         val result = PregenSpaceEstimator(cache()).estimate(book, voice, speed, engine = "some-future-engine")
         assertEquals(expectedUncached(600) + expectedUncached(300) + expectedUncached(150), result.totalBytes)

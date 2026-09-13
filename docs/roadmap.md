@@ -168,12 +168,15 @@ D7 legs.
 
 ### Phase D — playback latency and weak-device performance
 
-#### D1 — Instant ±30-second seek horizon (designed, measured — not implemented)
+#### D1 — Instant ±30-second seek horizon (implemented 2026-09-13, decisions #91/#155 — device acceptance pending)
 
-Replace fixed two-passage look-ahead with an approximately 30-second audio horizon and
-let in-flight `PregenQueue.ensure` survive a seek before refilling from the new
-playhead. Persisting the look-ahead hot zone is optional unless measurement shows RAM
-churn still causes misses.
+Landed in two halves: survive-seek (decisions #91 — `PregenQueue.ensure(from, rearm)`,
+`stopEverything(stopFill = false)` on the nav paths, guarded fill restart) and the
+audio-time horizon (decisions #155 — `PREFILL_LOOKAHEAD_SECONDS` 45 → 30 s shared by
+the queue bound, the buffer-before-start wait, and the generation notification's
+denominator). Hot-zone persistence not needed: the look-ahead is already write-through
+persisted and the measured misses were the dead-owner ensure and cold sync synthesis,
+not RAM churn.
 
 Acceptance on both reference devices:
 
@@ -185,10 +188,11 @@ Acceptance on both reference devices:
   unchanged.
 - Record latency separately on the S22 and Bigme HiBreak.
 
-**Measured 2026-08-29:** cross-boundary ±30 s seek to an uncached passage is
-79.6 s (S22) / 107.0 s (HiBreak). The 60 s dead-owner ensure wait was fixed
-(decisions #78) — remaining cost is the cold target's synchronous synthesis,
-which is exactly this item's target. Design unchanged.
+**Measured 2026-08-29 (pre-implementation baseline):** cross-boundary ±30 s seek to an
+uncached passage is 79.6 s (S22) / 107.0 s (HiBreak). The 60 s dead-owner ensure wait
+was fixed (decisions #78) — remaining cost was the cold target's synchronous
+synthesis, which is what the horizon + survive-seek now cover. Re-measure with
+`D1SeekHorizonBenchmarkTest` (ten ±30 s seeks, `AyvuD1` rows, `d1_seek_results.json`).
 
 #### D7 — Cross-app performance spike (legs A–F) — decisions #148
 
@@ -246,6 +250,19 @@ reference for the German gap. `en_US-lessac-medium` stays the measured D4 leg (H
   answered at the pack level (2026-09-13, rhasspy/piper-voices @ `1162a917`, 176 voices,
   MIT): de ✓ 10 voices, es ✓ 9, it ✓ 4, pt-BR ✓ 4, ko △ 1 (`ko_KR-kss-medium`, single
   voice) — German (Kokoro's gap) is fully covered.
+
+**Status: selection wired end-to-end (2026-09-13, decisions #154 + its addendum).**
+`PiperEngine` is registered as `piper-v1` (PRIMARY) with the `en_US-lessac-medium` +
+`de_DE-thorsten-high` packs pinned and downloading through the existing registry flow;
+the host smoke runs end-to-end (finite mono PCM @ 22050, `:core-tts:piperSmoke`). The
+phoneme-id framing is verified head-for-head against official piper-tts and pinned in a
+JVM test. The runtime selection wiring landed (decisions #154 addendum): `PiperRuntime`
+opens the engine over the downloaded packs behind `EngineSelector`'s explicit
+`piper-v1` branch, the voice sheet/catalog resolves through the #144 availability
+shape, and #30b's segment-less read-along degrades exactly like system-tts. Remaining
+for this slice family: further voice-pack pins (es/it/pt-BR/ko), the passage-level-only
+read-along stays recorded degradation (#30b), and the owner device legs (select piper
+on the S22/HiBreak, play, verify no word-timing claims).
 
 ### Phase G — narration quality
 

@@ -12,10 +12,12 @@ import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.BookProgress
 import com.moronigranja.localttsreader.player.InMemoryPlayerStore
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPosition
-import com.moronigranja.localttsreader.player.PlayerStore
+import com.moronigranja.localttsreader.player.passageText
+import com.moronigranja.localttsreader.player.pregen.PregenQueue
 import com.moronigranja.localttsreader.tts.EngineSpec
 import com.moronigranja.localttsreader.tts.EngineTier
 import com.moronigranja.localttsreader.tts.SegmentAnchor
@@ -37,72 +39,74 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * Fill-restart regression (QW4 one-fill-job, decisions #78): the fill job
- * (pregenJob) is cancelled by stopEverything inside seekBy / navigate /
- * navigateUndo, and those commands restart the play loop WITHOUT restarting
- * the fill — the three loop-restart commands QW4 left without a prefill.
- * bufferForPlayback only POLLS (the loop-side q.ensure was removed by QW4),
- * so with a dead fill NOTHING synthesizes toward the cushion: every cold
- * passage pays the full PLAY_BUFFER_TIMEOUT_MS (60 s) at zero ahead, then
- * synthesizes on demand — the device-observed
- * `buffer: waiting for 45.0 s ahead` → `ahead=0.0s after 60041ms` →
- * `loop: source=synthesized` loop that repeats across whole chapters.
+ * D1 seek-horizon service contracts (decisions #155) on top of the survive-seek
+ * fill (decisions #91) — the two halves the ±30 s seek acceptance rests on:
  *
- * Contract under test: after a seek on a playing machine the fill is alive
- * again and the cushion builds — playback proceeds within ONE budget (the
- * 60 s buffer wait exits early, at the ≥30 s D1 horizon) when synthesis is
- * available.
- * Pre-fix the fill never restarts, ahead stays 0, and playback does not
- * reach audio within the observation window (it only would after the 60 s
- * timeout).
+ *  - A seek that lands INSIDE the horizon resolves from the cushion with ZERO
+ *    synchronous synthesis at seek time: the target passage was queued by the
+ *    fill before the seek, the loop takes it, and the engine is never asked
+ *    for the target's text after the seek lands. The 79.6 s (S22) / 107.0 s
+ *    (HiBreak) measured cost was exactly this sync synthesis on a cold target.
  *
- * Determinism: the engine is gated to FAIL synthesis while openBook's
- * front-loading fill runs, so the queue is provably empty when the seek
- * executes — the seek-target passage can never be masked by a stale queue
- * hit. The gate flips to healthy right before the seek; only the RESTARTED
- * fill can then build the cushion.
+ *  - A seek on a DEAD fill restarts it (the #78/#91 guarded restart — the fill
+ *    owner exists on every loop-restart command), so the loop's
+ *    bufferForPlayback wait terminates on real fill progress instead of the
+ *    60 s dead-owner timeout (`buffer: waiting ... ahead=0.0s after 60041ms`).
+ *
+ * Determinism: the fake renders book-model audio (chars/15 s per passage), so
+ * audio-time moves 1:1 with the book-time the seek math uses — the 30 s
+ * horizon is 30 s of book-time and a +30 s seek lands inside the cushion's
+ * crossing passage.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
-class PlaybackServiceFillRestartTest {
+class PlaybackServiceSeekHorizonTest {
 
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    /** 30 passages × ~60 chars (≈4 s each at chars/15): a +30 s seek lands
-     * mid-book (~passage 4-5) with ~25 passages after it, so the restarted
-     * fill has enough spine left to build the 30 s horizon (the fake engine
-     * renders 10 s per passage; 3 synthesizes reach the buffer target). */
+    /** 40 passages; the fake renders each at the book model's own duration, so
+     * the 30 s horizon holds ~6 passages and a +30 s seek lands inside it with
+     * ~34 passages of spine left to refill from. */
     private val book = Book(
-        id = "fill-restart-book",
-        title = "Fill Restart",
+        id = "d1-horizon-book",
+        title = "D1 Horizon",
         chapters = listOf(
             Chapter(
                 0,
                 "One",
-                (1..30).map { i ->
+                (1..40).map { i ->
                     TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
                 },
             ),
         ),
     )
 
-    /** Gated engine: while [healthy] is false every synthesis FAILS, so a
-     * fill synthesizes nothing (the queue stays empty and the pre-seek state
-     * is deterministic). 10 s of audio per passage once healthy: 3
-     * synthesizes reach the 30 s look-ahead horizon. */
+    /** Engine whose audio duration matches the book model (chars/15 s), so
+     * book-time == audio-time; records (text, wall time) per synthesize call
+     * so a seek window can be checked for synchronous synthesis. */
     private class FakeEngine(
-        @Volatile var healthy: Boolean = false,
+        @Volatile var healthy: Boolean = true,
     ) : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
+
         /** Written from the fill job AND the play loop concurrently. */
         val synthesized = CopyOnWriteArrayList<String>()
+        val synthAt = CopyOnWriteArrayList<Long>()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
             synthesized += request.text
+            synthAt += System.currentTimeMillis()
             if (!healthy) return SynthesisOutcome.Failed("gated")
-            return SynthesisOutcome.Audio(ByteArray((10.0 * 24_000 * 2).toInt()), 24_000, 1, listOf(SegmentAnchor(0.0, 10.0)))
+            val seconds = request.text.length / BookProgress.DEFAULT_CHARS_PER_SECOND
+            return SynthesisOutcome.Audio(
+                ByteArray((seconds * 24_000 * 2).toInt()),
+                24_000,
+                1,
+                listOf(SegmentAnchor(0.0, seconds)),
+            )
         }
     }
 
@@ -168,6 +172,8 @@ class PlaybackServiceFillRestartTest {
         field.set(service, MediaSessionCompat(service, "local-tts-reader"))
     }
 
+    private fun field(name: String) = PlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }
+
     private fun await(label: String, timeoutMs: Long = 10_000, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
@@ -177,94 +183,89 @@ class PlaybackServiceFillRestartTest {
         throw AssertionError("timed out waiting for: $label")
     }
 
+    private fun service(engine: FakeEngine, output: RecordingOutput): PlaybackService = PlaybackService().apply {
+        attachServiceContext(this)
+        setAudioManager(this)
+        setSession(this)
+        this.store = InMemoryPlayerStore()
+        this.output = output
+        this.libraryStore = RoomLibraryStore(database, scope)
+        this.settings = AppSettings(SettingsStore(database.settingsDao()))
+        this.runtime = FakeRuntime(context, this.settings, engine)
+        this.pregenCache = PregenCache(context)
+        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
+    }
+
     @Test
-    fun `seek restarts the fill so the cushion builds within one budget`() {
-        val store = InMemoryPlayerStore()
-        val engine = FakeEngine(healthy = false) // the openBook fill must queue nothing
+    fun `a seek inside the horizon resolves from the cushion without synchronous synthesis`() {
+        val engine = FakeEngine()
         val output = RecordingOutput()
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setAudioManager(this)
-            setSession(this)
-            this.store = store
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, engine)
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val service = service(engine, output)
         PlaybackStateHolder.reset()
         try {
-            // openBook is the real command that builds the service's queue —
-            // the private field the fill and the loop share (seekBy retains
-            // it, so entries survive seeks and the fill tops them up). While
-            // the engine is gated, its front-loading fill synthesizes nothing,
-            // so the queue is EMPTY when the seek executes.
+            // openBook's front-load fill builds the D1 horizon ahead of the
+            // opening (the fake synthesizes instantly); the loop itself only
+            // starts on a service command tail, so the SEEK below is the first
+            // play — exactly the acceptance shape: a seek landing inside the
+            // cushion resolves without ever synthesizing the target.
             service.openBook(book.id)
             await("openBook builds the queue") { PlaybackStateHolder.state.value.bookId == book.id }
-            runBlocking { service.machine!!.playFrom(PlayerPosition(book.id, 0, 0)) } // phase LOADING
-
-            // Restore synthesis; ONLY the restarted fill can build the cushion
-            // now (the stale queue is empty by construction).
-            engine.healthy = true
-            val baseline = engine.synthesized.size
-
-            // The seek command: stopEverything cancels the fill and restarts
-            // the loop. The fix restarts the fill from the seek target; the
-            // regression leaves pregenJob dead, aheadSeconds stuck at 0, and
-            // the loop stalled in the 60 s buffer wait.
-            service.seekBy(30.0)
-
-            await("playback proceeds within one budget: the restarted fill rebuilt the cushion") {
-                output.playCalls > 0
+            val queue = field("queue").get(service) as PregenQueue
+            await("the fill builds the 30 s horizon ahead of the opening") {
+                val pos = service.machine!!.state.value.position!!
+                queue.aheadSeconds(pos) >= 30.0
             }
+
+            // The +30 s target from the current (offset-0) playhead.
+            val target = BookProgress.positionAt(book, 30.0)
+            val targetText = book.passageText(target.chapterIndex, target.passageIndex)!!
             assertTrue(
-                "the restarted fill synthesized ≥3 passages ahead of the seek target " +
-                    "(3 × 10 s = ≥30 s of cushion at the D1 horizon; the loop adds only the sync target passage)",
-                engine.synthesized.size - baseline >= 3,
+                "the +30 s target is inside the cushion (the seek lands on a cached path)",
+                queue.peek(target.chapterIndex, target.passageIndex) != null,
+            )
+
+            val playsBefore = output.playCalls
+            val seekAt = System.currentTimeMillis()
+            service.seekBy(30.0)
+            await("the seeked-to passage plays") { output.playCalls > playsBefore }
+
+            val synced =
+                (0 until engine.synthesized.size).any {
+                    engine.synthesized[it] == targetText && engine.synthAt[it] >= seekAt
+                }
+            assertTrue(
+                "zero synchronous synthesis at seek time (the target resolved from the pregen queue)",
+                !synced,
             )
         } finally {
             service.stopEverything() // stop the loop/fill/ticker before the test JVM settles
         }
     }
-
     @Test
-    fun `a seek keeps the fill job alive - in-flight ensure survives (D1)`() {
-        val store = InMemoryPlayerStore()
-        val engine = FakeEngine(healthy = true)
+    fun `a seek restarts a dead fill and playback proceeds without the dead-owner wait`() {
+        val engine = FakeEngine(healthy = false) // the openBook fill must queue nothing
         val output = RecordingOutput()
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setAudioManager(this)
-            setSession(this)
-            this.store = store
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, engine)
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val service = service(engine, output)
         PlaybackStateHolder.reset()
-        val pregenJobField = PlaybackService::class.java.getDeclaredField("pregenJob")
-        pregenJobField.isAccessible = true
         try {
             service.openBook(book.id)
             await("openBook builds the queue") { PlaybackStateHolder.state.value.bookId == book.id }
-            runBlocking { service.machine!!.playFrom(PlayerPosition(book.id, 0, 0)) } // phase LOADING
 
-            val before: kotlinx.coroutines.Job? = pregenJobField.get(service) as kotlinx.coroutines.Job?
-            assertTrue("the openBook fill is running before the seek", before != null)
+            // A true stop cancels the fill (pregenJob == null) — the state a
+            // seek can inherit after any teardown between commands.
+            service.stopEverything()
+            assertTrue("precondition: the fill is dead before the seek", field("pregenJob").get(service) == null)
 
+            engine.healthy = true
             service.seekBy(30.0)
 
-            val after: kotlinx.coroutines.Job? = pregenJobField.get(service) as kotlinx.coroutines.Job?
-            assertTrue(
-                "seekBy must NOT cancel/restart the fill — D1 survive-seek",
-                after === before,
-            )
-            assertTrue("the surviving fill is not cancelled", after != null && !after.isCancelled)
+            // The #78/#91 guarded restart: the loop-restart command brings the
+            // fill owner back; bufferForPlayback then polls a LIVE fill and the
+            // wait terminates on real progress (no 60 s dead-owner timeout).
+            await("the seek restarted the dead fill") { field("pregenJob").get(service) != null }
+            val job = field("pregenJob").get(service) as kotlinx.coroutines.Job
+            assertTrue("the restarted fill is not cancelled", !job.isCancelled)
+            await("playback proceeds within one budget (no dead-owner wait)") { output.playCalls > 0 }
         } finally {
             service.stopEverything() // stop the loop/fill/ticker before the test JVM settles
         }

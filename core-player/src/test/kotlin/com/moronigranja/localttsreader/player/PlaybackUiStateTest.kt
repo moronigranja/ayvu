@@ -1,5 +1,6 @@
 package com.moronigranja.localttsreader.player
 
+import com.moronigranja.localttsreader.tts.SegmentAnchor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -17,9 +18,9 @@ class PlaybackUiStateTest {
 
     @Test
     fun `steady-state cushion reads against the horizon`() {
-        // 45 s queued ahead (the service's look-ahead target) / 120 s horizon.
-        val state = PlaybackUiState(generatedAheadSeconds = 45.0)
-        assertEquals(0.375f, state.generatedAheadFraction, 1e-6f)
+        // 30 s queued ahead (the D1 horizon target, decisions #155) / 120 s.
+        val state = PlaybackUiState(generatedAheadSeconds = 30.0)
+        assertEquals(0.25f, state.generatedAheadFraction, 1e-6f)
     }
 
     @Test
@@ -59,5 +60,27 @@ class PlaybackUiStateTest {
         assertEquals("Passage 10/10 (90%)", PlaybackUiState.passageIndicatorLabel(9, 10))
         // The clamp only bites when the caller feeds an index past the end.
         assertEquals("Passage 11/10 (100%)", PlaybackUiState.passageIndicatorLabel(10, 10))
+    }
+
+    @Test
+    fun `read-along degrades safely on segment-less outcomes - piper and system voices`() {
+        // The service maps a segments=null SynthesisOutcome.Audio (Piper #30b,
+        // system-tts #102) to an empty list: the active-sentence lookup stays
+        // at sentence 0 for any playhead — follow-along never breaks, and no
+        // estimated word timing is claimed.
+        val degraded = PlaybackUiState(segments = emptyList(), offsetSeconds = 7.5)
+        assertEquals(0, degraded.activeSentenceIndex)
+        // The anchored shape (Kokoro) keeps the real sentence lookup.
+        val anchored =
+            PlaybackUiState(
+                segments =
+                    listOf(
+                        SegmentAnchor(0.0, 3.0),
+                        SegmentAnchor(3.0, 6.0),
+                        SegmentAnchor(6.0, 9.0),
+                    ),
+                offsetSeconds = 7.5,
+            )
+        assertEquals(2, anchored.activeSentenceIndex)
     }
 }

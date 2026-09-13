@@ -71,8 +71,14 @@ class PregenSpaceEstimator(
         private const val DEFAULT_SAMPLE_RATE_HZ = 24_000
 
         /** Engine id → 16-bit mono sample rate; unknown engines use the
-         * documented [DEFAULT_SAMPLE_RATE_HZ] fallback. */
-        private val SAMPLE_RATE_HZ = mapOf(PregenKey.DEFAULT_ENGINE to DEFAULT_SAMPLE_RATE_HZ)
+         * documented [DEFAULT_SAMPLE_RATE_HZ] fallback. piper-v1 renders at
+         * 22.05 kHz (D4, decisions #154) — the 24 kHz fallback would
+         * over-estimate its space by ~9%. */
+        private val SAMPLE_RATE_HZ =
+            mapOf(
+                PregenKey.DEFAULT_ENGINE to DEFAULT_SAMPLE_RATE_HZ,
+                "piper-v1" to 22_050,
+            )
 
         /** The 16-bit mono sample rate assumed for [engine]'s PCM. */
         fun sampleRateHz(engine: String): Int = SAMPLE_RATE_HZ[engine] ?: DEFAULT_SAMPLE_RATE_HZ

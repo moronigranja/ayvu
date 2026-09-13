@@ -12,9 +12,16 @@ import com.moronigranja.localttsreader.player.PlayerCommands
 import com.moronigranja.localttsreader.player.VoiceAudition
 import com.moronigranja.localttsreader.player.VoicePackDownloader
 import com.moronigranja.localttsreader.tts.PackRegistry
+import com.moronigranja.localttsreader.tts.PackState
 import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
+import com.moronigranja.localttsreader.player.AuditionUiState
+import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.tts.piper.PiperEngine
+import com.moronigranja.localttsreader.tts.piper.PiperPacks
+import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
+import com.moronigranja.localttsreader.tts.piper.PiperVoices
 import com.moronigranja.localttsreader.ui.VoiceSelectorUiState
 import com.moronigranja.localttsreader.ui.buildVoiceSelectorState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -48,32 +55,59 @@ class ReaderViewModel
         PlayerCommands {
         val state: StateFlow<PlaybackUiState> = PlaybackStateHolder.state
 
-        /** C2: the shared selector state for the reader's voice sheet. */
+        /** C2: the shared selector state for the reader's voice sheet — the
+         * catalog follows the selected engine (D4 #154 addendum): piper rows
+         * with the resolved voice's pack readiness under `piper-v1`, the
+         * Kokoro catalog otherwise. A saved voice the active engine does not
+         * expose degrades to the builder's unavailable row (decisions #144
+         * availability shape). */
         val voiceSelector: StateFlow<VoiceSelectorUiState> =
             combine(settings.state, audition.state, registry.packs) { prefs, aud, packs ->
-                val ready =
-                    setOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
-                        .all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
-                buildVoiceSelectorState(
-                    voices = KokoroVoiceMetadata.all,
-                    selectedVoice = prefs.voice,
-                    favorites = prefs.favorites.toSet(),
-                    ready = ready,
-                    audition = aud,
-                )
+                voiceSelector(packs, prefs, aud)
             }.stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                buildVoiceSelectorState(
-                    voices = KokoroVoiceMetadata.all,
-                    selectedVoice = settings.state.value.voice,
-                    favorites =
-                        settings.state.value.favorites
-                            .toSet(),
+                voiceSelector(
+                    registry.packs.value,
+                    settings.state.value,
+                    audition.state.value,
                     ready = false,
-                    audition = audition.state.value,
                 ),
             )
+
+        private fun voiceSelector(
+            packs: List<PackState>,
+            prefs: AppSettings.Snapshot,
+            audition: AuditionUiState,
+            ready: Boolean = readyFor(prefs, packs),
+        ): VoiceSelectorUiState {
+            val piperSelected = prefs.ttsEngine == SettingsStore.PIPER_ENGINE
+            return buildVoiceSelectorState(
+                voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
+                selectedVoice = prefs.voice,
+                favorites = prefs.favorites.toSet(),
+                ready = ready,
+                audition = audition,
+            )
+        }
+
+        /** Pack readiness of the SELECTED engine: Kokoro's three packs, or
+         * the resolved Piper voice's model + config plus the shared espeak
+         * bundle both engines phonemize through. */
+        private fun readyFor(
+            prefs: AppSettings.Snapshot,
+            packs: List<PackState>,
+        ): Boolean {
+            val ids =
+                if (prefs.ttsEngine == SettingsStore.PIPER_ENGINE) {
+                    PiperPacks.forVoice(
+                        if (prefs.voice in PiperVoices.all) prefs.voice else PiperEngine.DEFAULT_VOICE,
+                    ).map { it.id } + ESPEAK_PACK_ID
+                } else {
+                    listOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
+                }
+            return ids.all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
+        }
 
         /** The book this reader shows — [resume] carries it so a machine-less
          * service (STOP's post-stop fill self-stopped it) can rebuild and
@@ -200,5 +234,11 @@ class ReaderViewModel
                 intent.putExtra(PlaybackService.EXTRA_DIRECTION, direction)
             }
             runCatching { context.startForegroundService(intent) }
+        }
+
+        private companion object {
+            /** The shared espeak-ng bundle both open-weight engines phonemize
+             * through (Kokoro and Piper; the descriptor id is stable). */
+            const val ESPEAK_PACK_ID = "espeak-ng"
         }
     }

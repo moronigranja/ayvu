@@ -4,6 +4,171 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 155. D1 — instant ±30-second seek horizon: 30 s audio-time horizon, survive-seek join/restart, no hot-zone persistence (2026-09-13)
+
+Roadmap D1. The survive-seek half landed as #91; the deferred "narrower horizon is a
+measured follow-up" re-parameterization lands now, with the join/restart semantics
+unit-tested end to end.
+
+- **Horizon 45 s → 30 s, one constant.** `PREFILL_LOOKAHEAD_SECONDS = 30.0` IS the
+  horizon everywhere — the queue's time bound, the buffer-before-start wait target,
+  and the generation notification's 100% denominator (consistent by construction);
+  `PregenQueue`'s default follows (30.0). The 60-passage bulwark is unchanged and now
+  only bites for <0.5 s passages — the memory bound is the horizon itself: ~1.4 MB
+  kokoro PCM (24 kHz mono 16-bit) at full cushion. PregenWorker/OfflinePregen budgets
+  share nothing with it.
+- **Coverage margin.** The fill breaks AFTER the crossing passage (stop at
+  `ahead >= 30`), so the queued span reaches past the +30 s point for any mid-passage
+  playhead (target ≤ span end ⟺ Q + remaining ≥ 30, true for remaining ≥ 0): +30 s
+  resolves from the cushion, −30 s from the disk tier (every synthesized passage is
+  write-through persisted — queue `onSynthesized` plus the loop's first-listen
+  persists). Only an exact `Q == 30.000` ∧ boundary-aligned playhead could fall to the
+  next passage; not observed with real text.
+- **Join/restart (completes #78/#91).** Seeks keep `stopEverything(stopFill = false)`;
+  the surviving fill re-arms from the live playhead between passages (`ensure(from,
+  rearm)`) and on its 200 ms tick; a seek onto a dead fill takes the guarded restart
+  (`pregenJob == null → startPrefill`) — the fill owner exists on every loop-restart
+  command. No dead-owner wait: a concurrent/joining ensure returns immediately (the
+  contiguous-prefix plan stops at in-flight work, never waiting on it).
+- **Hot-zone persistence: not added** (the optional half). Reading of bugs.md ±30s:
+  the misses were the 60 s dead-owner ensure (#78 addendum) and the cold target's sync
+  synthesis — never RAM churn; the look-ahead is already persisted on synthesis and
+  the entry's mechanism note shows the disk tier serving (`source=disk` observed).
+- **B6 headroom trade accepted** (reverses the #91-era deferral comment): the cold
+  target's pre-start wait now buys 30 s of cushion instead of 45 s; the cold path is
+  not an SLO and each horizon second is a seek second the acceptance measures.
+- **D4 coordination footnote:** `piper-v1` added to `PregenSpaceEstimator.SAMPLE_
+  RATE_HZ = 22_050` (#154) per the map's new-engine convention (the 24 kHz fallback
+  over-estimated piper space ~9%).
+
+Evidence: `PregenQueueTest` +2 (horizon accounting — 30 × 1 s passages stop the fill
+at exactly 30.0 s ahead, nothing extra; concurrent ensure from a seeked playhead
+returns without waiting on the parked stale owner, stale result pruned, refill from
+the new playhead), `PlaybackServiceSeekHorizonTest` +2 (a seek inside the horizon
+plays with zero target synthesis after the seek lands; a seek onto a dead fill
+restarts it and playback proceeds within one budget), `PlaybackServiceFillRestartTest`
+updated to the 30 s horizon (≥3 × 10 s fills the cushion);
+`:core-player:test :feature-player:test` green (138 + 57). Device acceptance scaffold:
+`D1SeekHorizonBenchmarkTest` (androidTest, spike-tts pattern — `AyvuD1` rows +
+`d1_seek_results.json`: ten ±30 s seeks classified `buffer|pregen|disk`, strict
+zero-sync-synthesis assert, cold-first-play + Choreographer-skip count, per-row
+queue size/ahead/PSS) — S22/HiBreak legs owner-run pending.
+
+## 154. D4 PiperEngine adopted — `piper-v1` registered with two pinned voices, one-voice-per-instance, no word-timestamp read-along (2026-09-13)
+
+The D4 quality gate passed (owner listening pass, #99 addendum 2026-09-13), so the small
+tier lands as a third `TTSEngine` implementor beside Kokoro: `PiperEngine` +
+`OrtPiperSession` + `PiperVoiceConfig` + `PiperPacks` in `core-tts/.../tts/piper/`,
+registered in `DefaultEngines` as **`piper-v1`** (PRIMARY — a genuine quality-gated
+narration engine class, not a fallback tier; the playback seam never auto-selects it).
+The runtime session mirrors the proven D4 spike invocation exactly: `input` int64
+`[1,L]`, `input_lengths` int64 `[1]`, `scales` float32 `[3]` = (noise_scale,
+length_scale, noise_w) from the voice json, output read via `floatBuffer` — never
+`getValue()` on the rank-4 tensor (the #99 correction lesson) — with 6 intra-op
+threads and memory-patterns/CPU-arena off (the #93 weak-device lesson).
+
+- **One voice per instance.** A Piper voice IS a model (no speaker mixing): an
+  instance is opened for one of `PiperVoices` (`en_US-lessac-medium`,
+  `de_DE-thorsten-high`) and a request for any other voice fails typed ("unknown
+  voice") instead of silently switching models. The instance's `packs` are that
+  voice's model + config; the registry descriptor carries all four packs.
+- **Packs pinned @ rhasspy/piper-voices `1162a9173d0ce503555aed757976b7a9912eae4c`:**
+  lessac model 63,201,294 B `5efe09e6…af019f` (the HF LFS oid, cross-checked
+  byte-for-byte against the staged spike copy), thorsten model 113,895,201 B
+  `9df1c43c…`, plus each voice's `.onnx.json` as a VOICE-kind pack (the
+  phoneme_id_map + scales + espeak voice the engine needs besides the weights;
+  4,885/4,875 B, hashed from the downloaded artifacts). German is Piper-only at v1 —
+  Kokoro v1.0 ships no German voices.
+- **Phoneme ids verified against official piper.** piper-tts (piper1-gpl)
+  `PiperVoice` on the lessac artifact produced exactly `PiperVoiceConfig.phonemeIds`'s
+  sequence for the sample sentence: BOS=1 + PAD=0 open, (id, 0) per NFD-decomposed
+  phoneme codepoint, EOS=2; unmapped codepoints skip like official piper, and a
+  framing-only sequence fails as "nothing to synthesize" instead of rendering
+  silence. The recorded official ids are pinned in a JVM test.
+- **Read-along degradation (#30b) recorded:** the stock export exposes a single
+  audio output — no alignments, no word timestamps — so `SynthesisOutcome.Audio`
+  ships `segments = null` (the same shape as the system voice); a custom re-export
+  could surface VITS alignments later.
+- **Speed flows through the VITS length scale** (durations ÷ speed, clamped to the
+  0.5–2.0 contract bounds); otherwise the scales are the voice json's measured
+  values (lessac 0.667/1.0/0.8).
+- **Registration shape:** `PackModule`'s registry picks the engine up through
+  `DefaultEngines.descriptors` — no extra DI binding, because nothing consumes a
+  `PiperEngine` instance yet. Packs are registered, downloadable, sha-verified state
+  (the settings Engine section still enumerates the Kokoro rows); runtime selection
+  through `EngineSelector`/`KokoroRuntime` (feature-player) is the follow-up slice
+  and was deliberately untouched. `PregenSpaceEstimator` falls back to its 24 kHz
+  default for `piper-v1` — over-estimates space ~9%, the safe direction.
+- `pcm16` moved out of `KokoroEngine`'s companion into a shared internal helper
+  (`tts/Pcm16.kt`): one implementation of the `SynthesisOutcome.Audio` encoding for
+  both engines.
+
+Host smoke (`:core-tts:piperSmoke`): both packs download + verify through the real
+registry flow; 18.37 s of finite mono PCM @ 22050 Hz, RTF 0.031, segments=null; WAV +
+log at `docs/prints/d4/piper-engine-smoke.{wav,txt}`. The B6 re-measure stays
+available through the spike harness (device offline this session; the spike's B6
+numbers on ORT-android 1.29 stand: RTF 0.566–0.575, #99 correction).
+
+Evidence: `:core-tts:test` 136/136 green (PiperVoiceConfigTest incl. the
+verified-vs-official-piper id case, PiperEngineTest contract + degradation shape,
+DefaultEnginesTest pins); `:app:compileDebugKotlin` green; `:core-tts:piperSmoke`
+run logged to `docs/prints/d4/`.
+
+**Addendum (2026-09-13, selection wiring — the follow-up slice #154 named):**
+`piper-v1` is selectable end-to-end through the existing engine switch, with no
+auto-switching and no D1 semantic change (SeekHorizon's 30 s horizon, decisions #155,
+re-read and preserved).
+
+- **`PiperRuntime` (feature-player)** — the [KokoroRuntime] pattern: lazy open over
+  the downloaded packs ([PiperPacks.forVoice] → `PackCache` targets), the shared
+  espeak-ng bundle (`files/espeak/`, decision #32), the user's intra-op thread setting
+  (#137), the #93 session options, and the QW3 retry cap. One voice per instance: the
+  runtime resolves the served voice and re-points to a fresh instance on a voice
+  change; superseded instances are NOT closed (process-scoped like Kokoro's single
+  session — closing under a live caller races in-flight synthesis), so at most one
+  session per ever-used voice exists.
+- **`EngineSelector`** gains the explicit `piper-v1` branch (`SettingsStore.PIPER_
+  ENGINE`, the DefaultEngines id): `engine()` routes to [PiperRuntime], the typed
+  prerequisite reason surfaces through `failureReason` like Kokoro's, and Piper is
+  never `degraded` (PRIMARY engine class). New `resolveVoice(stored)`: the #144
+  availability shape — engine-exposed ids pass through, anything else falls back to
+  the engine's default voice (`PiperEngine.DEFAULT_VOICE`); Kokoro/system stay
+  byte-for-byte passthrough. `PlaybackService.activeVoice()` routes through it (the
+  #144 choke point), so synthesis requests, queue keys and the pre-arm name a voice
+  the instance actually serves.
+- **Voice sheet/catalog** engine-aware (`SettingsViewModel` + `ReaderViewModel` via
+  the ONE shared builder): `PiperVoiceMetadata` rows (names = the served
+  [PiperVoices] ids) when piper-v1 is selected, readiness = the resolved voice's
+  model + config + espeak; a saved voice the engine does not expose degrades to the
+  builder's unavailable row (#144). `SettingsScreen` gains the Piper radio, engine-
+  aware pack rows (visiblePackIds: piper models/configs + espeak) and `downloadVoicePacks`.
+  **K2 verification recorded:** the settings engine rows are NOT descriptor-driven —
+  `KOKORO_PACK_IDS` is a hardcoded plan card and the pack-row filter was hardcoded to
+  the Kokoro ids; the pack-card hardcode stays untouched (K2 owns the refactor), the
+  row filter is now engine-aware.
+- **Audition**: `PiperVoicePreview` supplies the per-voice phrases; the coordinator
+  falls back to it after Kokoro's `VoicePreview` (unknown names still fail typed).
+  Setup flow untouched (kokoro download + system-tts opt-in only).
+- **#30b verified structurally**: Piper outcomes ship `segments = null` — the service
+  maps them through the SAME `?: emptyList()` as system-tts, so the read-along surface
+  stays empty (active sentence 0, `passageDurationSeconds` 0.0) instead of fabricated
+  anchors; follow-active-sentence cannot break. Pinned by `PlaybackUiStateTest`
+  (segment-less vs anchored shapes) and the service-level piper test.
+- **Cache keys**: piper audio rides the default-engine `PregenKey` keyspace,
+  distinguished by its voice ids — a collision with a Kokoro voice name is impossible
+  (`en_US-lessac-medium`-shaped ids vs `af_heart`-shaped). Engine-correct keying plus
+  coverage/estimator engine threading stays with K5 (per-book overrides + the
+  PregenStorage surfaces, decisions #144). The generation-threads row now shows for
+  Piper too (the runtime consumes the same setting).
+
+Evidence: `:core-tts:test` 138 (PiperVoiceMetadataTest roster/phrase pins),
+`:core-player:test` 139 (read-along degradation shape), `:feature-player:test` 60
+(`EngineSelectorPiperTest` — routing/voice-resolution/failure-surface + never-touches-
+Kokoro; `PlaybackServicePiperSelectTest` — piper-v1 end-to-end through the service
+seam with the resolved voice and no fabricated read-along), `:feature-settings:test` 5,
+`:app:testDebugUnitTest` 24, `:app:compileDebugKotlin` green. Device legs (select
+Piper, play, no word-timing claims) owner-run.
+
 ## 153. D5 Pocket TTS spike — first ARM datapoint: RTF ~5.5–6.4 on the HiBreak, pregen-only, faithful-but-ISA-noisy (2026-09-11)
 
 Owner asked for the Pocket TTS spike with the B6 connected. The `KevinAHM/pocket-tts-onnx`

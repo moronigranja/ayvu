@@ -9,35 +9,64 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 /**
- * C1.5/decisions #102: the playback engine seam. PlaybackService and
- * PregenWorker keep one neutral entry point; this selector returns the
- * zero-download [SystemTtsEngine] (bound app-side under
- * `@Named("system_tts")`, realized lazily so a kokoro-only session never
- * touches the device TTS) when the user opted into the degraded device voice,
- * else the ready [KokoroRuntime] engine.
+ * C1.5/decisions #102, extended by the D4 selection wiring (#154 addendum):
+ * the playback engine seam. PlaybackService and PregenWorker keep one neutral
+ * entry point; the persisted `tts_engine` setting picks between
+ * - the zero-download [SystemTtsEngine] (bound app-side under
+ *   `@Named("system_tts")`, realized lazily so an open-weight session never
+ *   touches the device TTS) — the degraded device voice,
+ * - the [PiperRuntime] engine (D4 small tier, downloaded packs),
+ * - else the ready [KokoroRuntime] engine.
  *
  * The selected engine changes only via [AppSettings] (the Settings screen's
  * "Speech engine" row / setup opt-in), and the service re-reads it on every
- * play/resume — no restart needed.
+ * play/resume — no restart needed. Selection is explicit: nothing here
+ * auto-switches engines (decisions #154 — Piper is never auto-selected).
  */
 @Singleton
 class EngineSelector
     @Inject
     constructor(
         private val runtime: KokoroRuntime,
+        private val piper: PiperRuntime,
         @Named("system_tts") private val systemTts: Lazy<TTSEngine>,
         private val settings: AppSettings,
     ) {
+        private val selected: String
+            get() = settings.state.value.ttsEngine
+
         /** True when the degraded system voice is selected (drives the
-         * PlayerCard's "Device voice" pill via PlaybackUiState.degraded). */
+         * PlayerCard's "Device voice" pill via PlaybackUiState.degraded).
+         * Piper is a PRIMARY engine class, not degraded (#154). */
         val isDegraded: Boolean
-            get() = settings.state.value.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE
+            get() = selected == SettingsStore.SYSTEM_TTS_ENGINE
 
         /** The active engine, or null when its prerequisites are missing. */
-        fun engine(): TTSEngine? = if (isDegraded) systemTts.get() else runtime.engine()
+        fun engine(): TTSEngine? =
+            when {
+                isDegraded -> systemTts.get()
+                selected == SettingsStore.PIPER_ENGINE -> piper.engine()
+                else -> runtime.engine()
+            }
+
+        /**
+         * The voice id the ACTIVE engine serves for the stored global voice
+         * (decisions #144 availability shape): engine-exposed ids pass
+         * through, anything else falls back to that engine's default voice —
+         * playback and cache keys always name a voice the engine actually
+         * serves (a Kokoro name must never reach the one-voice-per-instance
+         * Piper session, which fails typed on unknown voices).
+         */
+        fun resolveVoice(stored: String): String =
+            if (selected == SettingsStore.PIPER_ENGINE) piper.voiceFor(stored) else stored
 
         /** Missing-prerequisite reason for the non-degraded engine; null in
          * degraded mode (system synthesis failures surface per passage). */
         val failureReason: String?
-            get() = if (isDegraded) null else runtime.failureReason
+            get() =
+                when {
+                    isDegraded -> null
+                    selected == SettingsStore.PIPER_ENGINE -> piper.failureReason
+                    else -> runtime.failureReason
+                }
     }

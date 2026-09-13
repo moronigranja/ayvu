@@ -63,6 +63,22 @@ tasks.register<JavaExec>("kokoroGrainSpike") {
         args = launcherArgs
     }
 }
+
+tasks.register<JavaExec>("piperSmoke") {
+    description = "D4: synthesize a passage with the real PiperEngine over the pinned packs (host espeak + ORT)"
+    group = "verification"
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("com.moronigranja.localttsreader.tts.piper.PiperSmokeKt")
+    // First optional arg: pack cache root (defaults to ~/.cache/local-tts-reader/packs);
+    // the lessac model downloads once through the pinned descriptor.
+    val launcherArgs = mutableListOf<String>()
+    if (project.hasProperty("piperCache")) {
+        launcherArgs += project.property("piperCache") as String
+    }
+    if (launcherArgs.isNotEmpty()) {
+        args = launcherArgs
+    }
+}
 tasks.register<JavaExec>("g0Corpus") {
     description = "G0: phonemize the narration corpus into g0_corpus.tsv (five columns) with the production EspeakPhonemizer"
     group = "verification"

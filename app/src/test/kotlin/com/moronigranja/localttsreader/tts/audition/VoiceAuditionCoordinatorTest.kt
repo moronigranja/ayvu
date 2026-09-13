@@ -2,6 +2,7 @@ package com.moronigranja.localttsreader.tts.audition
 
 import android.content.Context
 import com.moronigranja.localttsreader.featureplayer.playback.EngineSelector
+import com.moronigranja.localttsreader.featureplayer.playback.PiperRuntime
 import com.moronigranja.localttsreader.featureplayer.playback.KokoroRuntime
 import com.moronigranja.localttsreader.featureplayer.playback.PassageOutput
 import com.moronigranja.localttsreader.persistence.AppSettings
@@ -79,6 +80,7 @@ class VoiceAuditionCoordinatorTest {
             selector =
                 EngineSelector(
                     FakeRuntime(context, engine, settings),
+                    PiperRuntime(context, settings),
                     object : dagger.Lazy<TTSEngine> {
                         override fun get(): TTSEngine = error("system tts unused")
                     },

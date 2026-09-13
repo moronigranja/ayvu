@@ -24,7 +24,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `core-model` | Canonical domain: Book, Chapter, TextPassage, LibraryEntry |
 | `core-ebook` | EPUB2/3 + AZW3/KF8 + MOBI/AZW + TXT/Markdown parsers, passage segmentation, import pipeline (C7) |
 | `core-locate` | N-gram book/passage identification, launch-time index rebuild, `TextIndex.best` for below-threshold hints |
-| `core-tts` | TTSEngine + Kokoro-82M (onnxruntime behind a compileOnly seam), espeak-ng phonemization, pinned pack descriptors, Pt-BR voices verified |
+| `core-tts` | TTSEngine + Kokoro-82M (onnxruntime behind a compileOnly seam), espeak-ng phonemization, pinned pack descriptors, Pt-BR voices verified; Piper engine (`piper-v1`, D4) with pinned per-voice packs — decisions #154 |
 | `core-player` | Player state machine, transactional progress + bookmarks + undo ring, sleep timer, speed; T5 pre-generation queue + PCM cache |
 | `core-ocr` | OCR engine seam, screenshot downscaler, six pinned legacy-traineddata packs (tess-two 9.1.0 can't init LSTM models — decisions #36) |
 
@@ -88,8 +88,13 @@ fingerprint published with the release, and see
 - **Share-and-identify** only recognizes books already imported into the library.
 - **TTS voices:** v1 ships Kokoro-82M as the primary engine (CosyVoice3 gated behind
   the fallback tier — far from realtime on the S22 CPU, decisions #21); the pinned
-  v1.0 voice pack serves en/en-GB, fr, es, it, pt-BR, ja, zh, hi. Model and language
-  packs are on-demand downloads, never bundled (decisions #7). Portuguese is a
+  v1.0 voice pack serves en/en-GB, fr, es, it, pt-BR, ja, zh, hi. The Piper engine
+  (`piper-v1`, decisions #154) is registered with its first two pinned voice packs
+  (en_US-lessac-medium, de_DE-thorsten-high — German, which Kokoro does not serve)
+  and downloads through the same pack flow; selecting it for playback is the
+  follow-up playback-seam slice, and Piper reads along at passage level only (no
+  word timestamps — decisions #30b).
+  Model and language packs are on-demand downloads, never bundled (decisions #7). Portuguese is a
   first-class voice family (`pf_`/`pm_`, verified end-to-end, decisions #40); the
   post-v1 translate-then-read decorator (`core-translate` — any advertised target language,
   decisions #101; SMaLL-100 int8 adopted as the engine, decisions #114) is a separate

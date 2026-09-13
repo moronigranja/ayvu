@@ -150,7 +150,7 @@ class PlaybackServiceA57Test {
         this.libraryStore = RoomLibraryStore(database, scope)
         this.settings = AppSettings(SettingsStore(database.settingsDao()))
         this.runtime = FakeRuntime(context, this.settings, engine)
-        this.selector = EngineSelector(this.runtime, onUnusedSystemTts, this.settings)
+        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
     }
 
     // ------------------------------------------------------------------
@@ -359,7 +359,7 @@ class PlaybackServiceA57Test {
             this.libraryStore = RoomLibraryStore(database, scope)
             this.settings = AppSettings(SettingsStore(database.settingsDao()))
             this.runtime = FakeRuntime(context, this.settings, null)
-            this.selector = EngineSelector(this.runtime, onUnusedSystemTts, this.settings)
+            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
         }
         PlaybackStateHolder.reset()
 
@@ -455,7 +455,7 @@ class PlaybackServiceA57Test {
             this.settings = AppSettings(SettingsStore(database.settingsDao()))
             this.runtime = FakeRuntime(context, this.settings, engine)
             this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, onUnusedSystemTts, this.settings)
+            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
         }
         PlaybackStateHolder.reset()
         PlaybackActive.markStarted() // the start/resume command paths mark this

@@ -13,6 +13,7 @@ import com.moronigranja.localttsreader.player.VoiceAudition
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.kokoro.VoicePreview
+import com.moronigranja.localttsreader.tts.piper.PiperVoicePreview
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -90,7 +91,11 @@ class VoiceAuditionCoordinator
                         // the main thread — it happens off-main here so the UI
                         // stays responsive and shows cancellable
                         // "Generating sample…" while the model loads.
-                        val phrase = VoicePreview.phraseFor(voice)
+                        // Phrase lookup follows the ACTIVE engine's catalog:
+                        // Kokoro families first, then the Piper voices
+                        // (D4 #154 addendum) — unknown names stay null and
+                        // the audition fails typed below.
+                        val phrase = VoicePreview.phraseFor(voice) ?: PiperVoicePreview.phraseFor(voice)
                         val engine = withContext(ioDispatcher) { selector.engine() }
                         if (phrase == null || engine == null) {
                             finishAudition()

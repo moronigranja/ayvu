@@ -1503,7 +1503,7 @@ class PlaybackService : Service() {
     /**
      * Throttled (≥1 s) in-place refresh of the generation notification:
      * indeterminate while the buffer holds 0 s (engine loading), then
-     * determinate against the fill's own 45 s target ([PREFILL_LOOKAHEAD_SECONDS]).
+     * determinate against the fill's own D1 horizon ([PREFILL_LOOKAHEAD_SECONDS]).
      * Id 44 — deliberately NOT 43, which the pregen worker already owns: the
      * playback-time and manual notifications must coexist (id 43 would
      * overwrite the manual run's in place).
@@ -1730,8 +1730,12 @@ class PlaybackService : Service() {
         }
     }
 
-    /** The selected Kokoro voice (V1 settings); defaults to af_heart until chosen. */
-    private fun activeVoice(): String = settings.state.value.voice
+    /** The voice the ACTIVE engine serves for the stored global voice
+     * (decisions #144 availability shape): engine-exposed ids pass through,
+     * anything else falls back to that engine's default — the choke point
+     * behind synthesis, coverage keys and the queue's engine-keyed paths.
+     * D1 semantics unchanged for Kokoro (passthrough, as before). */
+    private fun activeVoice(): String = selector.resolveVoice(settings.state.value.voice)
 
     /** Releases the session's audio focus — the counterpart of [requestFocus].
      * Only a true stop calls this ([captureAndStop]'s STOP path and [onDestroy]);
@@ -1876,15 +1880,21 @@ class PlaybackService : Service() {
 
         /** 10 ms of completion margin in frames at a rendered rate (S5). */
         private fun frameMargin(sampleRate: Int): Int = sampleRate / 100
-        // D1 (roadmap "approximately 30-second audio horizon"): the look-ahead
-        // target. Kept at 45 s — a time-based fill re-runs each tick, so the
-        // horizon is already self-sustaining while playing, and shrinking it
-        // would reduce the buffer-before-start headroom on the B6 (RTF 2.9).
-        // Survive-seek (the D1 slice that landed) is what makes seeks cheap;
-        // a narrower horizon is a measured follow-up, not a blind change.
+        // D1 (decisions #155, roadmap "approximately 30-second audio horizon"):
+        // the look-ahead horizon is AUDIO time at the playhead — ensure() queues
+        // passages until ~30 s of audio sits ahead, and the tick top-up follows
+        // the playhead (survive-seek, decisions #91, keeps that cushion intact
+        // across seeks). One constant IS the horizon everywhere: the queue's
+        // time bound, the buffer-before-start wait, and this notification's
+        // denominator — they must not drift. The B6 headroom trade (a shorter
+        // cushion before the cold target's sync synthesis) is accepted: the
+        // cold path is not an SLO, and every horizon second is also a seek
+        // second the acceptance measures.
 
-        /** Prefill: buffer this many seconds of audio ahead while playing. */
-        private const val PREFILL_LOOKAHEAD_SECONDS = 45.0
+        /** Prefill horizon (D1): buffer this many seconds of audio ahead of
+         * the playhead — the queue target, the buffer-before-start target,
+         * and the generation notification's 100% denominator share it. */
+        private const val PREFILL_LOOKAHEAD_SECONDS = 30.0
 
         /** Prefill: hard passage ceiling (bulwark against tiny-passage books). */
         private const val PREFILL_LOOKAHEAD_PASSAGES = 60

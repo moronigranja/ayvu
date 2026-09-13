@@ -119,6 +119,7 @@ class PregenWorkerTest {
         // (kokoro default — the system engine is never realized in tests).
         val selector = EngineSelector(
             runtime,
+            PiperRuntime(context, settings),
             object : dagger.Lazy<TTSEngine> {
                 override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
             },

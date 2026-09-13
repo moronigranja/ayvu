@@ -154,7 +154,7 @@ class PlaybackServiceRevivalTest {
         service.libraryStore = RoomLibraryStore(database, scope)
         service.settings = AppSettings(SettingsStore(database.settingsDao()))
         service.runtime = FakeRuntime(context, service.settings, engine)
-        service.selector = EngineSelector(service.runtime, onUnusedSystemTts, service.settings)
+        service.selector = EngineSelector(service.runtime, PiperRuntime(context, service.settings), onUnusedSystemTts, service.settings)
         return service
     }
 

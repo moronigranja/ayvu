@@ -1,6 +1,7 @@
 package com.moronigranja.localttsreader.tts
 
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
+import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -58,5 +59,44 @@ class DefaultEnginesTest {
         val cosy = DefaultEngines.descriptors.first { it.spec.id == "cosyvoice3-0.5b" }
         assertTrue(cosy.packs.isEmpty(), "no fake URLs/hashes may ship")
         assertTrue(cosy.spec.tier == EngineTier.FALLBACK)
+    }
+
+    @Test
+    fun `piper is the adopted D4 primary-tier engine with its two pinned voices`() {
+        val spec = DefaultEngines.piper
+        assertEquals("piper-v1", spec.id)
+        assertEquals(EngineTier.PRIMARY, spec.tier, "quality gate passed + realtime measured (decisions #99 addenda)")
+        // The two pinned rhasspy/piper-voices voices @ 1162a917; German is
+        // Piper-only at v1 (Kokoro ships no German voices).
+        assertEquals(setOf("en", "de"), spec.languages)
+    }
+
+    @Test
+    fun `piper ships the pinned D4 pack descriptors`() {
+        val piper = DefaultEngines.descriptors.first { it.spec.id == "piper-v1" }
+        assertEquals(PiperPacks.all, piper.packs)
+        assertEquals(
+            listOf("piper-lessac-medium", "piper-lessac-medium-config", "piper-thorsten-high", "piper-thorsten-high-config"),
+            piper.packs.map { it.id },
+        )
+
+        val model = PiperPacks.lessacModel
+        assertEquals(
+            "https://huggingface.co/rhasspy/piper-voices/resolve/1162a9173d0ce503555aed757976b7a9912eae4c/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+            model.url,
+        )
+        assertEquals("5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f", model.sha256Hex)
+        assertEquals(63_201_294L, model.sizeBytes, "en_US-lessac-medium.onnx @ 1162a917 (HF LFS oid)")
+        assertEquals(PackKind.VOICE, PiperPacks.lessacConfig.kind, "the .onnx.json is the voice config asset")
+        assertEquals(4_885L, PiperPacks.lessacConfig.sizeBytes, "the voice config travels with its model")
+
+        val thorsten = PiperPacks.thorstenModel
+        assertEquals(
+            "https://huggingface.co/rhasspy/piper-voices/resolve/1162a9173d0ce503555aed757976b7a9912eae4c/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx",
+            thorsten.url,
+        )
+        assertEquals("9df1c43c61149ef9b39e618e2b861fbe41e1fcea9390b2dac62e8761573ea4f1", thorsten.sha256Hex)
+        assertEquals(113_895_201L, thorsten.sizeBytes, "de_DE-thorsten-high.onnx @ 1162a917 (HF LFS oid)")
+        assertEquals(4_875L, PiperPacks.thorstenConfig.sizeBytes)
     }
 }

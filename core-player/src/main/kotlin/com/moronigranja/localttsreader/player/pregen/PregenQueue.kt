@@ -40,8 +40,10 @@ class PregenQueue(
     private val speed: Double,
     private val synthesize: suspend (text: String) -> SynthesisOutcome,
     private val lookahead: Int = 5,
-    /** Buffered audio target in seconds ahead of the playhead. */
-    private val lookaheadSeconds: Double = 45.0,
+    /** Buffered audio target in seconds ahead of the playhead — the D1
+     * horizon (decisions #155, "approximately 30-second audio horizon");
+     * the service passes its horizon constant explicitly. */
+    private val lookaheadSeconds: Double = 30.0,
     /** Handed every freshly synthesized [PregenAudio] so the owner can persist
      * it to the disk tier. The default no-ops for host tests. */
     private val onSynthesized: suspend (key: PregenKey, audio: PregenAudio) -> Unit = { _, _ -> },

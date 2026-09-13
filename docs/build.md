@@ -607,6 +607,40 @@ adb logcat -d -s PocketSpike:V
 Measured HiBreak results (2026-09-11, decisions #153): RTF **5.54–6.87**, PSS ~1.40 GB,
 cold open ~6 s — see `docs/prints/d5/` when copied in; WAVs staged for the owner.
 
+## D1 seek-horizon staging (2026-09-13, `feature-player` androidTest)
+
+Stages the device acceptance leg for roadmap D1 (decisions #155): the real
+PlaybackService + real Kokoro runtime driven by `D1SeekHorizonBenchmarkTest` through
+the host-test command seam. Reuses the kokoro model/voices already staged for the
+benchmarks (`files/models/` under `spike-tts`) and the espeak bundle from
+§"espeak-ng Android bundle" below.
+
+```bash
+S=<serial>                       # S22 192.168.0.116:5555 · B6: usb B6CLR0B2FHFA006000712
+./gradlew :feature-player:assembleDebugAndroidTest   # feature-player/build/outputs/apk/androidTest/debug/
+adb -s $S install -r feature-player/build/outputs/apk/androidTest/debug/feature-player-debug-androidTest.apk
+adb -s $S push ~/.cache/ayvu-spike/models/kokoro/kokoro-model /data/local/tmp/ayvu-d1/kokoro-model
+adb -s $S push ~/.cache/ayvu-spike/models/kokoro/kokoro-voices /data/local/tmp/ayvu-d1/kokoro-voices
+adb -s $S push build/espeak-ng-152/lib/libespeak-ng.so /data/local/tmp/ayvu-d1/libespeak-ng.so
+adb -s $S push build/espeak-ng-152/espeak-ng-data /data/local/tmp/ayvu-d1/espeak-ng-data
+adb -s $S shell chmod -R a+rX /data/local/tmp/ayvu-d1     # the test app must read them
+adb -s $S shell pm grant $T android.permission.READ_LOGS   # in-test Choreographer count
+adb -s $S shell svc power stayon true
+adb -s $S logcat -c
+adb -s $S shell am instrument -w \
+  -e class com.moronigranja.localttsreader.featureplayer.playback.D1SeekHorizonBenchmarkTest \
+  -e seeks 10 -e delta 30.0 -e strict 1 -e stage /data/local/tmp/ayvu-d1 \
+  $T.test/androidx.test.runner.AndroidJUnitRunner
+adb -s $S logcat -d -s AyvuD1
+adb -s $S exec-out run-as $T cat /sdcard/Android/data/$T/files/d1_seek_results.json
+```
+
+`strict 0` records rows without failing on a synchronous-synthesis seek (use on the
+HiBreak if the fill cannot rebuild the horizon inside the pre-wait budget — the rows
+still say which seeks were cold). The run never touches the real app's data (in-memory
+Room; packs stage into the TEST package's filesDir — no `adb uninstall` of the main
+app, which would wipe its staged models).
+
 ## espeak-ng Android bundle (decision #32)
 
 Cross-compiles `libespeak-ng.so` (arm64-v8a) at the pinned espeak-ng release tag

@@ -61,7 +61,8 @@ object PackModule {
         transport: com.moronigranja.localttsreader.tts.DownloadTransport,
     ): PackDownloader = PackDownloader(cache, transport)
 
-    /** One registry over both engines: Kokoro-82M + the OCR language packs. */
+    /** One registry over the known engines' packs (DefaultEngines: Kokoro-82M,
+     * Piper `piper-v1`, gated CosyVoice3 metadata) plus the OCR language packs. */
     @Provides
     @Singleton
     fun providePackRegistry(

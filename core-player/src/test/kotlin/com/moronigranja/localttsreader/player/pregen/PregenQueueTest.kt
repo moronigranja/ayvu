@@ -176,6 +176,67 @@ class PregenQueueTest {
     }
 
     @Test
+    fun `the D1 horizon fills about 30 s of audio ahead and stops`() = runTest {
+        callCount = 0
+        // 40 one-second passages: the DEFAULT horizon (30 s, decisions #155)
+        // is what stops the fill — not the passage ceiling (60, the production
+        // bulwark) and not the book end.
+        val longBook = Book(
+            id = "b1",
+            title = "Long",
+            chapters = listOf(Chapter(0, "One", (0 until 40).map { i -> TextPassage("p$i") })),
+        )
+        val q = PregenQueue(
+            longBook, "af_heart", 1.0,
+            { _ ->
+                callCount++
+                SynthesisOutcome.Audio(ByteArray(24_000 * 2), 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
+            },
+            lookahead = 60,
+        )
+        val from = PlayerPosition("b1", 0, 0)
+        q.ensure(from)
+        assertEquals(30, callCount, "the fill stops AT the horizon (30 × 1 s), synthesizing nothing extra")
+        assertEquals(30.0, q.aheadSeconds(from), 1e-9, "~30 s of audio queued ahead — the D1 horizon target")
+        assertEquals(30, q.size, "queue memory is horizon-bounded, not book-bounded")
+    }
+
+    @Test
+    fun `a concurrent ensure from a seeked playhead joins without waiting on the stale in-flight owner`() = runTest {
+        callCount = 0
+        val gate = CompletableDeferred<Unit>()
+        var playhead = PlayerPosition("b1", 0, 0)
+        val q = PregenQueue(
+            book, "af_heart", 1.0,
+            { text ->
+                callCount++
+                if (text == "p1") gate.await() // the seek lands while p1 is in flight
+                SynthesisOutcome.Audio(ByteArray(24_000) { 0 }, 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
+            },
+            lookahead = 3,
+        )
+        val a = launch { q.ensure(playhead) { playhead } }
+        runCurrent() // A parks inside p1's synthesis; in-flight = {0/1, 0/2, 1/0}
+
+        // A seek mid-flight: the playhead jumps forward. The joiner ensure from
+        // the NEW playhead must return immediately — never wait on A's parked
+        // passage (the dead-owner wait) — and never duplicate in-flight work.
+        playhead = PlayerPosition("b1", 0, 2)
+        q.ensure(PlayerPosition("b1", 0, 2)) { playhead }
+        assertTrue(!gate.isCompleted, "the join never touched the owner's in-flight synthesis")
+        assertEquals(1, callCount, "the join adds no synthesis (contiguous prefix stops at in-flight work)")
+
+        gate.complete(Unit)
+        a.join() // A finishes its in-flight passage, yields the stale remainder
+        // The next ensure re-plans from the seeked playhead: prunes the stale
+        // 0/1 and refills — the seek costs one in-flight passage, not a restart.
+        q.ensure(PlayerPosition("b1", 0, 2)) { playhead }
+        assertEquals(3, callCount, "refill synthesizes 1/0 + 1/1 only (no stale work repeated)")
+        assertNull(q.take(0, 1), "the stale in-flight result is pruned by the re-plan")
+        assertTrue(q.take(1, 0) != null, "the new playhead's successor is queued")
+    }
+
+    @Test
     fun `PregenKey round-trips through its path form - engine dimension`() {
         // V2 layout: <bookId>/<engine>/<voice>/<speed>/c<ch>p<passage>
         val key = PregenKey("abc123", 2, 5, "af_heart", 1.5, engine = "cosyvoice3")
