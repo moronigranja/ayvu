@@ -249,10 +249,16 @@ confirmation before a G1 rule lands.
 
 - `https://example.com/path?q=1&x=2` → espeak reads it as
   `ˌeɪtʃtˌiːtˈiːpˌiːˈɛs:slˈæʃslæʃ …` ("H T T P S colon slash slash …") —
-  verbose but letter-accurate; whether to compact is an owner call, not a
-  mispronunciation.
+  **owner-accepted as-is (2026-09-13)**: no compaction rule. The URL reading
+  stands as-is.
+- `page-furniture` — **owner-verified mostly fine (2026-09-13)**: "Page 42 of
+  320 — continued from previous — end of chapter" and the `p. 137 of 512, lines
+  8-19` / `Page 89 — blank…` rows read correctly; the em-dash boundaries carry
+  proper pauses. No normalization defect.
+- `long-paragraph` — **owner-verified fine (2026-09-13)**: no mispronunciations;
+  pacing/prosody is engine-level, not a normalization fix.
 - `&&` → `ˈændænd` ("and and"); `e.g.` → `ˈiː.dʒˈiː.`; `i.e.` → `ˈaɪ.ˈiː.` —
-  plausible renderings, confirm by ear.
+  plausible renderings, still open owner-calls.
 
 ## ja / cmn / hi spot-checks (IPA only, non-native limitation)
 

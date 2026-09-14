@@ -311,7 +311,10 @@ pause between a closing quote and its narration attribution),
 label), `footnote-reference-marker-read-aloud` (superscript footnote markers read
 as numbers; the `filter_page_numbers`-family drop), and
 `question-boundary-pause-short` (insufficient pause after `?` before the next
-clause, sharing the boundary-pause family with the dialogue class). ja/cmn/hi are
+clause, sharing the boundary-pause family with the dialogue class). Verified
+clean the same day: page-furniture (em-dash boundaries read correctly),
+long-paragraph (engine-level prosody, no defect), and url-code (owner-accepted
+as-is — no compaction rule; closes one owner-call). ja/cmn/hi are
 recorded as a non-native-ear limitation.
 
 **Gates:** G1's built-in rule set (bounded by the typed findings) and D5's engine choice
