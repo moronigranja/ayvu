@@ -122,6 +122,32 @@ Template:
   "three four" as cardinals.
 - Status: **owner-confirmed (2026-09-13)** — "dates are reading slashes."
 
+### measurement-unit-not-expanded (unit abbreviations spelled or unit omitted)
+- Category: `measurement`
+- Example (owner-confirmed): "…weighed 2.5 kg and held 3 L" (en-us 0019) → "two
+  point five **K G**" (`kˌeɪdʒˈiː`) and "three **L**"; "The room was 12 ft" → "twelve
+  **F T**" (`ˌɛftˈiː`). Expected: kilograms / liters / feet.
+- Scope (phoneme-verified): en-us/en-gb `kg`→"K G", `ft`→"F T", `lb`→"L B",
+  `oz`→"O Z", `m`→"M", `L`→"L", `mi`→"mi", `st`→"st", `mph`→"M P H", `W`→"W",
+  `°F`→"degrees F", `°C`→"degrees C" (0019–0021, 0064–0066); it `kg`→"K P G",
+  `km`→"ka p emme", `°C`→"C" (0189–0191); pt-br `kg`→"ka je", `km`→"ka eme",
+  `°C`→"C" (0230–0232). espeak-es and espeak-fr expand most units correctly
+  (`kg`→"kilogramo/kilogramme", `km`→"kilomètre(s)") — the defect is en/it/pt
+  dictionary gaps, so the G1 dictionary must be language-scoped, not global.
+- Also (extends the slash finding): `km/h` → spelled units plus the slash verbalized
+  ("ka eme barra hache" es 0108, "ka eme barra acca" it 0190, "ka eme aga" pt 0231)
+  — the slash-normalization fix from date-slash-read-aloud must be shared with
+  unit-rate notation.
+- Expected: feet, meters, kilograms, liters, miles, pounds, ounces, miles per hour,
+  stone, watts, degrees Celsius/Fahrenheit (per language).
+- Frequency: every measurement row in en-us/en-gb/it/pt-br (0019–0021, 0064–0066,
+  0189–0191, 0230–0232); es/fr partial.
+- G1 rule: an ordered unit dictionary (symbol → full unit word), language-scoped,
+  sharing the abbrev-not-expanded mechanism; rate forms (`km/h`, `mph`) need
+  slash-aware expansion to "per hour"/per-language equivalent.
+- Status: **owner-confirmed (2026-09-13)** — "measurements are reading k g instead
+  of kilograms, f t instead of feet."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
