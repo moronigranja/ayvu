@@ -110,7 +110,7 @@ numbers live in the cited decisions.
 
 | Leg | HiBreak RTF | Verdict |
 |---|---|---|
-| Piper en_US-lessac-medium | 0.57 | KEEP — passage-level read-along only (#30b); adoption pending |
+| Piper en_US-lessac-medium | 0.57 | KEEP — adopted (#154/#159); passage-level read-along only (#30b) |
 | Supertonic 3 | 3.92 | DEFER — duration introspection passes |
 | Audio8 0.1B INT8 | N/A | DROP — slow-AR 5.8 s/token |
 
@@ -256,8 +256,9 @@ reference for the German gap. `en_US-lessac-medium` stays the measured D4 leg (H
   voice) — German (Kokoro's gap) is fully covered.
 
 **Status: selection wired end-to-end (2026-09-13, decisions #154 + its addendum).**
-`PiperEngine` is registered as `piper-v1` (PRIMARY) with the `en_US-lessac-medium` +
-`de_DE-thorsten-high` packs pinned and downloading through the existing registry flow.
+`PiperEngine` is registered as `piper-v1` (PRIMARY) with five pinned voices
+(`en_US-lessac-medium`, `de_DE-thorsten-high`, and the #159 es/it/pt-BR pins)
+downloading through the existing registry flow.
 The phoneme-id framing is verified head-for-head against official piper-tts and pinned
 in a JVM test. The runtime selection wiring landed (decisions #154 addendum):
 `PiperRuntime` opens the engine over the downloaded packs behind `EngineSelector`'s

@@ -33,7 +33,7 @@ feature-player (live, T4-2) PlaybackService (MediaSession, focus, foreground) + 
 feature-ocr     (live) TessTwoOcrEngine (tess-two 9.1.0) + TessDataStager + Hilt; legacy-traineddata packs (#36)
 feature-settings (live) settings screen, packs download UI, voice picker + favorites, offline-audio section, "Backup & restore" SAF export/import (E1, #111)
 feature-share   (live) ACTION_SEND gateway (text+image), typed resolver, found/not-found UX, OpenTarget + listen-from-here
-app             (live) Hilt composition root (app.di owns shared infrastructure, A6): PersistenceModule, import-core providers, OcrModule, BackupModule (BookFileStore + BackupStore, E1); first-run SetupScreen (C1, voice-step dropdown #112); MainActivity → LibraryScreen; checkFeatureBoundaries rejects feature-* → feature-* edges
+app             (live) Hilt composition root (app.di owns shared infrastructure, A6): PersistenceModule, import-core providers, OcrModule, BackupModule (BookFileStore + BackupStore, E1); first-run SetupScreen (C1, voice-step dropdown #112; engine-aware required packs + engine radio #159); MainActivity → LibraryScreen; checkFeatureBoundaries rejects feature-* → feature-* edges
 ```
 
 Current dependency edges:

@@ -89,10 +89,11 @@ fingerprint published with the release, and see
 - **TTS voices:** v1 ships Kokoro-82M as the primary engine (CosyVoice3 gated behind
   the fallback tier — far from realtime on the S22 CPU, decisions #21); the pinned
   v1.0 voice pack serves en/en-GB, fr, es, it, pt-BR, ja, zh, hi. The Piper engine
-  (`piper-v1`, decisions #154) is registered with its first two pinned voice packs
-  (en_US-lessac-medium, de_DE-thorsten-high — German, which Kokoro does not serve)
-  and downloads through the same pack flow; selecting it for playback is the
-  follow-up playback-seam slice, and Piper reads along at passage level only (no
+  (`piper-v1`, decisions #154/#159) is registered with five pinned voice packs —
+  en_US-lessac-medium, de_DE-thorsten-high (German, which Kokoro does not serve),
+  es_ES-davefx-medium, it_IT-serena-medium and pt_BR-faber-medium — and downloads
+  through the same pack flow; it is selectable for playback and in first-run setup,
+  and Piper reads along at passage level only (no
   word timestamps — decisions #30b).
   Model and language packs are on-demand downloads, never bundled (decisions #7). Portuguese is a
   first-class voice family (`pf_`/`pm_`, verified end-to-end, decisions #40); the
