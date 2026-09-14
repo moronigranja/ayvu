@@ -274,8 +274,12 @@ Remaining for this slice family: further voice-pack pins (es/it/pt-BR/ko) — th
 passage-level-only read-along stays recorded degradation (#30b). **Engine device smoke
 verified on both devices** (2026-09-13, `PiperDeviceSmokeTest`): B6 RTF 0.579 / S22
 RTF 0.094, finite 22.05 kHz mono PCM, segments=null on device —
-`docs/prints/d4/d4-piper-engine-smoke-*.wav` (a listening pass on the engine output is
-still open).
+`docs/prints/d4/d4-piper-engine-smoke-*.wav`. **Engine-output listening pass:
+Bigme HiBreak (B6) PASSED (2026-09-13, owner)** — intelligible and acceptable
+(prosody "a little robotic" but acceptable), lessac voice recognizable, no
+artifacts; one non-blocking trait noted (inter-sentence gap reads a little short —
+a VITS learned-prosody trait, not a normalization defect). The S22 engine-output
+listening pass is still owed.
 
 ### Phase G — narration quality
 

@@ -4,6 +4,25 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 158. D4 PiperEngine engine-output listening pass — Bigme HiBreak PASSED, S22 still owed (2026-09-13)
+
+The last open D4 item (a listening pass on the engine output, beyond the #99 render
+gate) is half-closed by the owner's ear on the device smoke WAVs.
+
+- **HiBreak (B6) verdict: PASS.** `d4-piper-engine-smoke-hibreak.wav` (Pride &
+  Prejudice opening, `en_US-lessac-medium`, ~18 s) is intelligible and acceptable —
+  prosody "a little robotic" but within the acceptable band; the lessac voice is
+  recognizable; no truncation/doubling/clicks/silence/pace artifacts.
+- **One non-blocking trait:** the inter-sentence gap reads a little short. This is
+  VITS learned prosody on the stock lessac export, not a normalization defect, so no
+  G1 rule applies and it does not gate adoption. Recorded as a known trait; a future
+  custom re-export could control it, nothing to do at v1.
+- **S22 engine-output listen still owed** (`d4-piper-engine-smoke-s22.wav`) — the
+  adoption item closes when that verdict lands.
+
+Consequence: D4 is complete except the S22 listen; the "adoption is the next
+actionable slice" wording is now closed on the device side.
+
 ## 157. Phase H — TODAY stats: per-day `activity_seconds`, flip-active reading dwell, one-minute streak rule (2026-09-13)
 
 Roadmap Phase H (post-v1-plan Slice A; capture semantics per #109) landed as three
