@@ -57,6 +57,7 @@ dependencies {
 
     implementation(project(":core-model"))
     implementation(project(":core-tts")) { exclude(group = "net.java.dev.jna") }
+    implementation(project(":core-translate")) // read-in-language pack row + staging
     implementation(project(":core-ocr"))
     implementation(project(":core-persistence"))
     // A6: EspeakStager/OfflineStorage/formatBytes contracts come from core-player.

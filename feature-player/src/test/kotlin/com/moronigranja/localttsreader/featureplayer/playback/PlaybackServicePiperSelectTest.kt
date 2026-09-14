@@ -10,11 +10,11 @@ import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
-import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.InMemoryPlayerStore
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
+import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.tts.EngineSpec
 import com.moronigranja.localttsreader.tts.EngineTier
 import com.moronigranja.localttsreader.tts.SegmentAnchor
@@ -23,7 +23,6 @@ import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
 import com.moronigranja.localttsreader.tts.piper.PiperVoices
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -37,6 +36,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * D4 selection end-to-end on the service seam (decisions #154 addendum): with
@@ -51,24 +51,25 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServicePiperSelectTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "piper-select-book",
-        title = "Piper Select",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
-                (1..30).map { i ->
-                    TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
-                },
-            ),
-        ),
-    )
+    private val book =
+        Book(
+            id = "piper-select-book",
+            title = "Piper Select",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "One",
+                        (1..30).map { i ->
+                            TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
+                        },
+                    ),
+                ),
+        )
 
     /** Piper-shaped engine: records the requested voice, renders 10 s of
      * audio with segments = null (the recorded #30b degradation). */
@@ -89,9 +90,11 @@ class PlaybackServicePiperSelectTest {
         private val engine: TTSEngine,
     ) : PiperRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         // The per-book path pairs the engine with the resolved voice — the
         // fake must serve both entry points.
         override fun engineFor(voice: String): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
 
@@ -100,30 +103,42 @@ class PlaybackServicePiperSelectTest {
         settings: AppSettings,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = error("kokoro must not be touched under piper-v1")
+
         override val failureReason: String? = null
     }
 
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     private class RecordingOutput : PassageOutput {
         @Volatile
         var playCalls = 0
             private set
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) {
+
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) {
             playCalls++
         }
+
         override fun stop() = Unit
+
         override val positionSamples: Int get() = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -133,7 +148,11 @@ class PlaybackServicePiperSelectTest {
         PlaybackActive.markStopped()
     }
 
-    private fun await(label: String, timeoutMs: Long = 10_000, condition: () -> Boolean) {
+    private fun await(
+        label: String,
+        timeoutMs: Long = 10_000,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
@@ -146,30 +165,32 @@ class PlaybackServicePiperSelectTest {
     fun `piper-v1 selected synthesizes with the resolved voice and no fabricated read-along`() {
         val engine = RecordingEngine()
         val output = RecordingOutput()
-        val service = PlaybackService().apply {
-            val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
-            attach.isAccessible = true
-            attach.invoke(this, context)
-            val audioManager = PlaybackService::class.java.getDeclaredField("audioManager")
-            audioManager.isAccessible = true
-            audioManager.set(this, context.getSystemService(Context.AUDIO_SERVICE))
-            val session = PlaybackService::class.java.getDeclaredField("session")
-            session.isAccessible = true
-            session.set(this, MediaSessionCompat(this, "local-tts-reader"))
-            this.store = InMemoryPlayerStore()
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeKokoroRuntime(context, this.settings)
-            this.pregenCache = PregenCache(context)
-            this.selector =
-                EngineSelector(
-                    this.runtime,
-                    FakePiperRuntime(context, this.settings, engine),
-                    onUnusedSystemTts,
-                    this.settings,
-                )
-        }
+        val service =
+            PlaybackService().apply {
+                val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
+                attach.isAccessible = true
+                attach.invoke(this, context)
+                val audioManager = PlaybackService::class.java.getDeclaredField("audioManager")
+                audioManager.isAccessible = true
+                audioManager.set(this, context.getSystemService(Context.AUDIO_SERVICE))
+                val session = PlaybackService::class.java.getDeclaredField("session")
+                session.isAccessible = true
+                session.set(this, MediaSessionCompat(this, "local-tts-reader"))
+                this.store = InMemoryPlayerStore()
+                this.output = output
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+                this.runtime = FakeKokoroRuntime(context, this.settings)
+                this.pregenCache = PregenCache(context)
+                this.selector =
+                    EngineSelector(
+                        this.runtime,
+                        FakePiperRuntime(context, this.settings, engine),
+                        TranslateRuntime(context, this.settings),
+                        onUnusedSystemTts,
+                        this.settings,
+                    )
+            }
         PlaybackStateHolder.reset()
         runBlocking { service.settings.setTtsEngine(SettingsStore.PIPER_ENGINE) }
         try {
@@ -199,7 +220,10 @@ class PlaybackServicePiperSelectTest {
             // keep the read-along fields empty (no fabricated anchors) while
             // playback runs.
             assertEquals(0.0, PlaybackStateHolder.state.value.passageDurationSeconds, 0.0)
-            assertTrue(PlaybackStateHolder.state.value.segments.isEmpty())
+            assertTrue(
+                PlaybackStateHolder.state.value.segments
+                    .isEmpty(),
+            )
         } finally {
             service.stopEverything()
         }

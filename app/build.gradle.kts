@@ -123,6 +123,7 @@ dependencies {
     // C1.4: app code imports core-tts symbols directly (SetupState, VoiceCatalog,
     // EngineSpec, TTSEngine…), no longer only transitively via feature-settings.
     implementation(project(":core-tts")) { exclude(group = "net.java.dev.jna") }
+    implementation(project(":core-translate")) // translate pack descriptors into the registry (PackModule)
     implementation(project(":core-persistence"))
     implementation(libs.room.runtime) // di/PersistenceModule builds LibraryDatabase
     implementation(project(":core-player")) // PlayerPhase etc. for the player surface

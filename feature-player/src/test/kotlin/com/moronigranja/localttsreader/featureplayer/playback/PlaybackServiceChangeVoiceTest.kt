@@ -148,6 +148,7 @@ class PlaybackServiceChangeVoiceTest {
                 EngineSelector(
                     FakeRuntime(context, this.settings, engine1),
                     PiperRuntime(context, this.settings),
+                    TranslateRuntime(context, this.settings),
                     object : dagger.Lazy<TTSEngine> {
                         override fun get(): TTSEngine = error("system tts unused")
                     },

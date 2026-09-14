@@ -172,7 +172,14 @@ class PlaybackServiceFocusTest {
             this.settings = AppSettings(SettingsStore(database.settingsDao()))
             this.runtime = FakeRuntime(context, this.settings, FakeEngine())
             this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
+            this.selector =
+                EngineSelector(
+                    this.runtime,
+                    PiperRuntime(context, this.settings),
+                    TranslateRuntime(context, this.settings),
+                    onUnusedSystemTts,
+                    this.settings,
+                )
         }
 
     private fun focusListener(service: PlaybackService): AudioManager.OnAudioFocusChangeListener? {

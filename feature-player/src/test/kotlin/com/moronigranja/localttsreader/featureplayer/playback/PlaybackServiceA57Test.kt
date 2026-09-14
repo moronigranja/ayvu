@@ -13,8 +13,8 @@ import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.BookLayout
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.InMemoryPlayerStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.PlayerStateMachine
@@ -26,7 +26,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import kotlin.math.abs
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +41,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import kotlin.math.abs
 
 /**
  * CR-5/CR-7 service-edge regression (roadmap A5+A7): the single-writer
@@ -57,28 +57,29 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceA57Test {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
 
     /** Three short passages: a 30 s seek crosses several passages at the
      * chars/15 speech model. */
-    private val book = Book(
-        id = "a57-book",
-        title = "A57",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "a57-book",
+            title = "A57",
+            chapters =
                 listOf(
-                    TextPassage("The gate stood open beside the barn door."),
-                    TextPassage("Cold light spread across the morning field."),
-                    TextPassage("She counted the fence posts along the track."),
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage("The gate stood open beside the barn door."),
+                            TextPassage("Cold light spread across the morning field."),
+                            TextPassage("She counted the fence posts along the track."),
+                        ),
+                    ),
                 ),
-            ),
-        ),
-    )
+        )
 
     private open class FakeEngine(
         var outcome: (String) -> SynthesisOutcome = {
@@ -88,6 +89,7 @@ class PlaybackServiceA57Test {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
         val synthesized = mutableListOf<String>()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
             synthesized += request.text
             return outcome(request.text)
@@ -100,26 +102,38 @@ class PlaybackServiceA57Test {
         private val engine: TTSEngine?,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
+
     /** Degraded path unused in kokoro-default tests: the selector's system
      * engine is never realized when ttsEngine stays "kokoro-82m". */
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     private class FakeOutput : PassageOutput {
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) = Unit
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) = Unit
+
         override fun stop() = Unit
+
         override val positionSamples: Int = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -129,7 +143,10 @@ class PlaybackServiceA57Test {
         PlaybackActive.markStopped() // the G2 session-window test drives the global flag
     }
 
-    private fun playingMachine(store: PlayerStore, pauseAt: Double? = null): PlayerStateMachine {
+    private fun playingMachine(
+        store: PlayerStore,
+        pauseAt: Double? = null,
+    ): PlayerStateMachine {
         val machine = PlayerStateMachine(store, BookLayout(book))
         runBlocking {
             machine.playFrom(PlayerPosition(book.id, 0, 0))
@@ -142,16 +159,24 @@ class PlaybackServiceA57Test {
         store: PlayerStore,
         machine: PlayerStateMachine,
         engine: FakeEngine = FakeEngine(),
-    ): PlaybackService = PlaybackService().apply {
-        this.store = store
-        this.machine = machine
-        this.book = this@PlaybackServiceA57Test.book
-        this.output = FakeOutput()
-        this.libraryStore = RoomLibraryStore(database, scope)
-        this.settings = AppSettings(SettingsStore(database.settingsDao()))
-        this.runtime = FakeRuntime(context, this.settings, engine)
-        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-    }
+    ): PlaybackService =
+        PlaybackService().apply {
+            this.store = store
+            this.machine = machine
+            this.book = this@PlaybackServiceA57Test.book
+            this.output = FakeOutput()
+            this.libraryStore = RoomLibraryStore(database, scope)
+            this.settings = AppSettings(SettingsStore(database.settingsDao()))
+            this.runtime = FakeRuntime(context, this.settings, engine)
+            this.selector =
+                EngineSelector(
+                    this.runtime,
+                    PiperRuntime(context, this.settings),
+                    TranslateRuntime(context, this.settings),
+                    onUnusedSystemTts,
+                    this.settings,
+                )
+        }
 
     // ------------------------------------------------------------------
     // A7 — pause during first-audio generation settles every surface
@@ -265,12 +290,13 @@ class PlaybackServiceA57Test {
     @Test
     fun `a superseded open never completes or publishes`() {
         val store = InMemoryPlayerStore()
-        val service = PlaybackService().apply {
-            this.store = store
-            this.output = FakeOutput()
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-        }
+        val service =
+            PlaybackService().apply {
+                this.store = store
+                this.output = FakeOutput()
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+            }
         PlaybackStateHolder.reset()
 
         service.openBook(book.id)
@@ -323,44 +349,55 @@ class PlaybackServiceA57Test {
      * empty spine slots. */
     @Test
     fun `backward openChapter lands on the previous chapter's last passage`() {
-        val turnBook = Book(
-            id = "open-chapter-book",
-            title = "Open Chapter",
-            chapters = listOf(
-                Chapter(
-                    0,
-                    "One",
+        val turnBook =
+            Book(
+                id = "open-chapter-book",
+                title = "Open Chapter",
+                chapters =
                     listOf(
-                        TextPassage("First chapter first passage."),
-                        TextPassage("First chapter last passage."),
+                        Chapter(
+                            0,
+                            "One",
+                            listOf(
+                                TextPassage("First chapter first passage."),
+                                TextPassage("First chapter last passage."),
+                            ),
+                        ),
+                        Chapter(1, "Empty", emptyList()), // skipped by BookLayout
+                        Chapter(
+                            2,
+                            "Three",
+                            listOf(
+                                TextPassage("Third chapter first passage."),
+                                TextPassage("Third chapter last passage."),
+                            ),
+                        ),
                     ),
-                ),
-                Chapter(1, "Empty", emptyList()), // skipped by BookLayout
-                Chapter(
-                    2,
-                    "Three",
-                    listOf(
-                        TextPassage("Third chapter first passage."),
-                        TextPassage("Third chapter last passage."),
-                    ),
-                ),
-            ),
-        )
+            )
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(turnBook, importedAtEpochMillis = 1L)) }
         val store = InMemoryPlayerStore()
-        val machine = PlayerStateMachine(store, BookLayout(turnBook)).apply {
-            present(PlayerPosition(turnBook.id, 2, 0))
-        }
-        val service = PlaybackService().apply {
-            this.store = store
-            this.machine = machine
-            this.book = turnBook
-            this.output = FakeOutput()
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, null)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val machine =
+            PlayerStateMachine(store, BookLayout(turnBook)).apply {
+                present(PlayerPosition(turnBook.id, 2, 0))
+            }
+        val service =
+            PlaybackService().apply {
+                this.store = store
+                this.machine = machine
+                this.book = turnBook
+                this.output = FakeOutput()
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+                this.runtime = FakeRuntime(context, this.settings, null)
+                this.selector =
+                    EngineSelector(
+                        this.runtime,
+                        PiperRuntime(context, this.settings),
+                        TranslateRuntime(context, this.settings),
+                        onUnusedSystemTts,
+                        this.settings,
+                    )
+            }
         PlaybackStateHolder.reset()
 
         service.openChapter(turnBook.id, -1)
@@ -389,6 +426,7 @@ class PlaybackServiceA57Test {
      * audio, so one synthesis satisfies the post-stop look-ahead target. */
     private class GatedSessionEngine : FakeEngine() {
         val release = CompletableDeferred<Unit>()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
             synthesized += request.text
             release.await()
@@ -428,7 +466,11 @@ class PlaybackServiceA57Test {
         return field.get(service) as MediaSessionCompat.Callback
     }
 
-    private fun await(label: String, timeoutMs: Long = 10_000, condition: () -> Boolean) {
+    private fun await(
+        label: String,
+        timeoutMs: Long = 10_000,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
@@ -445,18 +487,26 @@ class PlaybackServiceA57Test {
     @Test
     fun `session window stays engaged through STOP until the post-stop fill completes`() {
         val engine = GatedSessionEngine()
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setAudioManager(this)
-            setSession(this)
-            this.store = InMemoryPlayerStore()
-            this.output = FakeOutput()
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, engine)
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val service =
+            PlaybackService().apply {
+                attachServiceContext(this)
+                setAudioManager(this)
+                setSession(this)
+                this.store = InMemoryPlayerStore()
+                this.output = FakeOutput()
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+                this.runtime = FakeRuntime(context, this.settings, engine)
+                this.pregenCache = PregenCache(context)
+                this.selector =
+                    EngineSelector(
+                        this.runtime,
+                        PiperRuntime(context, this.settings),
+                        TranslateRuntime(context, this.settings),
+                        onUnusedSystemTts,
+                        this.settings,
+                    )
+            }
         PlaybackStateHolder.reset()
         PlaybackActive.markStarted() // the start/resume command paths mark this
         try {

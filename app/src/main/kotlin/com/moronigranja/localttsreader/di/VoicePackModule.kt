@@ -1,8 +1,8 @@
 package com.moronigranja.localttsreader.di
 
-import com.moronigranja.localttsreader.player.VoicePackDownloader
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.VoicePackDownloader
 import com.moronigranja.localttsreader.tts.PackRegistry
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.piper.PiperEngine

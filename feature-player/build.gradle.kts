@@ -67,6 +67,7 @@ dependencies {
     // the AAR supplies jnidispatch per ABI and flows to the app from here.
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
     implementation(project(":core-tts")) { exclude(group = "net.java.dev.jna") }
+    implementation(project(":core-translate")) // TranslatingEngine decorator + TranslateRuntime (read-in-language)
     // KokoroRuntime's sessionFactory lambda names OrtSession.SessionOptions
     // (decisions #137). Same contract as core-tts: the platform AAR ships
     // app-side; feature-player compiles against the API jar only.

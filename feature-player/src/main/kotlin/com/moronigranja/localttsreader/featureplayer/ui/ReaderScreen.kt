@@ -55,8 +55,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,10 +96,11 @@ import com.moronigranja.localttsreader.ui.AyvuSpacing
 import com.moronigranja.localttsreader.ui.CoverageProgress
 import com.moronigranja.localttsreader.ui.EmptyState
 import com.moronigranja.localttsreader.ui.PlayerCard
-import kotlin.math.ceil
+import com.moronigranja.localttsreader.ui.SectionHeader
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.ceil
 
 /**
  * The docked reader+player (decisions #29/#52): a real paginated book page —
@@ -137,6 +138,7 @@ fun ReaderScreen(
     // body under a half-faded bar — the occasional "top cut". Hold the
     // chrome until the bars settle, in BOTH directions.
     var barsSettled by remember { mutableStateOf(true) }
+
     // The toggle flips [barsSettled] false SYNCHRONOUSLY (same frame as
     // [immersive]) so the layout holds its pre-toggle chrome while the
     // system bars fade; [showOverlays] (the full-bleed body) appears only
@@ -401,6 +403,7 @@ fun ReaderScreen(
     // Settings. Selecting a voice persists it and rebuilds the active book at
     // the same playhead (A5); preview is one-at-a-time and narration-safe.
     if (voiceSheet) {
+        val translate by viewModel.translateState.collectAsState()
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { voiceSheet = false },
             confirmButton = {},
@@ -412,6 +415,20 @@ fun ReaderScreen(
                             .fillMaxWidth()
                             .verticalScroll(androidx.compose.foundation.rememberScrollState()),
                 ) {
+                    // Read-in-language (decisions #114): per-book target above
+                    // the voice rows; the pack download row shows until staged.
+                    com.moronigranja.localttsreader.ui.SectionHeader(
+                        "Read in",
+                        Modifier.padding(vertical = AyvuSpacing.SM),
+                    )
+                    com.moronigranja.localttsreader.ui.ReadInLanguagePicker(
+                        state = translate,
+                        onSelect = {
+                            viewModel.setTranslateTarget(it)
+                            voiceSheet = false
+                        },
+                        onDownload = viewModel::downloadTranslatePack,
+                    )
                     com.moronigranja.localttsreader.ui.VoiceSelector(
                         state = voiceSelector,
                         onSelect = {
@@ -655,7 +672,8 @@ private fun PaginatedChapter(
         // always the passage that BEGINS here, so follow never snaps the
         // view back to the passage's earlier start page.
         val firstPassageOnPage =
-            passageStartLines.indexOfFirst { it in range.first..range.last }
+            passageStartLines
+                .indexOfFirst { it in range.first..range.last }
                 .takeIf { it >= 0 }
                 ?: passageStartLines.indexOfLast { it <= range.first }.coerceAtLeast(0)
         SideEffect { pageStartPassage.value = firstPassageOnPage }
@@ -754,6 +772,7 @@ private fun PaginatedChapter(
         // pointerInput block does not restart when state.phase changes, so
         // it must read the CURRENT phase through a rememberUpdatedState ref.
         val phaseRef = rememberUpdatedState(state.phase)
+
         // A manual page turn stops playback (item 4) — only the IN-CHAPTER
         // paths call this; chapter-boundary turns go through openChapter,
         // which stops playback on its own. Pausing re-fires the paused
@@ -792,7 +811,10 @@ private fun PaginatedChapter(
                         val pageWidthPx = size.width / 3f
                         val swipePx = SWIPE_PAGE_THRESHOLD.toPx()
 
-                        fun passageAt(y: Float, requirePositioned: Boolean): Int? {
+                        fun passageAt(
+                            y: Float,
+                            requirePositioned: Boolean,
+                        ): Int? {
                             val topInset = if (immersive) titleOverlayReservedPx else 0
                             val titleBlock = (if (page <= 0) titleHeightPx + titleGapPx else 0) + topInset
                             val lineInPage = ((y - titleBlock).toInt() / lineHeightPx).coerceAtLeast(0)

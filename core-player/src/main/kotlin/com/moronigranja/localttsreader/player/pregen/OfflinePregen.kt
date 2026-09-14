@@ -48,6 +48,7 @@ data class PregenProgress(
     val terminal: PregenTerminal? = null,
 ) {
     val processed: Int get() = passagesSynthesized + passagesCached + failures
+
     /** 0→100 over the requested slice for bounded runs (the 30-min ask fills
      * as those 30 min generate — never a whole-book fraction); whole-book
      * runs keep the processed/totalPassages walk. */
@@ -66,14 +67,19 @@ data class PregenProgress(
 enum class PregenTerminal {
     /** Walked every chapter to the end — the whole book is processed. */
     Completed,
+
     /** A finite budget (passages, chapters or wall-clock) ran out. */
     BudgetExhausted,
+
     /** The disk tier is full; a put would only evict another entry. */
     CacheSaturated,
+
     /** The caller's [OfflinePregen.shouldContinue] turned false (playback yield). */
     Yielded,
+
     /** Synthesis reported [SynthesisOutcome.Unavailable]; packs will not heal within the run. */
     Unavailable,
+
     /** [OfflinePregen.consecutiveFailureCap] consecutive synthesis failures. */
     FailureCap,
 }
@@ -113,8 +119,10 @@ class OfflinePregen(
     private val shouldContinue: () -> Boolean = { true },
     /** Engine whose voice/speed the run synthesizes — part of the [PregenKey] cache path. */
     private val engine: String = PregenKey.DEFAULT_ENGINE,
+    /** Read-in-language target code for this run's keys (decisions #114);
+     * null = the book's original language. */
+    private val translateLang: String? = null,
 ) {
-
     init {
         require(consecutiveFailureCap > 0) { "consecutiveFailureCap must be positive" }
     }
@@ -134,11 +142,12 @@ class OfflinePregen(
         onProgress: suspend (PregenProgress) -> Unit = {},
     ): PregenProgress {
         val context = currentCoroutineContext()
-        var progress = PregenProgress(
-            totalChapters = book.chapters.size,
-            totalPassages = book.chapters.sumOf { it.passages.size },
-            budgetSeconds = budget.maxSeconds,
-        )
+        var progress =
+            PregenProgress(
+                totalChapters = book.chapters.size,
+                totalPassages = book.chapters.sumOf { it.passages.size },
+                budgetSeconds = budget.maxSeconds,
+            )
         var consecutiveFailures = 0
         var lastPutBytes = 0L
         // The walker stops via its hooks; the stopping reason is captured
@@ -158,7 +167,7 @@ class OfflinePregen(
             return final
         }
 
-        PregenPlanner(book, voice, speed, engine).walk(
+        PregenPlanner(book, voice, speed, engine, translateLang).walk(
             from = startAt?.let { inclusiveFrom(book, it) },
             onChapter = { chapterIndex ->
                 // Chapter-boundary gates: maxChapters and the caller's yield.
@@ -246,7 +255,10 @@ class OfflinePregen(
  * spine start. Empty chapters (dropped by the dense rebuild) are stepped over
  * the same way the planner's own iteration is.
  */
-private fun inclusiveFrom(book: Book, at: Pair<Int, Int>): Pair<Int, Int>? {
+private fun inclusiveFrom(
+    book: Book,
+    at: Pair<Int, Int>,
+): Pair<Int, Int>? {
     val (chapterIndex, passageIndex) = at
     if (passageIndex > 0) return chapterIndex to (passageIndex - 1)
     var previous = chapterIndex - 1

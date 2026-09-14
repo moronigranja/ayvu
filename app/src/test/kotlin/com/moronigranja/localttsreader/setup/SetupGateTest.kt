@@ -46,6 +46,7 @@ class SetupGateTest {
     private val model = fixturePack("kokoro-model", 64)
     private val voices = fixturePack("kokoro-voices", 32)
     private val espeak = fixturePack("espeak-ng", 16)
+
     // Real piper pack ids so SetupEnginePacks.requiredIds("piper-v1", …)
     // resolves against the registry (the D4 engine-aware gate regression).
     private val piperModel = fixturePack("piper-lessac-medium", 64, engineId = "piper-v1")

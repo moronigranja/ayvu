@@ -14,30 +14,41 @@ import com.moronigranja.localttsreader.locate.IndexLock
 import com.moronigranja.localttsreader.locate.TextIndex
 import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.LibraryStore
+import com.moronigranja.localttsreader.persistence.ActivitySecondsDao
+import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.BookFileStore
 import com.moronigranja.localttsreader.persistence.ChapterCount
 import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.ProgressEntity
-import com.moronigranja.localttsreader.player.IoDispatcher
-import com.moronigranja.localttsreader.persistence.ActivitySecondsDao
-import com.moronigranja.localttsreader.player.OfflineStorage
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
+import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.ActivityKind
 import com.moronigranja.localttsreader.player.ActivityRow
 import com.moronigranja.localttsreader.player.DailyTotals
+import com.moronigranja.localttsreader.player.IoDispatcher
 import com.moronigranja.localttsreader.player.LocalDays
-import com.moronigranja.localttsreader.player.Streak
-import com.moronigranja.localttsreader.player.TodayStats
-import com.moronigranja.localttsreader.player.WeekSummary
+import com.moronigranja.localttsreader.player.OfflineStorage
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerCommands
 import com.moronigranja.localttsreader.player.PregenJobState
 import com.moronigranja.localttsreader.player.PregenScheduler
+import com.moronigranja.localttsreader.player.Streak
+import com.moronigranja.localttsreader.player.TodayStats
+import com.moronigranja.localttsreader.player.WeekSummary
+import com.moronigranja.localttsreader.tts.PackRegistry
+import com.moronigranja.localttsreader.tts.PackStatus
+import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
+import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
+import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
+import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
+import com.moronigranja.localttsreader.tts.translate.TranslatePacks
+import com.moronigranja.localttsreader.ui.ReadInLanguageUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -47,10 +58,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -71,6 +81,10 @@ class LibraryViewModel
     @Inject
     constructor(
         private val repository: LibraryStore,
+        // Default null: pure-JVM unit tests skip read-in-language state
+        // (Hilt supplies both).
+        private val settings: AppSettings? = null,
+        private val registry: PackRegistry? = null,
         // CR-3/A3: the one import orchestration boundary (parse → durable → index).
         private val coordinator: ImportCoordinator,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -134,6 +148,66 @@ class LibraryViewModel
 
         /** The book's manual pre-generation job, for row progress (KEEP-deduplicated). */
         fun pregenWork(bookId: String): Flow<PregenJobState> = pregenScheduler?.observe(bookId) ?: flowOf(PregenJobState())
+
+        // ---- read-in-language (decisions #114) ----
+        //
+        // The library row/card menus share the reader's per-book target
+        // mechanism: persist `book.translate.<bookId>` and rebuild the active
+        // book through the [PlayerCommands.changeVoice] path (the service
+        // re-reads the setting; same single-writer rule as voice changes).
+
+        private val translateDownload = MutableStateFlow<Pair<String, Float>?>(null)
+
+        /** The "Read in language" dialog state for [bookId]. */
+        fun translateState(bookId: String): StateFlow<ReadInLanguageUiState> {
+            val prefs = settings ?: return MutableStateFlow(ReadInLanguageUiState(bookId = bookId))
+            val packs = registry ?: return MutableStateFlow(ReadInLanguageUiState(bookId = bookId))
+            return combine(prefs.state, packs.packs, translateDownload) { prefsSnapshot, packStates, downloading ->
+                val target = prefsSnapshot.bookTranslate[bookId]
+                ReadInLanguageUiState(
+                    bookId = bookId,
+                    target = target,
+                    languages = translateLanguages(prefsSnapshot),
+                    packDownloaded =
+                        packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
+                            (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
+                    downloadProgress = downloading?.takeIf { it.first == bookId }?.second,
+                )
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReadInLanguageUiState(bookId = bookId))
+        }
+
+        /** Persists the per-book target (null = Off) and rebuilds the active
+         * book at the same playhead via the voice-change path. */
+        fun setTranslateTarget(
+            bookId: String,
+            target: String?,
+        ) {
+            val prefs = settings ?: return
+            if (target == prefs.bookTranslate(bookId)) return
+            viewModelScope.launch { prefs.setBookTranslate(bookId, target) }
+            commands.changeVoice(prefs.state.value.voice)
+        }
+
+        /** Inline download for the translation pack (content-row action). */
+        fun downloadTranslatePack(bookId: String) {
+            val packs = registry ?: return
+            viewModelScope.launch {
+                translateDownload.value = bookId to 0f
+                packs
+                    .download(TranslatePacks.pack.id) { done, total ->
+                        translateDownload.value = bookId to (done.toDouble() / total).toFloat()
+                    }.also { translateDownload.value = null }
+            }
+        }
+
+        /** The active engine's target languages (mirrors the selector's
+         * availability shape: the degraded system voice has none). */
+        private fun translateLanguages(prefs: AppSettings.Snapshot): List<String> =
+            when (prefs.ttsEngine) {
+                SettingsStore.SYSTEM_TTS_ENGINE -> emptyList()
+                SettingsStore.PIPER_ENGINE -> TranslateLanguages.codes(PiperVoiceMetadata.all)
+                else -> TranslateLanguages.codes(KokoroVoiceMetadata.all)
+            }
 
         /** All library rows, in import order — the F2 search filter source. */
         val library: StateFlow<List<LibraryEntry>> = repository.books

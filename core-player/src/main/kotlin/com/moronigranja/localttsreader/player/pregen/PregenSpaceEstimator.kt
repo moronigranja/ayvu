@@ -23,7 +23,6 @@ class PregenSpaceEstimator(
     private val cache: PcmPassageCache,
     private val charsPerSecond: Double = DEFAULT_CHARS_PER_SECOND,
 ) {
-
     init {
         require(charsPerSecond > 0) { "charsPerSecond must be positive" }
     }
@@ -38,6 +37,9 @@ class PregenSpaceEstimator(
         voice: String,
         speed: Double,
         engine: String = PregenKey.DEFAULT_ENGINE,
+        /** Read-in-language target code (decisions #114); the translated audio
+         * lives under its own `x<lang>` cache segment. */
+        translateLang: String? = null,
     ): PregenSpaceEstimate {
         require(speed > 0) { "speed must be positive" }
         val bytesPerSecond = bytesPerSecond(engine)
@@ -45,7 +47,7 @@ class PregenSpaceEstimator(
         var cached = 0L
         for (chapter in book.chapters) {
             for ((passageIndex, passage) in chapter.passages.withIndex()) {
-                val key = PregenKey(book.id, chapter.index, passageIndex, voice, speed, engine)
+                val key = PregenKey(book.id, chapter.index, passageIndex, voice, speed, engine, translateLang)
                 val exact = cache.sizeOf(key)
                 if (exact != null) {
                     total += exact
@@ -88,4 +90,7 @@ class PregenSpaceEstimator(
 }
 
 /** [totalBytes] = cached-exact + estimated; [cachedBytes] = the exact part only. */
-data class PregenSpaceEstimate(val totalBytes: Long, val cachedBytes: Long)
+data class PregenSpaceEstimate(
+    val totalBytes: Long,
+    val cachedBytes: Long,
+)

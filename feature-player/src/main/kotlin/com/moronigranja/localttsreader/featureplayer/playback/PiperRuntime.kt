@@ -55,8 +55,12 @@ open class PiperRuntime
         private var failedOpens = 0
 
         /** The voice this runtime serves for [stored] (see class doc). */
-        fun voiceFor(stored: String): String =
-            if (stored in PiperVoices.all) stored else PiperEngine.DEFAULT_VOICE
+        fun voiceFor(stored: String): String = if (stored in PiperVoices.all) stored else PiperEngine.DEFAULT_VOICE
+
+        /** True when [voice]'s model + config files are on disk — the
+         * pack-readiness probe for the translate resolve gate (no session
+         * open; the files-check only). */
+        fun voicePackReady(voice: String): Boolean = missingPrerequisites(voice) == null
 
         /**
          * The ready engine for the resolved voice, or null with [failure] set.
@@ -123,12 +127,13 @@ open class PiperRuntime
                 voice = voice,
                 modelFile = model,
                 configFile = config,
-                phonemizer = NormalizingPhonemizer(
-                    EspeakPhonemizer(
-                        libraryPath = espeakLib.absolutePath,
-                        dataPath = espeakData.absolutePath,
+                phonemizer =
+                    NormalizingPhonemizer(
+                        EspeakPhonemizer(
+                            libraryPath = espeakLib.absolutePath,
+                            dataPath = espeakData.absolutePath,
+                        ),
                     ),
-                ),
                 // Decisions #137: the ORT intra-op pool is what saturates a
                 // phone during generation; the user's setting caps it for
                 // Piper too (fixed at open, like Kokoro).

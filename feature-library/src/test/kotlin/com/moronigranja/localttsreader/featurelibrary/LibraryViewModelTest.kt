@@ -94,7 +94,7 @@ class LibraryViewModelTest {
     ) = LibraryViewModel(
         repository = store,
         coordinator = ImportCoordinator(BookImporter(), store, index, indexLock),
-        mainDispatcherRule.testDispatcher,
+        ioDispatcher = mainDispatcherRule.testDispatcher,
         indexLock = indexLock,
         index = index,
         commands = noopCommands,

@@ -63,6 +63,8 @@ dependencies {
     // the app binds the implementations at the composition root.
     implementation(project(":core-ui"))
 
+    implementation(project(":core-tts")) { exclude(group = "net.java.dev.jna") }
+    implementation(project(":core-translate")) // read-in-language dialog data (PackRegistry, TranslatePackStager)
     implementation(project(":core-model"))
     implementation(project(":core-ebook"))
     implementation(project(":core-locate"))

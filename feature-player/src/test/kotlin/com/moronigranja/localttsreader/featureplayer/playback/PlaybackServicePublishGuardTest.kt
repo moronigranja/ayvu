@@ -66,7 +66,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServicePublishGuardTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -74,32 +73,37 @@ class PlaybackServicePublishGuardTest {
     /** Two sentence-spanning anchors: a 2.5 s playhead indexes sentence 0, a
      * 3.0 s playhead sentence 1 — the read-along advance the publish must
      * surface. */
-    private val segmentAnchors = listOf(
-        SegmentAnchor(0.0, 2.5),
-        SegmentAnchor(2.5, 5.0),
-    )
+    private val segmentAnchors =
+        listOf(
+            SegmentAnchor(0.0, 2.5),
+            SegmentAnchor(2.5, 5.0),
+        )
 
-    private val passageTexts = listOf(
-        "The gate stood open beside the barn door.",
-        "Cold light spread across the morning field.",
-        "She counted the fence posts along the track.",
-    )
+    private val passageTexts =
+        listOf(
+            "The gate stood open beside the barn door.",
+            "Cold light spread across the morning field.",
+            "She counted the fence posts along the track.",
+        )
 
-    private val book = Book(
-        id = "guard-book",
-        title = "Guard",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
-                passageTexts.map { TextPassage(it) },
-            ),
-        ),
-    )
+    private val book =
+        Book(
+            id = "guard-book",
+            title = "Guard",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "One",
+                        passageTexts.map { TextPassage(it) },
+                    ),
+                ),
+        )
 
     private class FakeEngine : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome =
             SynthesisOutcome.Audio(ByteArray(1_000), 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
     }
@@ -110,25 +114,37 @@ class PlaybackServicePublishGuardTest {
         private val engine: TTSEngine?,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
+
     /** Degraded path unused in kokoro-default tests (ttsEngine stays kokoro-82m). */
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     private class FakeOutput : PassageOutput {
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) = Unit
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) = Unit
+
         override fun stop() = Unit
+
         override val positionSamples: Int = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -177,26 +193,37 @@ class PlaybackServicePublishGuardTest {
         store: PlayerStore,
         machine: PlayerStateMachine?,
         engine: FakeEngine = FakeEngine(),
-    ): PlaybackService = PlaybackService().apply {
-        attachServiceContext(this)
-        setAudioManager(this)
-        setSession(this)
-        this.store = store
-        this.machine = machine
-        this.book = this@PlaybackServicePublishGuardTest.book
-        this.output = FakeOutput()
-        this.libraryStore = RoomLibraryStore(database, scope)
-        this.settings = AppSettings(SettingsStore(database.settingsDao()))
-        this.runtime = FakeRuntime(context, this.settings, engine)
-        this.pregenCache = PregenCache(context)
-        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-    }
+    ): PlaybackService =
+        PlaybackService().apply {
+            attachServiceContext(this)
+            setAudioManager(this)
+            setSession(this)
+            this.store = store
+            this.machine = machine
+            this.book = this@PlaybackServicePublishGuardTest.book
+            this.output = FakeOutput()
+            this.libraryStore = RoomLibraryStore(database, scope)
+            this.settings = AppSettings(SettingsStore(database.settingsDao()))
+            this.runtime = FakeRuntime(context, this.settings, engine)
+            this.pregenCache = PregenCache(context)
+            this.selector =
+                EngineSelector(
+                    this.runtime,
+                    PiperRuntime(context, this.settings),
+                    TranslateRuntime(context, this.settings),
+                    onUnusedSystemTts,
+                    this.settings,
+                )
+        }
 
     /** `segments` has no test seam (the loop is its only writer, and a
      * loop-driven publish on a short book is 60 s-bound by buffer-before-start
      * spinning for the look-ahead target), so the guard injects the exact
      * inputs the loop would have set before the command publish runs. */
-    private fun setSegments(service: PlaybackService, segments: List<SegmentAnchor>) {
+    private fun setSegments(
+        service: PlaybackService,
+        segments: List<SegmentAnchor>,
+    ) {
         val field = PlaybackService::class.java.getDeclaredField("segments")
         field.isAccessible = true
         field.set(service, segments)
@@ -270,11 +297,12 @@ class PlaybackServicePublishGuardTest {
      * return`). */
     @Test
     fun `notification action intents carry the book id`() {
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setSession(this)
-            this.book = this@PlaybackServicePublishGuardTest.book
-        }
+        val service =
+            PlaybackService().apply {
+                attachServiceContext(this)
+                setSession(this)
+                this.book = this@PlaybackServicePublishGuardTest.book
+            }
         val notification = buildNotification(service)
 
         val actions = notification.actions.map { Shadows.shadowOf(it.actionIntent).savedIntent }
@@ -288,7 +316,7 @@ class PlaybackServicePublishGuardTest {
             ),
             actions.map { it.action }.toSet(),
         )
-        
+
         actions.forEach { intent ->
             assertEquals(
                 "every action intent carries EXTRA_BOOK_ID (action=${intent.action} extras=${intent.extras})",
@@ -352,9 +380,11 @@ class PlaybackServicePublishGuardTest {
         assertEquals("G1/G3 live playhead per second", 2.6, state.offsetSeconds, 1e-9)
         assertEquals("read-along index tracks the moving playhead", 1, state.activeSentenceIndex)
         assertEquals(PlayerPhase.LOADING, state.phase)
-        val notifications = Shadows.shadowOf(
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
-        ).allNotifications
+        val notifications =
+            Shadows
+                .shadowOf(
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
+                ).allNotifications
         assertTrue("per-second path must not re-notify (S3)", notifications.isEmpty())
 
         // The structural path still publishes MediaSession + notification
@@ -363,9 +393,11 @@ class PlaybackServicePublishGuardTest {
         service.baselineOffset = 3.0
         service.pausePlayer(PlaybackService.PauseReason.USER) // command that publishes
         Thread.sleep(300)
-        val notified = Shadows.shadowOf(
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
-        ).allNotifications
+        val notified =
+            Shadows
+                .shadowOf(
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
+                ).allNotifications
         assertEquals("structural publish notifies once", 1, notified.size)
         PlaybackStateHolder.reset()
     }

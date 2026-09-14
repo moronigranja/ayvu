@@ -27,6 +27,8 @@ import com.moronigranja.localttsreader.tts.piper.PiperEngine
 import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
 import com.moronigranja.localttsreader.tts.piper.PiperVoices
+import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
+import com.moronigranja.localttsreader.tts.translate.TranslatePacks
 import com.moronigranja.localttsreader.ui.VoiceSelectorUiState
 import com.moronigranja.localttsreader.ui.buildVoiceSelectorState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +43,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
+
 internal const val TESS_ENGINE_ID = "tess-two"
 
 data class PackRow(
@@ -182,6 +185,7 @@ class SettingsViewModel
             viewModelScope.launch {
                 refreshOfflineUsage()
                 autoStageEspeak()
+                autoStageTranslate()
             }
         }
 
@@ -229,7 +233,12 @@ class SettingsViewModel
                 status = pack.status,
                 progress = prog,
                 error = err,
-                staged = pack.pack.engineId == TESS_ENGINE_ID && TessDataStager.isStaged(filesDir, pack.pack),
+                staged =
+                    when (pack.pack.engineId) {
+                        TESS_ENGINE_ID -> TessDataStager.isStaged(filesDir, pack.pack)
+                        TranslatePacks.PACK_ENGINE_ID -> TranslatePackStager.isStaged(filesDir)
+                        else -> false
+                    },
             )
 
         fun download(packId: String) {
@@ -267,6 +276,7 @@ class SettingsViewModel
                             is DownloadOutcome.Ready, is DownloadOutcome.AlreadyCached -> {
                                 if (isTess) stageTess(packId)
                                 if (packId == ESPEAK_PACK_ID) stageEspeak(packId)
+                                if (packId == TranslatePacks.pack.id) stageTranslate(packId)
                                 if (packId == KokoroPacks.voices.id) voiceCatalog.invalidate()
                             }
                             is DownloadOutcome.Failed -> errors.update(packId, shortReason(outcome.reason))
@@ -327,6 +337,30 @@ class SettingsViewModel
                 .onFailure { errors.update(packId, "staging failed: ${it.message}") }
         }
 
+        /** Read-in-language (decisions #114): extracts the verified ~916 MB
+         * zip under `files/translate-small100/` so the runtime can open the
+         * sessions ([TranslatePackStager]): the pack artifact in the cache is
+         * the zip; the staged bundle is what the translator loads. */
+        private suspend fun stageTranslate(packId: String) {
+            val pack =
+                registry.packs.value
+                    .firstOrNull { it.pack.id == packId }
+                    ?.pack ?: return
+            runCatching { TranslatePackStager.stage(filesDir, cache, pack) }
+                .onFailure { errors.update(packId, "staging failed: ${it.message}") }
+        }
+
+        /** A verified-but-unstaged translate pack (download completed but the
+         * extract died, or a reinstall) self-heals when settings opens. */
+        private suspend fun autoStageTranslate() {
+            if (TranslatePackStager.isStaged(filesDir)) return
+            val pack =
+                registry.packs.value
+                    .firstOrNull { it.pack.id == TranslatePacks.pack.id }
+                    ?.pack ?: return
+            if (cache.isVerified(pack)) stageTranslate(pack.id)
+        }
+
         /** Live espeak-ng readiness from the staged bundle (downloads change it). */
         private fun espeakReady(filesDir: File): Boolean = EspeakStager.isStaged(filesDir)
 
@@ -351,9 +385,10 @@ class SettingsViewModel
                 voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
                 selectedVoice = prefs.voice,
                 favorites = prefs.favorites.toSet(),
-                ready = voicePackIds(prefs).all { id ->
-                    packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready
-                },
+                ready =
+                    voicePackIds(prefs).all { id ->
+                        packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready
+                    },
                 audition = audition,
             )
         }
@@ -391,7 +426,12 @@ class SettingsViewModel
             val engine =
                 engines.firstOrNull { it.spec.id == engineId }
                     ?: engines.firstOrNull { it.spec.id == SettingsStore.DEFAULT_TTS_ENGINE }
-            return engine?.packs.orEmpty().filter { it.companionOf == null }.map { it.id }.toSet() + ESPEAK_PACK_ID
+            return engine
+                ?.packs
+                .orEmpty()
+                .filter { it.companionOf == null }
+                .map { it.id }
+                .toSet() + ESPEAK_PACK_ID
         }
 
         private fun shortReason(reason: DownloadFailureReason): String =

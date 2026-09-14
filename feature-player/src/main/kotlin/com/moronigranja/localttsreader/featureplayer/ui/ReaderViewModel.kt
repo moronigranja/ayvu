@@ -4,8 +4,11 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moronigranja.localttsreader.featureplayer.playback.EngineSelector
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
 import com.moronigranja.localttsreader.persistence.AppSettings
+import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.AuditionUiState
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerCommands
@@ -16,12 +19,13 @@ import com.moronigranja.localttsreader.tts.PackState
 import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
-import com.moronigranja.localttsreader.player.AuditionUiState
-import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.tts.piper.PiperEngine
 import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
 import com.moronigranja.localttsreader.tts.piper.PiperVoices
+import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
+import com.moronigranja.localttsreader.tts.translate.TranslatePacks
+import com.moronigranja.localttsreader.ui.ReadInLanguageUiState
 import com.moronigranja.localttsreader.ui.VoiceSelectorUiState
 import com.moronigranja.localttsreader.ui.buildVoiceSelectorState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,6 +53,7 @@ class ReaderViewModel
         @ApplicationContext private val context: Context,
         private val settings: AppSettings,
         private val audition: VoiceAudition,
+        private val selector: EngineSelector,
         private val registry: PackRegistry,
         private val download: VoicePackDownloader,
     ) : ViewModel(),
@@ -100,9 +105,10 @@ class ReaderViewModel
         ): Boolean {
             val ids =
                 if (prefs.ttsEngine == SettingsStore.PIPER_ENGINE) {
-                    PiperPacks.forVoice(
-                        if (prefs.voice in PiperVoices.all) prefs.voice else PiperEngine.DEFAULT_VOICE,
-                    ).map { it.id } + ESPEAK_PACK_ID
+                    PiperPacks
+                        .forVoice(
+                            if (prefs.voice in PiperVoices.all) prefs.voice else PiperEngine.DEFAULT_VOICE,
+                        ).map { it.id } + ESPEAK_PACK_ID
                 } else {
                     listOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
                 }
@@ -114,6 +120,64 @@ class ReaderViewModel
          * resume from the persisted playhead instead of dead-ending the
          * play button. */
         private var openedBookId: String? = null
+
+        // ---- read-in-language (decisions #114) ----
+
+        private val translateProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+
+        /** The voice-sheet "Read in" section state: the active book's target,
+         * the target languages the active engine can voice, and pack
+         * readiness (selection is disabled until the pack is staged). */
+        val translateState: StateFlow<ReadInLanguageUiState> =
+            combine(settings.state, registry.packs, translateProgress, PlaybackStateHolder.state) {
+                prefs,
+                packs,
+                progress,
+                playback,
+                ->
+                ReadInLanguageUiState(
+                    bookId = playback.bookId,
+                    target = playback.bookId?.let { prefs.bookTranslate[it] },
+                    languages = selector.availableTranslateLanguages(),
+                    packDownloaded =
+                        packs.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
+                            TranslatePackStager.isStaged(context.filesDir),
+                    downloadProgress = progress,
+                )
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                ReadInLanguageUiState(),
+            )
+
+        /**
+         * Persists the book's translate target (null = Off) and rebuilds the
+         * active book at the same playhead through the [changeVoice] path —
+         * same single-writer rule as voice selection: stale audio can never
+         * publish. The service re-reads the setting on the rebuild, so the
+         * queue + cache keys pick up the `x<lang>` dimension.
+         */
+        fun setTranslateTarget(target: String?) {
+            val bookId = PlaybackStateHolder.state.value.bookId ?: return
+            val current = settings.bookTranslate(bookId)
+            if (target != current) {
+                viewModelScope.launch { settings.setBookTranslate(bookId, target) }
+                changeVoice(settings.state.value.voice)
+            }
+        }
+
+        /** Inline download for the translation pack row (per-book, never a
+         * global gate): explicit, resumable, verified (decision #7); the
+         * settings surface stages the bundle after Ready. */
+        fun downloadTranslatePack() {
+            viewModelScope.launch {
+                translateProgress.value = 0f
+                registry
+                    .download(TranslatePacks.pack.id) { done, total ->
+                        translateProgress.value = (done.toDouble() / total).toFloat()
+                    }.also { translateProgress.value = null }
+            }
+        }
 
         /** C2: select a voice AND rebuild the active book under it at the same
          * playhead (persist via [settings], supersede stale synthesis via

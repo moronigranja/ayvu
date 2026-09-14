@@ -23,7 +23,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -35,6 +34,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Fill-restart regression (QW4 one-fill-job, decisions #78): the fill job
@@ -65,7 +65,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceFillRestartTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -74,19 +73,21 @@ class PlaybackServiceFillRestartTest {
      * mid-book (~passage 4-5) with ~25 passages after it, so the restarted
      * fill has enough spine left to build the 30 s horizon (the fake engine
      * renders 10 s per passage; 3 synthesizes reach the buffer target). */
-    private val book = Book(
-        id = "fill-restart-book",
-        title = "Fill Restart",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
-                (1..30).map { i ->
-                    TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
-                },
-            ),
-        ),
-    )
+    private val book =
+        Book(
+            id = "fill-restart-book",
+            title = "Fill Restart",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "One",
+                        (1..30).map { i ->
+                            TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
+                        },
+                    ),
+                ),
+        )
 
     /** Gated engine: while [healthy] is false every synthesis FAILS, so a
      * fill synthesizes nothing (the queue stays empty and the pre-seek state
@@ -97,8 +98,10 @@ class PlaybackServiceFillRestartTest {
     ) : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
+
         /** Written from the fill job AND the play loop concurrently. */
         val synthesized = CopyOnWriteArrayList<String>()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
             synthesized += request.text
             if (!healthy) return SynthesisOutcome.Failed("gated")
@@ -112,32 +115,44 @@ class PlaybackServiceFillRestartTest {
         private val engine: TTSEngine?,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
 
     /** Degraded path unused in kokoro-default tests (ttsEngine stays kokoro-82m). */
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     /** Counts dispatches; the head never advances (awaitPlaybackOrStop parks). */
     private class RecordingOutput : PassageOutput {
         @Volatile
         var playCalls = 0
             private set
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) {
+
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) {
             playCalls++
         }
+
         override fun stop() = Unit
+
         override val positionSamples: Int get() = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -168,7 +183,11 @@ class PlaybackServiceFillRestartTest {
         field.set(service, MediaSessionCompat(service, "local-tts-reader"))
     }
 
-    private fun await(label: String, timeoutMs: Long = 10_000, condition: () -> Boolean) {
+    private fun await(
+        label: String,
+        timeoutMs: Long = 10_000,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
@@ -182,18 +201,26 @@ class PlaybackServiceFillRestartTest {
         val store = InMemoryPlayerStore()
         val engine = FakeEngine(healthy = false) // the openBook fill must queue nothing
         val output = RecordingOutput()
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setAudioManager(this)
-            setSession(this)
-            this.store = store
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, engine)
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val service =
+            PlaybackService().apply {
+                attachServiceContext(this)
+                setAudioManager(this)
+                setSession(this)
+                this.store = store
+                this.output = output
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+                this.runtime = FakeRuntime(context, this.settings, engine)
+                this.pregenCache = PregenCache(context)
+                this.selector =
+                    EngineSelector(
+                        this.runtime,
+                        PiperRuntime(context, this.settings),
+                        TranslateRuntime(context, this.settings),
+                        onUnusedSystemTts,
+                        this.settings,
+                    )
+            }
         PlaybackStateHolder.reset()
         try {
             // openBook is the real command that builds the service's queue —
@@ -234,18 +261,26 @@ class PlaybackServiceFillRestartTest {
         val store = InMemoryPlayerStore()
         val engine = FakeEngine(healthy = true)
         val output = RecordingOutput()
-        val service = PlaybackService().apply {
-            attachServiceContext(this)
-            setAudioManager(this)
-            setSession(this)
-            this.store = store
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = AppSettings(SettingsStore(database.settingsDao()))
-            this.runtime = FakeRuntime(context, this.settings, engine)
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-        }
+        val service =
+            PlaybackService().apply {
+                attachServiceContext(this)
+                setAudioManager(this)
+                setSession(this)
+                this.store = store
+                this.output = output
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = AppSettings(SettingsStore(database.settingsDao()))
+                this.runtime = FakeRuntime(context, this.settings, engine)
+                this.pregenCache = PregenCache(context)
+                this.selector =
+                    EngineSelector(
+                        this.runtime,
+                        PiperRuntime(context, this.settings),
+                        TranslateRuntime(context, this.settings),
+                        onUnusedSystemTts,
+                        this.settings,
+                    )
+            }
         PlaybackStateHolder.reset()
         val pregenJobField = PlaybackService::class.java.getDeclaredField("pregenJob")
         pregenJobField.isAccessible = true

@@ -10,11 +10,11 @@ package com.moronigranja.localttsreader.persistence
  * .AppSettings] singleton that mirrors these keys in memory; these direct
  * calls are the source of truth underneath it.
  */
-class SettingsStore(private val settingsDao: SettingsDao) {
-
+class SettingsStore(
+    private val settingsDao: SettingsDao,
+) {
     /** Recall floor for share matches (decisions #3), default 0.6. */
-    suspend fun matchThreshold(): Double =
-        settingsDao.get(KEY_MATCH_THRESHOLD)?.toDoubleOrNull() ?: DEFAULT_MATCH_THRESHOLD
+    suspend fun matchThreshold(): Double = settingsDao.get(KEY_MATCH_THRESHOLD)?.toDoubleOrNull() ?: DEFAULT_MATCH_THRESHOLD
 
     suspend fun setMatchThreshold(value: Double) {
         require(value in 0.0..1.0) { "match threshold must be within 0..1, was $value" }
@@ -22,8 +22,7 @@ class SettingsStore(private val settingsDao: SettingsDao) {
     }
 
     /** The Kokoro voice played by default (V1 voice picker), default af_heart. */
-    suspend fun voice(): String =
-        settingsDao.get(KEY_VOICE)?.takeIf { it.isNotBlank() } ?: DEFAULT_VOICE
+    suspend fun voice(): String = settingsDao.get(KEY_VOICE)?.takeIf { it.isNotBlank() } ?: DEFAULT_VOICE
 
     suspend fun setVoice(value: String) {
         require(value.isNotBlank()) { "voice must not be blank" }
@@ -49,8 +48,7 @@ class SettingsStore(private val settingsDao: SettingsDao) {
      * choke point. An explicit override beats the global default, and
      * changing the global default neither clears nor rewrites overrides.
      */
-    suspend fun bookVoice(bookId: String): String? =
-        settingsDao.get(bookVoiceKey(bookId))?.takeIf { it.isNotBlank() }
+    suspend fun bookVoice(bookId: String): String? = settingsDao.get(bookVoiceKey(bookId))?.takeIf { it.isNotBlank() }
 
     /** Writes or clears [bookId]'s override (null clears — the sheet's
      * explicit "use default"). */
@@ -76,9 +74,42 @@ class SettingsStore(private val settingsDao: SettingsDao) {
             .filter { it.key.startsWith(KEY_BOOK_VOICE_PREFIX) && it.value.isNotBlank() }
             .associate { it.key.removePrefix(KEY_BOOK_VOICE_PREFIX) to it.value }
 
+    /**
+     * Per-book read-in-language target (decisions #114): one generic row
+     * `book.translate.<bookId>` holding the target APP language code (e.g.
+     * `pt-BR`), mirroring the `book.voice.` precedent exactly — same table,
+     * no migration, rides the existing backup archive raw and is dropped with
+     * the book. Absent key = read in the book's original language; resolution
+     * lives in [com.moronigranja.localttsreader.featureplayer.playback
+     * .EngineSelector.resolve].
+     */
+    suspend fun bookTranslate(bookId: String): String? = settingsDao.get(bookTranslateKey(bookId))?.takeIf { it.isNotBlank() }
+
+    /** Writes or clears [bookId]'s translate target (null clears — "Off"). */
+    suspend fun setBookTranslate(
+        bookId: String,
+        targetLang: String?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookTranslateKey(bookId)
+        if (targetLang == null) {
+            settingsDao.delete(key)
+        } else {
+            require(targetLang.isNotBlank()) { "target language must not be blank" }
+            settingsDao.put(SettingEntity(key, targetLang))
+        }
+    }
+
+    /** Every stored translate target (bookId → app language code) — the
+     * mirror's reload read (one scan, same as [bookVoices]). */
+    suspend fun bookTranslates(): Map<String, String> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_TRANSLATE_PREFIX) && it.value.isNotBlank() }
+            .associate { it.key.removePrefix(KEY_BOOK_TRANSLATE_PREFIX) to it.value }
+
     /** UI theme: system / light / dark (V1). */
-    suspend fun themeMode(): ThemeMode =
-        ThemeMode.from(settingsDao.get(KEY_THEME_MODE))
+    suspend fun themeMode(): ThemeMode = ThemeMode.from(settingsDao.get(KEY_THEME_MODE))
 
     suspend fun setThemeMode(value: ThemeMode) {
         settingsDao.put(SettingEntity(KEY_THEME_MODE, value.key))
@@ -96,8 +127,7 @@ class SettingsStore(private val settingsDao: SettingsDao) {
 
     /** The speech engine id (C1.5, decisions #102): `kokoro-82m` (default) or
      * the zero-download `system-tts` degraded fallback. */
-    suspend fun ttsEngine(): String =
-        settingsDao.get(KEY_TTS_ENGINE)?.takeIf { it.isNotBlank() } ?: DEFAULT_TTS_ENGINE
+    suspend fun ttsEngine(): String = settingsDao.get(KEY_TTS_ENGINE)?.takeIf { it.isNotBlank() } ?: DEFAULT_TTS_ENGINE
 
     suspend fun setTtsEngine(value: String) {
         require(value.isNotBlank()) { "tts engine must not be blank" }
@@ -120,11 +150,12 @@ class SettingsStore(private val settingsDao: SettingsDao) {
     /** Linear playback gain applied to the generated voice (a multiplier on
      * top of the device media volume): 1.0 = unity, > 1.0 amplifies. The
      * value is clamped by the output to the platform's `AudioTrack` max. */
-    suspend fun playbackGain(): Float =
-        settingsDao.get(KEY_PLAYBACK_GAIN)?.toFloatOrNull() ?: DEFAULT_PLAYBACK_GAIN
+    suspend fun playbackGain(): Float = settingsDao.get(KEY_PLAYBACK_GAIN)?.toFloatOrNull() ?: DEFAULT_PLAYBACK_GAIN
 
     suspend fun setPlaybackGain(value: Float) {
-        require(value in PLAYBACK_GAIN_MIN..PLAYBACK_GAIN_MAX) { "playback gain must be within ${PLAYBACK_GAIN_MIN}..${PLAYBACK_GAIN_MAX}, was $value" }
+        require(value in PLAYBACK_GAIN_MIN..PLAYBACK_GAIN_MAX) {
+            "playback gain must be within ${PLAYBACK_GAIN_MIN}..${PLAYBACK_GAIN_MAX}, was $value"
+        }
         settingsDao.put(SettingEntity(KEY_PLAYBACK_GAIN, value.toString()))
     }
 
@@ -156,6 +187,7 @@ class SettingsStore(private val settingsDao: SettingsDao) {
         const val DEFAULT_VOICE = "af_heart"
         const val DEFAULT_OCR_LANGUAGE = "eng"
         const val DEFAULT_TTS_ENGINE = "kokoro-82m"
+
         /** D4 (decisions #154/#154-addendum): the Piper small tier — the id
          * matches DefaultEngines.piper; selection is explicit, never auto. */
         const val PIPER_ENGINE = "piper-v1"
@@ -190,14 +222,24 @@ class SettingsStore(private val settingsDao: SettingsDao) {
         const val KEY_BOOK_VOICE_PREFIX = "book.voice."
 
         fun bookVoiceKey(bookId: String): String = KEY_BOOK_VOICE_PREFIX + bookId
+
+        /** Per-book read-in-language keys (decisions #114): `<prefix><bookId>`
+         * → the target app language code, same generic-table ride-along as
+         * [KEY_BOOK_VOICE_PREFIX]. */
+        const val KEY_BOOK_TRANSLATE_PREFIX = "book.translate."
+
+        fun bookTranslateKey(bookId: String): String = KEY_BOOK_TRANSLATE_PREFIX + bookId
     }
 }
 
 /** How the app picks its light/dark palette (V1 theme-follows-system). */
-enum class ThemeMode(val key: String) {
+enum class ThemeMode(
+    val key: String,
+) {
     SYSTEM("system"),
     LIGHT("light"),
-    DARK("dark");
+    DARK("dark"),
+    ;
 
     companion object {
         fun from(raw: String?): ThemeMode = entries.firstOrNull { it.key == raw } ?: SYSTEM

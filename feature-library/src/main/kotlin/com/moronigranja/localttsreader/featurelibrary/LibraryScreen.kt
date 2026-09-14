@@ -1,48 +1,39 @@
 package com.moronigranja.localttsreader.featurelibrary
 
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.ImageBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
-import android.graphics.BitmapFactory
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import com.moronigranja.localttsreader.player.TodayStats
-import androidx.compose.ui.unit.dp
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,50 +45,63 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PregenJobState
+import com.moronigranja.localttsreader.player.TodayStats
+import com.moronigranja.localttsreader.player.formatBytes
 import com.moronigranja.localttsreader.ui.AyvuMotion
 import com.moronigranja.localttsreader.ui.AyvuSpacing
-import com.moronigranja.localttsreader.ui.SectionHeader
-import com.moronigranja.localttsreader.ui.LocalReducedMotion
+import com.moronigranja.localttsreader.ui.BookCover
 import com.moronigranja.localttsreader.ui.ConfirmDialog
 import com.moronigranja.localttsreader.ui.EmptyState
-import com.moronigranja.localttsreader.ui.PlayerCard
-import com.moronigranja.localttsreader.ui.BookCover
 import com.moronigranja.localttsreader.ui.LabeledProgress
+import com.moronigranja.localttsreader.ui.LocalReducedMotion
+import com.moronigranja.localttsreader.ui.PlayerCard
+import com.moronigranja.localttsreader.ui.ReadInLanguagePicker
+import com.moronigranja.localttsreader.ui.SectionHeader
 import com.moronigranja.localttsreader.ui.formatPercent
-import com.moronigranja.localttsreader.player.PlayerPhase
-import com.moronigranja.localttsreader.player.formatBytes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The library list + import flow (C5/C6). Pick ebooks via SAF, import them through
  * the Hilt-provided [LibraryViewModel], and see the result — with progress, a
  * failure dialog when anything failed, and a snackbar for clean successes.
  */
+
 /** MIME types the SAF picker offers. mobi/azw have no registered MIME type, so
  *  providers report them as `application/octet-stream`; the importer still filters
  *  by extension, so stray picks surface as a typed "format not supported" failure. */
-private val IMPORT_MIME_TYPES = arrayOf(
-    "application/epub+zip",
-    "text/plain",
-    "text/markdown",
-    "text/x-markdown",
-    "application/octet-stream",
-)
+private val IMPORT_MIME_TYPES =
+    arrayOf(
+        "application/epub+zip",
+        "text/plain",
+        "text/markdown",
+        "text/x-markdown",
+        "application/octet-stream",
+    )
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -180,6 +184,7 @@ fun LibraryScreen(
     var cardBudget by remember { mutableStateOf(false) }
     var cardConfirmRemove by remember { mutableStateOf(false) }
     var cardConfirmDeleteAudio by remember { mutableStateOf(false) }
+    var cardReadInBookId by remember { mutableStateOf<String?>(null) }
 
     if (cardBudget) {
         PregenBudgetDialog(
@@ -216,6 +221,9 @@ fun LibraryScreen(
             },
             onDismiss = { cardConfirmDeleteAudio = false },
         )
+    }
+    cardReadInBookId?.let { dialogBookId ->
+        ReadInLanguageDialog(dialogBookId, viewModel, onDismiss = { cardReadInBookId = null })
     }
 
     Scaffold(
@@ -370,6 +378,13 @@ fun LibraryScreen(
                                                     )
                                                 }
                                                 DropdownMenuItem(
+                                                    text = { Text("Read in language…") },
+                                                    onClick = {
+                                                        cardMenuOpen = false
+                                                        activeId?.let { cardReadInBookId = it }
+                                                    },
+                                                )
+                                                DropdownMenuItem(
                                                     text = { Text("Remove from library") },
                                                     onClick = {
                                                         cardMenuOpen = false
@@ -474,6 +489,7 @@ private fun BookRow(
     var budgetDialog by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
     var confirmDeleteAudio by remember { mutableStateOf(false) }
+    var readInBookId by remember { mutableStateOf<String?>(null) }
 
     if (budgetDialog) {
         PregenBudgetDialog(
@@ -600,6 +616,13 @@ private fun BookRow(
                             )
                         }
                         DropdownMenuItem(
+                            text = { Text("Read in language…") },
+                            onClick = {
+                                menuOpen = false
+                                readInBookId = bookId
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Remove from library") },
                             onClick = {
                                 menuOpen = false
@@ -638,6 +661,36 @@ private fun BookRow(
             onDismiss = { confirmDeleteAudio = false },
         )
     }
+    readInBookId?.let { dialogBookId ->
+        ReadInLanguageDialog(dialogBookId, viewModel, onDismiss = { readInBookId = null })
+    }
+}
+
+/** The shared per-book "Read in language" dialog (decisions #114): the same
+ * picker the reader's voice sheet uses — Off + the active engine's target
+ * languages, with the inline pack-download row until the pack is staged. */
+@Composable
+private fun ReadInLanguageDialog(
+    bookId: String,
+    viewModel: LibraryViewModel,
+    onDismiss: () -> Unit,
+) {
+    val state by viewModel.translateState(bookId).collectAsState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Read in language") },
+        text = {
+            ReadInLanguagePicker(
+                state = state,
+                onSelect = {
+                    viewModel.setTranslateTarget(bookId, it)
+                    onDismiss()
+                },
+                onDownload = { viewModel.downloadTranslatePack(bookId) },
+            )
+        },
+        confirmButton = {},
+    )
 }
 
 /** Decodes the book's extracted cover off the main thread; null while loading or absent. */

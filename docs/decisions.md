@@ -4,6 +4,98 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 160. core-translate: the SMaLL-100 tokenizer port, translate pack, and read-in-language wiring (2026-09-14)
+
+The translate-then-read slice (Phase J verdict #114 → product): `:core-translate`
+lands the on-device SMaLL-100 machinery — a from-scratch sentencepiece port with no
+protobuf/sentencepiece dependency, the pinned int8 pack, the per-book "Read in
+language" control — behind the existing seams (`TTSEngine`, pack registry,
+`book.voice.`-style settings, the pregen key). Three findings corrected the plan's
+assumptions (all gated by the golden-parity test, which PASSES head-for-head):
+
+- **The model is BPE, not unigram.** `sentencepiece.bpe.model` declares
+  `model_type = BPE` (and `byte_fallback = false`, no UNUSED pieces). The encoder is
+  the agenda-driven merge of bpe_model.cc — char-split → score-priority merges with
+  leftmost tiebreak — not Viterbi; unknown characters become `<unk>` via the vocab.
+- **Piece ids come from the HF `vocab.json`, NOT the SPM piece order**
+  (128,004 entries: `<s>/<pad>/</s>/<unk>` first, then the 128,000 pieces reordered;
+  lang tokens `__<code>__` = 128,004 + m2m100 list index — 100 codes, the model's
+  embedding index). The tokenizer loads both files; the pack carries
+  `vocab.json` + `sentencepiece.bpe.model` + the three int8 graphs.
+- **The precompiled charsmap blob is stored raw** (4-byte trie length + double-array
+  units + NUL-separated replacement strings) — NOT zlib. Normalization port validated
+  byte-exact against `sp.Normalize` on 21 probes before the Kotlin landed.
+
+Golden parity: `core-translate:test` asserts `Small100Tokenizer.encode` equals the
+pinned HF `SMALL100Tokenizer` ids (alirezamsh/small100 @ `8ab680e`) for 10 FLORES
+sentences (en/es/it/pt/de/fr + zh + hi; fixture committed with the SPM + vocab).
+Conditioning verbatim from the spike: `[tgt_lang, X, eos]` truncated to 512, decoder
+starts on `</s>` with NO forced bos.
+
+Pack: `translate-small100-int8-v1.zip` (921,820,987 B, sha256 `de57cc19…`) hosted on
+this repo's `translate-small100-v1` release; int8 graph sha256s cross-checked against
+`m/nmt/manifest.json`, the SPM re-downloaded from HF at the pinned revision
+(byte-identical, `d8f7c76…`), vocab.json the same. Registered as a registry-only
+pseudo-engine (`translate-small100`) — the selector switch stays closed, it can never
+be a TTS engine; unpacked under `files/translate-small100/` (the espeak-stager
+precedent).
+
+Wiring: per-book `book.translate.<bookId>` (app code, e.g. `pt-BR`) rides the generic
+settings table + backup archive raw (backup test extended with the key). The
+`TranslatingEngine` decorator swaps text+voice ONLY on success — ANY failure degrades
+to the original text + original voice (decisions #29/#101; wrong-voice pronunciation
+of untranslated text is the killed bug mode). `PregenKey` gains the trailing
+`translateLang` dimension (`x<lang>` disk segment) so translated and original audio
+never collide. `TranslateRuntime` opens the ~1.06 GB leg lazily and closes all three
+sessions 60 s after the last translate call — the HiBreak co-residency guard
+(no programmatic memory cap exists); with translation off the leg is never opened.
+Per-book control surfaces: reader voice sheet "Read in" section, library row/card
+"Read in language…" menus (shared `ReadInLanguagePicker` in core-ui), and the Speech
+subscreen Translation pack row with download+progress.
+
+`tools/docker-build.sh :app:assembleDebug` green; `:core-translate:test`,
+core-player/core-persistence/core-backup feature-player/settings/library suites and
+`:ktlintCheck` green. **Device pass (S22, SM-S908U1, 2026-09-14) — DONE**; the HiBreak
+co-residency check remains a pending gate (not attached):
+
+- **End-to-end**: Speech-subscreen download of the 921,820,987-byte pack (sha-verified,
+  auto-staged to `files/translate-small100/` by the settings flow), reader voice sheet
+  "Read in" → pt-BR, playback renders translated pt audio through the auto-picked
+  target voice while the reader text stays English (#101). Per-passage translate
+  latency on-device: **121–1352 ms** (135–419-char passages) — comfortably inside the
+  pregen horizon; the 30-s-prefill behavior is unaffected. Offline pregen under
+  translation verified through PregenWorker (translated passages accumulate under the
+  `xpt-BR` keys while the app sits on the library).
+- **Cache separation**: translated audio lands under
+  `files/pregen/<book>/<engine>/<voice>/<speed>/xpt-BR/cXpY.pcm`; toggling Off
+  re-synthesizes under the plain keys — no collision, including the same-voice case.
+- **Memory / idle-close**: PSS with the translator resident during translated playback
+  **1,803,052 KB** (Kokoro co-resident); after the 60 s idle close the sessions release
+  and PSS reads **1,744,016 KB** (Δ ≈ 58 MB of decode tensors — the int8 weights are
+  file-backed pages in the OS page cache, reclaimable, not a co-residency threat).
+  Piper co-resident (the whole leg with Piper + translate): **1,674,648 KB**.
+  The idle-close is logcat-verified (`idle close after 60000 ms`).
+- **Three defects the pass caught, all fixed + unit-tested**:
+  1. `TranslateLanguages.firstVoiceFor` compared `langCode`'s mixed-case `pt-BR`
+     against the lowercased target — the only langCode with an uppercase variant, so
+     pt-BR silently degraded while every other language matched by accident;
+  2. resolve() decorated without checking the target voice's PACK readiness — under
+     Piper a catalog voice whose pack is missing failed synthesis typed
+     (`unknown voice 'pt_BR-faber-medium'`); resolve now requires the target voice to
+     be servable (`PiperRuntime.voicePackReady`), and `TranslatingEngine` additionally
+     degrades a failed translated render back to the original text+voice (#29 whole-
+     attempt contract; mid-stream failures after published windows surface as-is);
+  3. cache keys carried the raw SETTING — an English render keyed under `x<lang>`
+     would poison the slot for the real translation once the pack arrived; keys now
+     use `EngineSelector.translateLangInUse` (the lang the resolved engine actually
+     renders). The setup SAF file-picker also failed to open on this build (excluded
+     as environmental; the import exercised through the app's own stored book).
+
+ktlint's baseline was regenerated (this week's lands drifted its line numbers; the
+slice itself introduces zero new violations — core-translate and every touched file
+report clean apart from Compose-CapitalCase function-naming entries the baseline
+already carries for the other screens).
+
 ## 159. Setup engine-awareness (reopening + language-select fixes) and the es/it/pt-BR Piper pins (2026-09-13)
 
 Owner report: the first-run setup reopened on every launch because the user

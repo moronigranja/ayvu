@@ -27,8 +27,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import java.lang.reflect.Field
-import java.lang.reflect.Method
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -42,6 +40,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.lang.reflect.Field
+import java.lang.reflect.Method
 
 /**
  * The self-stop/revival seam (6eaa2c0 + PR-0 QW2): the service's post-stop
@@ -63,31 +63,33 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceRevivalTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "revival-book",
-        title = "Revival",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "revival-book",
+            title = "Revival",
+            chapters =
                 listOf(
-                    TextPassage("The gate stood open beside the barn door."),
-                    TextPassage("Cold light spread across the morning field."),
-                    TextPassage("She counted the fence posts along the track."),
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage("The gate stood open beside the barn door."),
+                            TextPassage("Cold light spread across the morning field."),
+                            TextPassage("She counted the fence posts along the track."),
+                        ),
+                    ),
                 ),
-            ),
-        ),
-    )
+        )
 
     private class FakeEngine : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
         val synthesized = mutableListOf<String>()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
             synchronized(synthesized) { synthesized += request.text }
             return SynthesisOutcome.Audio(ByteArray(1_000), 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
@@ -100,25 +102,37 @@ class PlaybackServiceRevivalTest {
         private val engine: TTSEngine?,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
+
     /** Degraded path unused in kokoro-default tests (ttsEngine stays kokoro-82m). */
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     private class FakeOutput : PassageOutput {
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) = Unit
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) = Unit
+
         override fun stop() = Unit
+
         override val positionSamples: Int = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -140,7 +154,11 @@ class PlaybackServiceRevivalTest {
         attach.isAccessible = true
         val service = PlaybackService()
         attach.invoke(service, context)
-        fun prime(name: String, value: Any) {
+
+        fun prime(
+            name: String,
+            value: Any,
+        ) {
             val field: Field = PlaybackService::class.java.getDeclaredField(name)
             field.isAccessible = true
             field.set(service, value)
@@ -154,13 +172,24 @@ class PlaybackServiceRevivalTest {
         service.libraryStore = RoomLibraryStore(database, scope)
         service.settings = AppSettings(SettingsStore(database.settingsDao()))
         service.runtime = FakeRuntime(context, service.settings, engine)
-        service.selector = EngineSelector(service.runtime, PiperRuntime(context, service.settings), onUnusedSystemTts, service.settings)
+        service.selector =
+            EngineSelector(
+                service.runtime,
+                PiperRuntime(context, service.settings),
+                TranslateRuntime(context, service.settings),
+                onUnusedSystemTts,
+                service.settings,
+            )
         return service
     }
 
     /** Polls until the condition holds (async command + prefill coroutines),
      * failing with [message] after the budget. */
-    private fun await(message: String, budgetMs: Long = 2_000, condition: () -> Boolean) {
+    private fun await(
+        message: String,
+        budgetMs: Long = 2_000,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + budgetMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
@@ -203,7 +232,12 @@ class PlaybackServiceRevivalTest {
         await("the rebuild command must reconstruct the machine") { service.machine != null }
         await("resume must synthesize (prefill for the resumed passage)", condition = { engine.synthesized.isNotEmpty() })
         val rebuilt = service.machine!!
-        assertEquals("resumed into the persisted playhead, not passage 0", 1, rebuilt.state.value.position?.passageIndex)
+        assertEquals(
+            "resumed into the persisted playhead, not passage 0",
+            1,
+            rebuilt.state.value.position
+                ?.passageIndex,
+        )
         assertEquals(PlayerPhase.LOADING, rebuilt.state.value.phase)
         await("the rebuilt session is published") {
             PlaybackStateHolder.state.value.let { it.bookId == book.id && it.phase == PlayerPhase.LOADING }

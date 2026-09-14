@@ -49,8 +49,11 @@ class PregenQueue(
     private val onSynthesized: suspend (key: PregenKey, audio: PregenAudio) -> Unit = { _, _ -> },
     /** Engine whose voice/speed the queue synthesizes — part of the [PregenKey] cache path. */
     private val engine: String = PregenKey.DEFAULT_ENGINE,
+    /** Read-in-language target code for this queue's keys (decisions #114);
+     * null = the book's original language. */
+    private val translateLang: String? = null,
 ) {
-    private val planner = PregenPlanner(book, voice, speed, engine)
+    private val planner = PregenPlanner(book, voice, speed, engine, translateLang)
     private val lock = Object()
     private val entries = LinkedHashMap<PregenKey, PregenAudio>()
     private val inFlight = mutableSetOf<PregenKey>()
@@ -69,28 +72,32 @@ class PregenQueue(
      *  position, so a seek costs at most one in-flight passage instead of a
      *  cancelled fill + full restart. A backward (or unchanged) playhead keeps
      *  the plan: every planned key is still strictly after it. */
-    suspend fun ensure(from: PlayerPosition, rearm: (() -> PlayerPosition?)? = null) {
-        val plan = synchronized(lock) {
-            entries.keys.removeAll { key -> !isAfter(key, from) }
-            shrinkToBound()
-            val missing = mutableListOf<PregenKey>()
-            planner.plan(
-                from = from.chapterIndex to from.passageIndex,
-                // Contiguous-prefix + bounds, exactly the old loop's decisions:
-                // stop at the first passage another coroutine is synthesizing
-                // (never plan past an unsynthesized near gap) or at the
-                // look-ahead count/time limits.
-                stop = { _, _, key ->
-                    key in inFlight ||
-                        entries.size + missing.size >= lookahead ||
-                        queuedSecondsLocked(from) >= lookaheadSeconds
-                },
-                shouldVisit = { _, _, key -> !entries.containsKey(key) && key !in missing },
-                onCandidate = { _, _, key -> missing += key },
-            )
-            inFlight.addAll(missing)
-            missing
-        }
+    suspend fun ensure(
+        from: PlayerPosition,
+        rearm: (() -> PlayerPosition?)? = null,
+    ) {
+        val plan =
+            synchronized(lock) {
+                entries.keys.removeAll { key -> !isAfter(key, from) }
+                shrinkToBound()
+                val missing = mutableListOf<PregenKey>()
+                planner.plan(
+                    from = from.chapterIndex to from.passageIndex,
+                    // Contiguous-prefix + bounds, exactly the old loop's decisions:
+                    // stop at the first passage another coroutine is synthesizing
+                    // (never plan past an unsynthesized near gap) or at the
+                    // look-ahead count/time limits.
+                    stop = { _, _, key ->
+                        key in inFlight ||
+                            entries.size + missing.size >= lookahead ||
+                            queuedSecondsLocked(from) >= lookaheadSeconds
+                    },
+                    shouldVisit = { _, _, key -> !entries.containsKey(key) && key !in missing },
+                    onCandidate = { _, _, key -> missing += key },
+                )
+                inFlight.addAll(missing)
+                missing
+            }
         try {
             for (key in plan) {
                 // A cancelled fill must stop synthesizing: cancellation is
@@ -121,8 +128,7 @@ class PregenQueue(
     }
 
     /** Seconds of audio currently queued strictly after [from]. */
-    fun aheadSeconds(from: PlayerPosition): Double =
-        synchronized(lock) { queuedSecondsLocked(from) }
+    fun aheadSeconds(from: PlayerPosition): Double = synchronized(lock) { queuedSecondsLocked(from) }
 
     /** Seconds of audio currently queued strictly after [from]. */
     private fun queuedSecondsLocked(from: PlayerPosition): Double =
@@ -131,13 +137,17 @@ class PregenQueue(
             .sumOf { it.value.pcm.size / 2.0 / it.value.sampleRateHz }
 
     /** The queued audio for the passage, consumed; null when not pre-generated. */
-    fun take(chapterIndex: Int, passageIndex: Int): PregenAudio? =
-        synchronized(lock) { entries.remove(PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine)) }
+    fun take(
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): PregenAudio? = synchronized(lock) { entries.remove(planner.key(chapterIndex, passageIndex)) }
 
     /** The queued audio for the passage, NON-consuming — the boundary pre-arm
      * peeks the next passage's size/rate without dequeuing it. */
-    fun peek(chapterIndex: Int, passageIndex: Int): PregenAudio? =
-        synchronized(lock) { entries[PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine)] }
+    fun peek(
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): PregenAudio? = synchronized(lock) { entries[planner.key(chapterIndex, passageIndex)] }
 
     val size: Int get() = synchronized(lock) { entries.size }
 
@@ -145,7 +155,10 @@ class PregenQueue(
         while (entries.size > lookahead) entries.remove(entries.keys.last())
     }
 
-    private fun isAfter(key: PregenKey, from: PlayerPosition): Boolean =
+    private fun isAfter(
+        key: PregenKey,
+        from: PlayerPosition,
+    ): Boolean =
         key.chapterIndex > from.chapterIndex ||
             (key.chapterIndex == from.chapterIndex && key.passageIndex > from.passageIndex)
 

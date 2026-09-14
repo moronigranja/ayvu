@@ -12,7 +12,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -26,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * D4 selection wiring (decisions #154 addendum): the engine seam routes the
@@ -40,7 +40,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class EngineSelectorPiperTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private lateinit var settings: AppSettings
@@ -83,17 +82,24 @@ class EngineSelectorPiperTest {
             SynthesisOutcome.Audio(ByteArray(1_000), 22_050, 1, segments = null)
     }
 
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in these tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in these tests")
+        }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         settings = AppSettings(SettingsStore(database.settingsDao()))
+        translateRuntime = TranslateRuntime(context, settings)
     }
+
+    private lateinit var translateRuntime: TranslateRuntime
+
     @After
     fun tearDown() {
         database.close()
@@ -102,7 +108,7 @@ class EngineSelectorPiperTest {
     private fun selector(
         kokoro: FakeKokoroRuntime,
         piper: FakePiperRuntime,
-    ): EngineSelector = EngineSelector(kokoro, piper, onUnusedSystemTts, settings)
+    ): EngineSelector = EngineSelector(kokoro, piper, translateRuntime, onUnusedSystemTts, settings)
 
     @Test
     fun `piper-v1 routes the engine through PiperRuntime and never touches Kokoro`() {

@@ -29,9 +29,12 @@ import androidx.media.app.NotificationCompat.MediaStyle
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
+import com.moronigranja.localttsreader.player.ActivityChunk
+import com.moronigranja.localttsreader.player.ActivityKind
 import com.moronigranja.localttsreader.player.BookLayout
 import com.moronigranja.localttsreader.player.BookProgress
 import com.moronigranja.localttsreader.player.CoverageSpan
+import com.moronigranja.localttsreader.player.LocalDays
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerEvent
@@ -39,12 +42,9 @@ import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.PlayerState
 import com.moronigranja.localttsreader.player.PlayerStateMachine
-import com.moronigranja.localttsreader.player.ActivityChunk
-import com.moronigranja.localttsreader.player.ActivityKind
-import com.moronigranja.localttsreader.player.LocalDays
-import com.moronigranja.localttsreader.player.TimeSpanAccumulator
 import com.moronigranja.localttsreader.player.PlayerStore
 import com.moronigranja.localttsreader.player.SleepTimer
+import com.moronigranja.localttsreader.player.TimeSpanAccumulator
 import com.moronigranja.localttsreader.player.passageText
 import com.moronigranja.localttsreader.player.pregen.CoverageEncoder
 import com.moronigranja.localttsreader.player.pregen.PregenAudio
@@ -83,7 +83,6 @@ import kotlin.coroutines.coroutineContext
  */
 @AndroidEntryPoint
 class PlaybackService : Service() {
-
     /**
      * Foreground enter/exit seam. Production talks to the framework service
      * (the startForegroundService contract, #50). The device-acceptance
@@ -91,15 +90,16 @@ class PlaybackService : Service() {
      * foreground calls cannot run (no ActivityThread binder) — it injects a
      * no-op implementation here. Same injection pattern as the other fields.
      */
-    internal var foregroundOps: ForegroundOps = object : ForegroundOps {
-        override fun enter(notification: Notification) {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+    internal var foregroundOps: ForegroundOps =
+        object : ForegroundOps {
+            override fun enter(notification: Notification) {
+                startForeground(NOTIFICATION_ID, notification)
+            }
 
-        override fun exit() {
-            ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            override fun exit() {
+                ServiceCompat.stopForeground(this@PlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            }
         }
-    }
 
     internal interface ForegroundOps {
         fun enter(notification: Notification)
@@ -112,6 +112,7 @@ class PlaybackService : Service() {
     @Inject lateinit var libraryStore: RoomLibraryStore
 
     @Inject lateinit var runtime: KokoroRuntime
+
     @Inject lateinit var activityDao: com.moronigranja.localttsreader.persistence.ActivitySecondsDao
 
     /** Phase H listening capture (decisions #157): whole seconds per local
@@ -124,12 +125,13 @@ class PlaybackService : Service() {
             activityDao.accumulate(chunk.dayKey, chunk.bookId, chunk.kind.name, chunk.seconds)
         }
     }
-    internal val listenAccumulator = TimeSpanAccumulator(
-        kind = ActivityKind.LISTEN,
-        clock = { clock() },
-        dayKey = { ms -> LocalDays.key(ms) },
-        dayEnd = { ms -> LocalDays.end(ms) },
-    )
+    internal val listenAccumulator =
+        TimeSpanAccumulator(
+            kind = ActivityKind.LISTEN,
+            clock = { clock() },
+            dayKey = { ms -> LocalDays.key(ms) },
+            dayEnd = { ms -> LocalDays.end(ms) },
+        )
 
     // C1.5 (decisions #102): the engine seam — Kokoro or the degraded device
     // voice, selected by the persisted tts_engine setting.
@@ -919,7 +921,15 @@ class PlaybackService : Service() {
             // overnight plays without synthesis; a cold/jumped passage falls
             // back to a synchronous synthesize.
             val voice = activeVoice()
-            val key = PregenKey(activeBook.id, position.chapterIndex, position.passageIndex, voice, current.speed)
+            val key =
+                PregenKey(
+                    activeBook.id,
+                    position.chapterIndex,
+                    position.passageIndex,
+                    voice,
+                    current.speed,
+                    translateLang = selector.translateLangInUse(activeBook.id),
+                )
             // Deterministic re-seek (layer 2): in-flight first-listen persists
             // land before any re-fetch, so a played passage is always on disk.
             pendingPersists.forEach { it.join() }
@@ -1605,9 +1615,13 @@ class PlaybackService : Service() {
             book = activeBook,
             voice = activeVoiceFor(activeBook.id),
             speed = speed,
+            // The queue's keys carry the book's translate target so the
+            // translated audio cannot collide with the original's (the
+            // `x<lang>` path segment, decisions #114).
+            translateLang = selector.translateLangInUse(activeBook.id),
             synthesize = { text ->
-                val voice = activeVoiceFor(activeBook.id)
-                selector.engineFor(voice)?.synthesize(SynthesisRequest(text, voice, speed = speed))
+                val (engine, voice) = selector.resolve(activeBook.id)
+                engine?.synthesize(SynthesisRequest(text, voice, speed = speed))
                     ?: SynthesisOutcome.Failed("engine unavailable")
             },
             lookahead = PREFILL_LOOKAHEAD_PASSAGES,
@@ -1747,7 +1761,7 @@ class PlaybackService : Service() {
             PlaybackActive.markEngineUsed()
             val startedAt = System.currentTimeMillis()
             val outcome =
-                selector.engineFor(voice)?.synthesize(SynthesisRequest(text, voice, speed = speed))
+                selector.resolve(book?.id).first?.synthesize(SynthesisRequest(text, voice, speed = speed))
                     ?: SynthesisOutcome.Failed("engine unavailable")
             // RTF lazy fallback (item 8): real passages measure the same
             // wall/audio pair as Preview; stop accumulating once a verdict

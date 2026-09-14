@@ -25,7 +25,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -37,6 +36,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * D1 seek-horizon service contracts (decisions #155) on top of the survive-seek
@@ -61,7 +61,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceSeekHorizonTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var database: LibraryDatabase
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -69,19 +68,21 @@ class PlaybackServiceSeekHorizonTest {
     /** 40 passages; the fake renders each at the book model's own duration, so
      * the 30 s horizon holds ~6 passages and a +30 s seek lands inside it with
      * ~34 passages of spine left to refill from. */
-    private val book = Book(
-        id = "d1-horizon-book",
-        title = "D1 Horizon",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
-                (1..40).map { i ->
-                    TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
-                },
-            ),
-        ),
-    )
+    private val book =
+        Book(
+            id = "d1-horizon-book",
+            title = "D1 Horizon",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "One",
+                        (1..40).map { i ->
+                            TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
+                        },
+                    ),
+                ),
+        )
 
     /** Engine whose audio duration matches the book model (chars/15 s), so
      * book-time == audio-time; records (text, wall time) per synthesize call
@@ -116,32 +117,44 @@ class PlaybackServiceSeekHorizonTest {
         private val engine: TTSEngine?,
     ) : KokoroRuntime(context, settings) {
         override fun engine(): TTSEngine? = engine
+
         override val failureReason: String? = null
     }
 
     /** Degraded path unused in kokoro-default tests (ttsEngine stays kokoro-82m). */
-    private val onUnusedSystemTts = object : dagger.Lazy<TTSEngine> {
-        override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
-    }
+    private val onUnusedSystemTts =
+        object : dagger.Lazy<TTSEngine> {
+            override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
+        }
 
     /** Counts dispatches; the head never advances (awaitPlaybackOrStop parks). */
     private class RecordingOutput : PassageOutput {
         @Volatile
         var playCalls = 0
             private set
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) {
+
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) {
             playCalls++
         }
+
         override fun stop() = Unit
+
         override val positionSamples: Int get() = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     @Before
     fun setUp() {
-        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
     }
 
@@ -174,7 +187,11 @@ class PlaybackServiceSeekHorizonTest {
 
     private fun field(name: String) = PlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }
 
-    private fun await(label: String, timeoutMs: Long = 10_000, condition: () -> Boolean) {
+    private fun await(
+        label: String,
+        timeoutMs: Long = 10_000,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
@@ -183,18 +200,29 @@ class PlaybackServiceSeekHorizonTest {
         throw AssertionError("timed out waiting for: $label")
     }
 
-    private fun service(engine: FakeEngine, output: RecordingOutput): PlaybackService = PlaybackService().apply {
-        attachServiceContext(this)
-        setAudioManager(this)
-        setSession(this)
-        this.store = InMemoryPlayerStore()
-        this.output = output
-        this.libraryStore = RoomLibraryStore(database, scope)
-        this.settings = AppSettings(SettingsStore(database.settingsDao()))
-        this.runtime = FakeRuntime(context, this.settings, engine)
-        this.pregenCache = PregenCache(context)
-        this.selector = EngineSelector(this.runtime, PiperRuntime(context, this.settings), onUnusedSystemTts, this.settings)
-    }
+    private fun service(
+        engine: FakeEngine,
+        output: RecordingOutput,
+    ): PlaybackService =
+        PlaybackService().apply {
+            attachServiceContext(this)
+            setAudioManager(this)
+            setSession(this)
+            this.store = InMemoryPlayerStore()
+            this.output = output
+            this.libraryStore = RoomLibraryStore(database, scope)
+            this.settings = AppSettings(SettingsStore(database.settingsDao()))
+            this.runtime = FakeRuntime(context, this.settings, engine)
+            this.pregenCache = PregenCache(context)
+            this.selector =
+                EngineSelector(
+                    this.runtime,
+                    PiperRuntime(context, this.settings),
+                    TranslateRuntime(context, this.settings),
+                    onUnusedSystemTts,
+                    this.settings,
+                )
+        }
 
     @Test
     fun `a seek inside the horizon resolves from the cushion without synchronous synthesis`() {
@@ -212,7 +240,9 @@ class PlaybackServiceSeekHorizonTest {
             await("openBook builds the queue") { PlaybackStateHolder.state.value.bookId == book.id }
             val queue = field("queue").get(service) as PregenQueue
             await("the fill builds the 30 s horizon ahead of the opening") {
-                val pos = service.machine!!.state.value.position!!
+                val pos =
+                    service.machine!!
+                        .state.value.position!!
                 queue.aheadSeconds(pos) >= 30.0
             }
 
@@ -241,6 +271,7 @@ class PlaybackServiceSeekHorizonTest {
             service.stopEverything() // stop the loop/fill/ticker before the test JVM settles
         }
     }
+
     @Test
     fun `a seek restarts a dead fill and playback proceeds without the dead-owner wait`() {
         val engine = FakeEngine(healthy = false) // the openBook fill must queue nothing

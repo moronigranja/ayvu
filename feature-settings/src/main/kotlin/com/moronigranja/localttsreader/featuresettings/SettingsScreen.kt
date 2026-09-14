@@ -41,6 +41,7 @@ import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.persistence.ThemeMode
 import com.moronigranja.localttsreader.player.formatBytes
 import com.moronigranja.localttsreader.tts.PackStatus
+import com.moronigranja.localttsreader.tts.translate.TranslatePacks
 import com.moronigranja.localttsreader.ui.AyvuSpacing
 import com.moronigranja.localttsreader.ui.ConfirmDialog
 import com.moronigranja.localttsreader.ui.PacksPlanCard
@@ -344,6 +345,25 @@ private fun SpeechPane(
             Text(
                 "espeak-ng: ${state.espeakDetail}",
                 style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
+            )
+        }
+        // Read-in-language (decisions #114): the SMaLL-100 translate pack —
+        // one all-language bundle, never an engine row (the pseudo-engine is
+        // not selectable). The per-book control lives in the reader voice
+        // sheet and the library menus.
+        item {
+            SectionHeader("Translation", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS))
+        }
+        items(state.packs.filter { it.engineId == TranslatePacks.PACK_ENGINE_ID }) { row ->
+            PackRow(row, onDownload = { viewModel.download(row.packId) })
+        }
+        item {
+            Text(
+                "Read a book in another language: the active engine speaks the translated text " +
+                    "under a target-language voice. Turn it on per book from the reader or library.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
             )
         }

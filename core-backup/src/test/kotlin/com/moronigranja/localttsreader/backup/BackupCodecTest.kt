@@ -25,6 +25,12 @@ class BackupCodecTest {
                 mapOf(
                     "voice" to "af_heart",
                     "theme_mode" to "dark",
+                    // Per-book keys ride the archive as raw rows (same
+                    // ride-along as book.voice., decisions #156) — the
+                    // read-in-language target survives a restore (#114).
+                    "book.voice.b1" to "pf_dora",
+                    "book.translate.b1" to "pt-BR",
+                    "book.translate.b2" to "zh",
                 ),
             library =
                 listOf(

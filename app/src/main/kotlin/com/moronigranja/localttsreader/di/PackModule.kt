@@ -15,6 +15,8 @@ import com.moronigranja.localttsreader.tts.setup.StorageProbe
 import com.moronigranja.localttsreader.tts.system.AndroidSystemTtsSeam
 import com.moronigranja.localttsreader.tts.system.SystemTtsEngine
 import com.moronigranja.localttsreader.tts.system.SystemTtsSeam
+import com.moronigranja.localttsreader.tts.translate.TranslatePacks
+import com.moronigranja.localttsreader.tts.translate.TranslateSpec
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -73,6 +75,10 @@ object PackModule {
             DefaultEngines.descriptors +
                 listOf(
                     EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all),
+                    // Read-in-language: a registry-only pseudo-engine (the
+                    // selector's switch stays closed; TranslateRuntime owns
+                    // staging + sessions for this pack, decisions #114).
+                    EngineDescriptor(TranslateSpec, TranslatePacks.all),
                 )
         return PackRegistry(cache, downloader, descriptors)
     }

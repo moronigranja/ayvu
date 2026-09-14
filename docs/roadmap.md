@@ -19,8 +19,9 @@ snapshot lives in the [README](../README.md#status).
 Queue order (dependency-first): the **owner's G0 listening pass** → ~~D1~~ **done,
 device-verified** (2026-09-13, #155) → **D7** cross-app performance spike
 (measurement-only, decisions #148) → ~~D4~~ **adoption landed** (PiperEngine,
-#154/#155 — K2 unblocked) → **K5** per-book voice plus the settings-surface defect →
-**Phase H** stats → **D5** high-end engine choice with the ORT int4 reference. G1's rule
+#154/#155/#159 — K2 unblocked, es/it/pt-BR pinned) → ~~K5~~ **per-book voice landed**
+(#156) and ~~Phase H~~ **stats landed** (#157) → **D5** high-end engine choice with the
+ORT int4 reference. G1's rule
 set and D5 are gated on G0; H is independent, so its position
 is preference rather than dependency. This order, the release-state correction and the
 D6 closure are recorded in decisions #145. Open defects and their acceptance criteria are
@@ -512,7 +513,7 @@ docs (open-bugs.md, decisions #156) now record it.
 | Item | Gate / reason for position |
 |---|---|
 | Pitch-preserving speed | WSOLA/phase-vocoder DSP and cache-key compatibility; measure CPU/battery before replacing hardware rate conversion. |
-| Translate-then-read (`core-translate`) | Engine and scope already decided: SMaLL-100 int8, one 916 MB pack for all languages (decisions #114, Phase J verdict below), any advertised target language, output-side only, degrades to the original text on failure (decisions #101). Not blocked on any active phase — remaining work is the SMaLL-100 tokenizer port, on-device SentencePiece, and pack integration behind the pre-gen queue; the spike's export/parity/chr-F tooling and manifest pins are the reproduction path. The gate is appetite: the 916 MB download plus the accepted chr-F trade against the per-pair pt-BR specialist. |
+| Translate-then-read (`core-translate`) | **LANDED 2026-09-14, decisions #160** — implemented end-to-end and DEVICE-VERIFIED on the S22 (pt-BR playback under the auto-picked voice at 121–1352 ms per passage, `x<lang>` cache separation incl. the Off toggle, offline pregen under translation, idle-close logcat-verified with PSS 1,803,052 KB resident → 1,744,016 KB after close, three defects found and fixed: firstVoiceFor case mismatch, target-voice pack-readiness gate, render-truth cache keys). The remaining gate is the HiBreak co-residency check (not attached). Engine decision stands: SMaLL-100 int8, one 916 MB pack, output-side only, degrade on failure (#114/#101). |
 | High-end cloned-voice pre-generation (engine chosen by D5) | Ships only after D5 (Active work) picks the engine and clears the G0 blind read — Chatterbox Multilingual, CosyVoice3 or Pocket TTS (added 2026-09-11, decisions #149); the incumbent is DiT-gated (decisions #21/#23) and D3-quality-flagged (duplicated honorific probes; RTF 12.5–31.1), disk-only playback. A1/A4 long satisfied. Distinct from D5 itself: that item *selects*, this row *ships*. |
 | Kindle official export/API sync | External API/export contract and account UX; manual share/resume already covers the core use case. |
 | Word-level highlighting | Requires a stable word/phoneme timing contract beyond current sentence anchors. |

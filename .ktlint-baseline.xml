@@ -2,49 +2,49 @@
 <baseline version="1.0">
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/EsVoiceE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="38" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="44" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="47" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:function-signature" />
-        <error line="68" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="68" column="24" source="standard:chain-method-continuation" />
-        <error line="111" column="1" source="standard:final-newline" />
+        <error line="39" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="45" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="48" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="68" column="19" source="standard:function-signature" />
+        <error line="68" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="24" source="standard:chain-method-continuation" />
+        <error line="112" column="1" source="standard:final-newline" />
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/ItVoiceE2eTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="38" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="44" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="47" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:function-signature" />
-        <error line="68" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="68" column="24" source="standard:chain-method-continuation" />
-        <error line="111" column="1" source="standard:final-newline" />
-    </file>
-    <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/OcrSmokeInstrumentedTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="31" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="35" column="42" source="standard:multiline-expression-wrapping" />
-        <error line="35" column="42" source="standard:function-signature" />
-        <error line="41" column="21" source="standard:multiline-expression-wrapping" />
-    </file>
-    <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/OpenChapterE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="39" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="45" column="24" source="standard:multiline-expression-wrapping" />
         <error line="48" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="19" source="standard:function-signature" />
-        <error line="71" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="71" column="24" source="standard:chain-method-continuation" />
-        <error line="119" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="119" column="26" source="standard:function-signature" />
-        <error line="125" column="47" source="standard:multiline-expression-wrapping" />
-        <error line="125" column="47" source="standard:function-signature" />
-        <error line="132" column="28" source="standard:function-signature" />
-        <error line="132" column="42" source="standard:function-signature" />
-        <error line="132" column="76" source="standard:function-signature" />
+        <error line="68" column="19" source="standard:function-signature" />
+        <error line="68" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="24" source="standard:chain-method-continuation" />
+        <error line="112" column="1" source="standard:final-newline" />
+    </file>
+    <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/OcrSmokeInstrumentedTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="31" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="35" column="42" source="standard:function-signature" />
+        <error line="35" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="41" column="21" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/OpenChapterE2eTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="40" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="46" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="49" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="71" column="19" source="standard:function-signature" />
+        <error line="71" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="72" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="72" column="24" source="standard:chain-method-continuation" />
+        <error line="120" column="26" source="standard:function-signature" />
+        <error line="120" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="126" column="47" source="standard:function-signature" />
+        <error line="126" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="133" column="28" source="standard:function-signature" />
+        <error line="133" column="42" source="standard:function-signature" />
+        <error line="133" column="76" source="standard:function-signature" />
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/OpusDriftInstrumentedTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -138,11 +138,11 @@
         <error line="277" column="5" source="standard:blank-line-before-declaration" />
         <error line="277" column="5" source="standard:spacing-between-declarations-with-comments" />
         <error line="287" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="291" column="15" source="standard:wrapping" />
         <error line="291" column="15" source="standard:argument-list-wrapping" />
+        <error line="291" column="15" source="standard:wrapping" />
         <error line="291" column="19" source="standard:wrapping" />
-        <error line="291" column="20" source="standard:multiline-expression-wrapping" />
         <error line="291" column="20" source="standard:argument-list-wrapping" />
+        <error line="291" column="20" source="standard:multiline-expression-wrapping" />
         <error line="292" column="70" source="standard:wrapping" />
         <error line="292" column="71" source="standard:argument-list-wrapping" />
         <error line="299" column="1" source="standard:spacing-between-declarations-with-annotations" />
@@ -157,24 +157,24 @@
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/PlayPositionE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="37" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="43" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="46" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="74" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="74" column="19" source="standard:function-signature" />
-        <error line="75" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="75" column="24" source="standard:chain-method-continuation" />
+        <error line="38" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="44" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="47" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="75" column="19" source="standard:function-signature" />
+        <error line="75" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="76" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="76" column="24" source="standard:chain-method-continuation" />
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/PlaybackE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="39" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="45" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="48" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="72" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="72" column="19" source="standard:function-signature" />
-        <error line="73" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="73" column="24" source="standard:chain-method-continuation" />
-</file>
+        <error line="40" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="46" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="49" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="73" column="19" source="standard:function-signature" />
+        <error line="73" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="74" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="74" column="24" source="standard:chain-method-continuation" />
+    </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/PregenE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="45" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -183,17 +183,17 @@
         <error line="135" column="23" source="standard:multiline-expression-wrapping" />
         <error line="142" column="13" source="standard:chain-method-continuation" />
         <error line="204" column="1" source="standard:final-newline" />
-</file>
+    </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/PtVoiceE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="38" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="44" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="47" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="19" source="standard:function-signature" />
-        <error line="68" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="68" column="24" source="standard:chain-method-continuation" />
-        <error line="111" column="1" source="standard:final-newline" />
+        <error line="39" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="45" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="48" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="68" column="19" source="standard:function-signature" />
+        <error line="68" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="24" source="standard:chain-method-continuation" />
+        <error line="112" column="1" source="standard:final-newline" />
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/RealEpubImportProbe.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -209,28 +209,28 @@
         <error line="53" column="24" source="standard:multiline-expression-wrapping" />
         <error line="56" column="20" source="standard:multiline-expression-wrapping" />
         <error line="73" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="95" column="47" source="standard:multiline-expression-wrapping" />
         <error line="95" column="47" source="standard:function-signature" />
-        <error line="106" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="95" column="47" source="standard:multiline-expression-wrapping" />
         <error line="106" column="46" source="standard:function-signature" />
+        <error line="106" column="46" source="standard:multiline-expression-wrapping" />
         <error line="111" column="21" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="app/src/androidTest/kotlin/com/moronigranja/localttsreader/VoiceSelectionE2eTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="37" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="43" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="46" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="66" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="66" column="19" source="standard:function-signature" />
-        <error line="67" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="67" column="24" source="standard:chain-method-continuation" />
+        <error line="38" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="44" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="47" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="67" column="19" source="standard:function-signature" />
+        <error line="67" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="68" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="68" column="24" source="standard:chain-method-continuation" />
     </file>
     <file name="app/src/main/kotlin/com/moronigranja/localttsreader/AppShareModule.kt">
         <error line="21" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="24" column="33" source="standard:parameter-list-wrapping" />
         <error line="24" column="33" source="standard:function-signature" />
-        <error line="24" column="69" source="standard:parameter-list-wrapping" />
+        <error line="24" column="33" source="standard:parameter-list-wrapping" />
         <error line="24" column="69" source="standard:function-signature" />
+        <error line="24" column="69" source="standard:parameter-list-wrapping" />
     </file>
     <file name="app/src/main/kotlin/com/moronigranja/localttsreader/LocalTtsReaderApp.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -253,36 +253,39 @@
     <file name="app/src/main/kotlin/com/moronigranja/localttsreader/di/AppCoreProvidesModule.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="30" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="61" column="25" source="standard:parameter-list-wrapping" />
         <error line="61" column="25" source="standard:function-signature" />
-        <error line="61" column="62" source="standard:parameter-list-wrapping" />
+        <error line="61" column="25" source="standard:parameter-list-wrapping" />
         <error line="61" column="62" source="standard:function-signature" />
+        <error line="61" column="62" source="standard:parameter-list-wrapping" />
         <error line="61" column="81" source="standard:function-signature" />
         <error line="67" column="1" source="standard:final-newline" />
     </file>
     <file name="app/src/main/kotlin/com/moronigranja/localttsreader/di/OcrModule.kt">
         <error line="23" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="26" column="28" source="standard:parameter-list-wrapping" />
         <error line="26" column="28" source="standard:function-signature" />
-        <error line="26" column="64" source="standard:parameter-list-wrapping" />
+        <error line="26" column="28" source="standard:parameter-list-wrapping" />
         <error line="26" column="64" source="standard:function-signature" />
+        <error line="26" column="64" source="standard:parameter-list-wrapping" />
         <error line="26" column="73" source="standard:function-signature" />
         <error line="32" column="1" source="standard:final-newline" />
     </file>
     <file name="app/src/main/kotlin/com/moronigranja/localttsreader/setup/SetupScreen.kt">
-        <error line="63" column="5" source="standard:function-naming" />
-        <error line="168" column="13" source="standard:function-naming" />
-        <error line="182" column="13" source="standard:function-naming" />
-        <error line="216" column="13" source="standard:function-naming" />
-        <error line="343" column="13" source="standard:function-naming" />
-        <error line="400" column="13" source="standard:function-naming" />
-        <error line="430" column="13" source="standard:function-naming" />
+        <error line="65" column="5" source="standard:function-naming" />
+        <error line="174" column="13" source="standard:function-naming" />
+        <error line="210" column="13" source="standard:function-naming" />
+        <error line="237" column="13" source="standard:function-naming" />
+        <error line="271" column="13" source="standard:function-naming" />
+        <error line="398" column="13" source="standard:function-naming" />
+        <error line="455" column="13" source="standard:function-naming" />
+        <error line="485" column="13" source="standard:function-naming" />
     </file>
     <file name="app/src/test/kotlin/com/moronigranja/localttsreader/setup/SetupViewModelTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="116" column="21" source="standard:blank-line-before-declaration" />
-        <error line="117" column="21" source="standard:blank-line-before-declaration" />
-        <error line="295" column="52" source="standard:chain-method-continuation" />
+        <error line="122" column="21" source="standard:blank-line-before-declaration" />
+        <error line="123" column="21" source="standard:blank-line-before-declaration" />
+        <error line="294" column="37" source="standard:chain-method-continuation" />
+        <error line="294" column="55" source="standard:chain-method-continuation" />
+        <error line="321" column="52" source="standard:chain-method-continuation" />
     </file>
     <file name="core-ebook/src/main/kotlin/com/moronigranja/localttsreader/ebook/BookImporter.kt">
         <error line="23" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -336,8 +339,8 @@
         <error line="96" column="65" source="standard:function-signature" />
         <error line="131" column="26" source="standard:multiline-expression-wrapping" />
         <error line="147" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="165" column="52" source="standard:multiline-expression-wrapping" />
         <error line="165" column="52" source="standard:function-signature" />
+        <error line="165" column="52" source="standard:multiline-expression-wrapping" />
         <error line="173" column="27" source="standard:function-signature" />
         <error line="173" column="56" source="standard:function-signature" />
         <error line="173" column="76" source="standard:function-signature" />
@@ -374,13 +377,6 @@
     </file>
     <file name="core-ebook/src/main/kotlin/com/moronigranja/localttsreader/ebook/EBookFormats.kt">
         <error line="8" column="1" source="standard:no-empty-first-line-in-class-body" />
-    </file>
-    <file name="core-ebook/src/main/kotlin/com/moronigranja/localttsreader/ebook/EBookParser.kt">
-        <error line="11" column="27" source="standard:class-signature" />
-        <error line="11" column="44" source="standard:class-signature" />
-        <error line="11" column="68" source="standard:class-signature" />
-        <error line="28" column="5" source="standard:blank-line-before-declaration" />
-        <error line="28" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="core-ebook/src/main/kotlin/com/moronigranja/localttsreader/ebook/EpubParser.kt">
         <error line="12" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -577,8 +573,8 @@
         <error line="336" column="71" source="standard:argument-list-wrapping" />
         <error line="337" column="31" source="standard:argument-list-wrapping" />
         <error line="337" column="52" source="standard:argument-list-wrapping" />
-        <error line="343" column="54" source="standard:multiline-expression-wrapping" />
         <error line="343" column="54" source="standard:function-signature" />
+        <error line="343" column="54" source="standard:multiline-expression-wrapping" />
         <error line="388" column="59" source="standard:function-signature" />
         <error line="397" column="9" source="standard:blank-line-before-declaration" />
         <error line="412" column="9" source="standard:blank-line-before-declaration" />
@@ -606,12 +602,6 @@
         <error line="85" column="45" source="standard:function-signature" />
         <error line="85" column="66" source="standard:function-signature" />
     </file>
-    <file name="core-ebook/src/main/kotlin/com/moronigranja/localttsreader/ebook/ZipEntries.kt">
-        <error line="16" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="29" column="22" source="standard:function-signature" />
-        <error line="29" column="40" source="standard:function-signature" />
-        <error line="29" column="56" source="standard:function-signature" />
-    </file>
     <file name="core-ebook/src/test/kotlin/com/moronigranja/localttsreader/ebook/BookImporterTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="23" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -619,8 +609,8 @@
         <error line="28" column="41" source="standard:function-signature" />
         <error line="28" column="63" source="standard:function-signature" />
         <error line="28" column="75" source="standard:function-signature" />
-        <error line="28" column="90" source="standard:multiline-expression-wrapping" />
         <error line="28" column="90" source="standard:function-signature" />
+        <error line="28" column="90" source="standard:multiline-expression-wrapping" />
         <error line="30" column="32" source="standard:multiline-expression-wrapping" />
         <error line="35" column="28" source="standard:multiline-expression-wrapping" />
         <error line="42" column="24" source="standard:function-signature" />
@@ -652,8 +642,8 @@
         <error line="104" column="22" source="standard:multiline-expression-wrapping" />
         <error line="119" column="22" source="standard:multiline-expression-wrapping" />
         <error line="135" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="137" column="21" source="standard:wrapping" />
         <error line="137" column="21" source="standard:argument-list-wrapping" />
+        <error line="137" column="21" source="standard:wrapping" />
         <error line="138" column="31" source="standard:argument-list-wrapping" />
         <error line="138" column="45" source="standard:argument-list-wrapping" />
         <error line="139" column="29" source="standard:argument-list-wrapping" />
@@ -666,8 +656,8 @@
         <error line="163" column="22" source="standard:multiline-expression-wrapping" />
         <error line="179" column="22" source="standard:multiline-expression-wrapping" />
         <error line="193" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="195" column="21" source="standard:wrapping" />
         <error line="195" column="21" source="standard:argument-list-wrapping" />
+        <error line="195" column="21" source="standard:wrapping" />
         <error line="195" column="34" source="standard:argument-list-wrapping" />
         <error line="195" column="47" source="standard:argument-list-wrapping" />
         <error line="196" column="30" source="standard:argument-list-wrapping" />
@@ -677,8 +667,8 @@
         <error line="196" column="67" source="standard:argument-list-wrapping" />
         <error line="196" column="67" source="standard:trailing-comma-on-call-site" />
         <error line="208" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="210" column="21" source="standard:wrapping" />
         <error line="210" column="21" source="standard:argument-list-wrapping" />
+        <error line="210" column="21" source="standard:wrapping" />
         <error line="210" column="34" source="standard:argument-list-wrapping" />
         <error line="212" column="44" source="standard:argument-list-wrapping" />
         <error line="212" column="59" source="standard:wrapping" />
@@ -711,8 +701,8 @@
         <error line="104" column="21" source="standard:function-signature" />
         <error line="104" column="46" source="standard:function-signature" />
         <error line="104" column="70" source="standard:function-signature" />
-        <error line="104" column="82" source="standard:multiline-expression-wrapping" />
         <error line="104" column="82" source="standard:function-signature" />
+        <error line="104" column="82" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-ebook/src/test/kotlin/com/moronigranja/localttsreader/ebook/EpubParserTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -792,8 +782,8 @@
         <error line="21" column="22" source="standard:class-signature" />
         <error line="21" column="50" source="standard:class-signature" />
         <error line="22" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="45" column="45" source="standard:multiline-expression-wrapping" />
         <error line="45" column="45" source="standard:function-signature" />
+        <error line="45" column="45" source="standard:multiline-expression-wrapping" />
         <error line="49" column="20" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-locate/src/main/kotlin/com/moronigranja/localttsreader/locate/TextIndex.kt">
@@ -828,8 +818,8 @@
         <error line="21" column="65" source="standard:function-signature" />
         <error line="21" column="107" source="standard:function-signature" />
         <error line="21" column="110" source="standard:function-signature" />
-        <error line="25" column="39" source="standard:multiline-expression-wrapping" />
         <error line="25" column="39" source="standard:function-signature" />
+        <error line="25" column="39" source="standard:multiline-expression-wrapping" />
         <error line="29" column="20" source="standard:multiline-expression-wrapping" />
         <error line="42" column="20" source="standard:multiline-expression-wrapping" />
         <error line="45" column="24" source="standard:multiline-expression-wrapping" />
@@ -844,9 +834,9 @@
         <error line="23" column="21" source="standard:wrapping" />
         <error line="23" column="29" source="standard:wrapping" />
         <error line="23" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="24" column="29" source="standard:argument-list-wrapping" />
         <error line="24" column="29" source="standard:multiline-expression-wrapping" />
         <error line="24" column="29" source="standard:wrapping" />
-        <error line="24" column="29" source="standard:argument-list-wrapping" />
         <error line="25" column="43" source="standard:wrapping" />
         <error line="25" column="44" source="standard:argument-list-wrapping" />
         <error line="27" column="13" source="standard:wrapping" />
@@ -855,28 +845,28 @@
         <error line="35" column="21" source="standard:wrapping" />
         <error line="35" column="36" source="standard:wrapping" />
         <error line="35" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="36" column="29" source="standard:argument-list-wrapping" />
         <error line="36" column="29" source="standard:multiline-expression-wrapping" />
         <error line="36" column="29" source="standard:wrapping" />
-        <error line="36" column="29" source="standard:argument-list-wrapping" />
         <error line="37" column="62" source="standard:wrapping" />
         <error line="37" column="63" source="standard:argument-list-wrapping" />
         <error line="38" column="13" source="standard:wrapping" />
         <error line="39" column="21" source="standard:wrapping" />
         <error line="39" column="36" source="standard:wrapping" />
         <error line="39" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="40" column="29" source="standard:argument-list-wrapping" />
         <error line="40" column="29" source="standard:multiline-expression-wrapping" />
         <error line="40" column="29" source="standard:wrapping" />
-        <error line="40" column="29" source="standard:argument-list-wrapping" />
         <error line="41" column="47" source="standard:wrapping" />
         <error line="41" column="48" source="standard:argument-list-wrapping" />
+        <error line="42" column="29" source="standard:argument-list-wrapping" />
         <error line="42" column="29" source="standard:multiline-expression-wrapping" />
         <error line="42" column="29" source="standard:wrapping" />
-        <error line="42" column="29" source="standard:argument-list-wrapping" />
         <error line="43" column="101" source="standard:wrapping" />
         <error line="43" column="102" source="standard:argument-list-wrapping" />
         <error line="44" column="13" source="standard:wrapping" />
-        <error line="50" column="45" source="standard:multiline-expression-wrapping" />
         <error line="50" column="45" source="standard:function-signature" />
+        <error line="50" column="45" source="standard:multiline-expression-wrapping" />
         <error line="55" column="35" source="standard:function-signature" />
         <error line="55" column="53" source="standard:function-signature" />
         <error line="55" column="69" source="standard:function-signature" />
@@ -920,8 +910,8 @@
         <error line="51" column="28" source="standard:function-signature" />
         <error line="51" column="39" source="standard:function-signature" />
         <error line="51" column="48" source="standard:function-signature" />
-        <error line="51" column="57" source="standard:multiline-expression-wrapping" />
         <error line="51" column="57" source="standard:function-signature" />
+        <error line="51" column="57" source="standard:multiline-expression-wrapping" />
         <error line="57" column="22" source="standard:function-signature" />
         <error line="57" column="30" source="standard:function-signature" />
         <error line="57" column="38" source="standard:function-signature" />
@@ -956,8 +946,8 @@
         <error line="55" column="57" source="standard:function-signature" />
         <error line="55" column="74" source="standard:function-signature" />
         <error line="55" column="91" source="standard:function-signature" />
-        <error line="55" column="95" source="standard:multiline-expression-wrapping" />
         <error line="55" column="95" source="standard:function-signature" />
+        <error line="55" column="95" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-ocr/src/test/kotlin/com/moronigranja/localttsreader/ocr/ScreenshotDownscalerTest.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -979,11 +969,8 @@
     <file name="core-ocr/src/test/kotlin/com/moronigranja/localttsreader/ocr/TrainedDataPacksTest.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
-    <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/AppSettings.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="19" column="18" source="standard:annotation" />
-        <error line="19" column="26" source="standard:annotation" />
-        <error line="22" column="1" source="standard:no-empty-first-line-in-class-body" />
+    <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/ActivitySecondsDao.kt">
+        <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/BookDao.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -997,20 +984,22 @@
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/EntityMappers.kt">
         <error line="18" column="51" source="standard:function-signature" />
-        <error line="21" column="45" source="standard:multiline-expression-wrapping" />
         <error line="21" column="45" source="standard:function-signature" />
-        <error line="29" column="49" source="standard:multiline-expression-wrapping" />
+        <error line="21" column="45" source="standard:multiline-expression-wrapping" />
         <error line="29" column="49" source="standard:function-signature" />
+        <error line="29" column="49" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/LibraryDatabase.kt">
-        <error line="29" column="5" source="standard:blank-line-before-declaration" />
-        <error line="30" column="5" source="standard:blank-line-before-declaration" />
-        <error line="31" column="5" source="standard:blank-line-before-declaration" />
         <error line="32" column="5" source="standard:blank-line-before-declaration" />
         <error line="33" column="5" source="standard:blank-line-before-declaration" />
+        <error line="34" column="5" source="standard:blank-line-before-declaration" />
+        <error line="35" column="5" source="standard:blank-line-before-declaration" />
+        <error line="36" column="5" source="standard:blank-line-before-declaration" />
+        <error line="37" column="5" source="standard:blank-line-before-declaration" />
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/Migrations.kt">
         <error line="11" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="50" column="32" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/PassageDao.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1042,62 +1031,110 @@
         <error line="24" column="67" source="standard:function-signature" />
         <error line="24" column="92" source="standard:function-signature" />
         <error line="34" column="74" source="standard:function-signature" />
-        <error line="37" column="69" source="standard:multiline-expression-wrapping" />
         <error line="37" column="69" source="standard:function-signature" />
+        <error line="37" column="69" source="standard:multiline-expression-wrapping" />
         <error line="50" column="69" source="standard:function-signature" />
-        <error line="53" column="45" source="standard:multiline-expression-wrapping" />
         <error line="53" column="45" source="standard:function-signature" />
-        <error line="62" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="53" column="45" source="standard:multiline-expression-wrapping" />
         <error line="62" column="53" source="standard:function-signature" />
-        <error line="71" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="62" column="53" source="standard:multiline-expression-wrapping" />
         <error line="71" column="45" source="standard:function-signature" />
-        <error line="79" column="60" source="standard:multiline-expression-wrapping" />
+        <error line="71" column="45" source="standard:multiline-expression-wrapping" />
         <error line="79" column="60" source="standard:function-signature" />
-        <error line="86" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="79" column="60" source="standard:multiline-expression-wrapping" />
         <error line="86" column="39" source="standard:function-signature" />
-        <error line="96" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="86" column="39" source="standard:multiline-expression-wrapping" />
         <error line="96" column="47" source="standard:function-signature" />
+        <error line="96" column="47" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/SettingsDao.kt">
         <error line="9" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
-    <file name="core-persistence/src/main/kotlin/com/moronigranja/localttsreader/persistence/SettingsStore.kt">
-        <error line="13" column="21" source="standard:class-signature" />
-        <error line="13" column="57" source="standard:class-signature" />
-        <error line="14" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="16" column="43" source="standard:function-signature" />
-        <error line="25" column="34" source="standard:function-signature" />
-        <error line="43" column="41" source="standard:function-signature" />
-        <error line="62" column="38" source="standard:function-signature" />
-        <error line="86" column="40" source="standard:function-signature" />
-        <error line="90" column="17" source="standard:argument-list-wrapping" />
-        <error line="90" column="62" source="standard:argument-list-wrapping" />
-        <error line="90" column="64" source="standard:function-literal" />
-        <error line="90" column="65" source="standard:wrapping" />
-        <error line="90" column="141" source="standard:max-line-length" />
-        <error line="90" column="152" source="standard:function-literal" />
-        <error line="150" column="22" source="standard:class-signature" />
-        <error line="150" column="37" source="standard:class-signature" />
-        <error line="153" column="17" source="standard:trailing-comma-on-declaration-site" />
+    <file name="core-persistence/src/test/kotlin/com/moronigranja/localttsreader/persistence/ActivitySecondsDaoTest.kt">
+        <error line="25" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="55" column="71" source="standard:function-signature" />
+        <error line="55" column="71" source="standard:multiline-expression-wrapping" />
+        <error line="62" column="47" source="standard:chain-method-continuation" />
+        <error line="63" column="44" source="standard:argument-list-wrapping" />
+        <error line="65" column="16" source="standard:chain-method-continuation" />
+        <error line="65" column="25" source="standard:argument-list-wrapping" />
+        <error line="65" column="141" source="standard:max-line-length" />
+        <error line="65" column="160" source="standard:argument-list-wrapping" />
+        <error line="66" column="16" source="standard:chain-method-continuation" />
+        <error line="66" column="25" source="standard:argument-list-wrapping" />
+        <error line="66" column="141" source="standard:max-line-length" />
+        <error line="66" column="281" source="standard:argument-list-wrapping" />
+        <error line="68" column="16" source="standard:chain-method-continuation" />
+        <error line="68" column="25" source="standard:argument-list-wrapping" />
+        <error line="68" column="141" source="standard:max-line-length" />
+        <error line="68" column="184" source="standard:argument-list-wrapping" />
+        <error line="83" column="42" source="standard:chain-method-continuation" />
+        <error line="83" column="52" source="standard:chain-method-continuation" />
+        <error line="83" column="58" source="standard:chain-method-continuation" />
+        <error line="83" column="67" source="standard:chain-method-continuation" />
+        <error line="102" column="72" source="standard:function-signature" />
+        <error line="102" column="72" source="standard:multiline-expression-wrapping" />
+        <error line="113" column="45" source="standard:function-signature" />
+        <error line="113" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="117" column="33" source="standard:chain-method-continuation" />
+        <error line="117" column="47" source="standard:chain-method-continuation" />
+        <error line="117" column="74" source="standard:chain-method-continuation" />
+        <error line="117" column="82" source="standard:chain-method-continuation" />
+        <error line="120" column="33" source="standard:chain-method-continuation" />
+        <error line="120" column="47" source="standard:chain-method-continuation" />
+        <error line="120" column="74" source="standard:chain-method-continuation" />
+        <error line="120" column="82" source="standard:chain-method-continuation" />
+        <error line="127" column="63" source="standard:function-signature" />
+        <error line="127" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="140" column="75" source="standard:function-signature" />
+        <error line="140" column="75" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-persistence/src/test/kotlin/com/moronigranja/localttsreader/persistence/AppSettingsTest.kt">
         <error line="12" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="15" column="9" source="standard:blank-line-before-declaration" />
         <error line="16" column="9" source="standard:blank-line-before-declaration" />
-        <error line="39" column="42" source="standard:multiline-expression-wrapping" />
-        <error line="39" column="42" source="standard:function-signature" />
-        <error line="60" column="51" source="standard:multiline-expression-wrapping" />
-        <error line="60" column="51" source="standard:function-signature" />
-        <error line="107" column="42" source="standard:multiline-expression-wrapping" />
-        <error line="107" column="42" source="standard:function-signature" />
-        <error line="121" column="68" source="standard:multiline-expression-wrapping" />
-        <error line="121" column="68" source="standard:function-signature" />
-        <error line="132" column="79" source="standard:multiline-expression-wrapping" />
-        <error line="132" column="79" source="standard:function-signature" />
-        <error line="140" column="65" source="standard:multiline-expression-wrapping" />
-        <error line="140" column="65" source="standard:function-signature" />
-        <error line="148" column="70" source="standard:multiline-expression-wrapping" />
-        <error line="148" column="70" source="standard:function-signature" />
+        <error line="43" column="42" source="standard:function-signature" />
+        <error line="43" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="64" column="51" source="standard:function-signature" />
+        <error line="64" column="51" source="standard:multiline-expression-wrapping" />
+        <error line="111" column="42" source="standard:function-signature" />
+        <error line="111" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="125" column="63" source="standard:function-signature" />
+        <error line="125" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="153" column="68" source="standard:function-signature" />
+        <error line="153" column="68" source="standard:multiline-expression-wrapping" />
+        <error line="164" column="79" source="standard:function-signature" />
+        <error line="164" column="79" source="standard:multiline-expression-wrapping" />
+        <error line="172" column="65" source="standard:function-signature" />
+        <error line="172" column="65" source="standard:multiline-expression-wrapping" />
+        <error line="180" column="70" source="standard:function-signature" />
+        <error line="180" column="70" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="core-persistence/src/test/kotlin/com/moronigranja/localttsreader/persistence/BookVoiceOverrideTest.kt">
+        <error line="49" column="66" source="standard:function-signature" />
+        <error line="49" column="66" source="standard:multiline-expression-wrapping" />
+        <error line="62" column="21" source="standard:chain-method-continuation" />
+        <error line="62" column="35" source="standard:chain-method-continuation" />
+        <error line="62" column="41" source="standard:chain-method-continuation" />
+        <error line="72" column="79" source="standard:function-signature" />
+        <error line="72" column="79" source="standard:multiline-expression-wrapping" />
+        <error line="84" column="22" source="standard:argument-list-wrapping" />
+        <error line="84" column="22" source="standard:wrapping" />
+        <error line="85" column="36" source="standard:argument-list-wrapping" />
+        <error line="85" column="56" source="standard:wrapping" />
+        <error line="85" column="57" source="standard:argument-list-wrapping" />
+        <error line="85" column="57" source="standard:trailing-comma-on-call-site" />
+        <error line="89" column="44" source="standard:function-signature" />
+        <error line="89" column="44" source="standard:multiline-expression-wrapping" />
+        <error line="98" column="79" source="standard:function-signature" />
+        <error line="98" column="79" source="standard:multiline-expression-wrapping" />
+        <error line="104" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="129" column="22" source="standard:argument-list-wrapping" />
+        <error line="129" column="22" source="standard:wrapping" />
+        <error line="130" column="36" source="standard:argument-list-wrapping" />
+        <error line="130" column="57" source="standard:wrapping" />
+        <error line="130" column="58" source="standard:argument-list-wrapping" />
+        <error line="130" column="58" source="standard:trailing-comma-on-call-site" />
     </file>
     <file name="core-persistence/src/test/kotlin/com/moronigranja/localttsreader/persistence/RoomLibraryStoreTest.kt">
         <error line="28" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1118,27 +1155,27 @@
         <error line="57" column="141" source="standard:max-line-length" />
         <error line="57" column="142" source="standard:argument-list-wrapping" />
         <error line="57" column="143" source="standard:argument-list-wrapping" />
-        <error line="68" column="58" source="standard:multiline-expression-wrapping" />
         <error line="68" column="58" source="standard:function-signature" />
+        <error line="68" column="58" source="standard:multiline-expression-wrapping" />
         <error line="78" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="89" column="59" source="standard:multiline-expression-wrapping" />
         <error line="89" column="59" source="standard:function-signature" />
-        <error line="99" column="71" source="standard:multiline-expression-wrapping" />
+        <error line="89" column="59" source="standard:multiline-expression-wrapping" />
         <error line="99" column="71" source="standard:function-signature" />
+        <error line="99" column="71" source="standard:multiline-expression-wrapping" />
         <error line="110" column="25" source="standard:chain-method-continuation" />
         <error line="110" column="39" source="standard:chain-method-continuation" />
         <error line="110" column="48" source="standard:chain-method-continuation" />
         <error line="110" column="57" source="standard:chain-method-continuation" />
-        <error line="114" column="63" source="standard:multiline-expression-wrapping" />
         <error line="114" column="63" source="standard:function-signature" />
-        <error line="131" column="59" source="standard:multiline-expression-wrapping" />
+        <error line="114" column="63" source="standard:multiline-expression-wrapping" />
         <error line="131" column="59" source="standard:function-signature" />
-        <error line="146" column="77" source="standard:multiline-expression-wrapping" />
+        <error line="131" column="59" source="standard:multiline-expression-wrapping" />
         <error line="146" column="77" source="standard:function-signature" />
-        <error line="156" column="71" source="standard:multiline-expression-wrapping" />
+        <error line="146" column="77" source="standard:multiline-expression-wrapping" />
         <error line="156" column="71" source="standard:function-signature" />
-        <error line="164" column="62" source="standard:multiline-expression-wrapping" />
+        <error line="156" column="71" source="standard:multiline-expression-wrapping" />
         <error line="164" column="62" source="standard:function-signature" />
+        <error line="164" column="62" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-persistence/src/test/kotlin/com/moronigranja/localttsreader/persistence/RoomPlayerStoreTest.kt">
         <error line="28" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1150,22 +1187,22 @@
         <error line="53" column="54" source="standard:function-signature" />
         <error line="53" column="74" source="standard:function-signature" />
         <error line="53" column="77" source="standard:function-signature" />
-        <error line="59" column="58" source="standard:multiline-expression-wrapping" />
         <error line="59" column="58" source="standard:function-signature" />
-        <error line="65" column="81" source="standard:multiline-expression-wrapping" />
+        <error line="59" column="58" source="standard:multiline-expression-wrapping" />
         <error line="65" column="81" source="standard:function-signature" />
-        <error line="76" column="56" source="standard:multiline-expression-wrapping" />
+        <error line="65" column="81" source="standard:multiline-expression-wrapping" />
         <error line="76" column="56" source="standard:function-signature" />
-        <error line="82" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="76" column="56" source="standard:multiline-expression-wrapping" />
         <error line="82" column="39" source="standard:function-signature" />
-        <error line="88" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="82" column="39" source="standard:multiline-expression-wrapping" />
         <error line="88" column="34" source="standard:function-signature" />
-        <error line="96" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="88" column="34" source="standard:multiline-expression-wrapping" />
         <error line="96" column="45" source="standard:function-signature" />
-        <error line="106" column="60" source="standard:multiline-expression-wrapping" />
+        <error line="96" column="45" source="standard:multiline-expression-wrapping" />
         <error line="106" column="60" source="standard:function-signature" />
-        <error line="120" column="83" source="standard:multiline-expression-wrapping" />
+        <error line="106" column="60" source="standard:multiline-expression-wrapping" />
         <error line="120" column="83" source="standard:function-signature" />
+        <error line="120" column="83" source="standard:multiline-expression-wrapping" />
         <error line="130" column="47" source="standard:chain-method-continuation" />
         <error line="131" column="44" source="standard:argument-list-wrapping" />
         <error line="133" column="16" source="standard:chain-method-continuation" />
@@ -1182,6 +1219,13 @@
         <error line="136" column="184" source="standard:argument-list-wrapping" />
         <error line="143" column="24" source="standard:multiline-expression-wrapping" />
         <error line="143" column="28" source="standard:chain-method-continuation" />
+    </file>
+    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/ActivityAggregation.kt">
+        <error line="12" column="1" source="standard:no-consecutive-comments" />
+    </file>
+    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/ActivityCapture.kt">
+        <error line="17" column="1" source="standard:no-consecutive-comments" />
+        <error line="35" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/BookProgress.kt">
         <error line="18" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1202,28 +1246,25 @@
         <error line="35" column="31" source="standard:function-signature" />
         <error line="35" column="49" source="standard:function-signature" />
         <error line="35" column="62" source="standard:function-signature" />
-        <error line="72" column="40" source="standard:multiline-expression-wrapping" />
-        <error line="72" column="40" source="standard:function-signature" />
-        <error line="76" column="1" source="standard:final-newline" />
     </file>
     <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/InMemoryPlayerStore.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="14" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="21" column="74" source="standard:multiline-expression-wrapping" />
         <error line="21" column="74" source="standard:function-signature" />
+        <error line="21" column="74" source="standard:multiline-expression-wrapping" />
         <error line="25" column="41" source="standard:function-signature" />
         <error line="25" column="70" source="standard:function-signature" />
         <error line="25" column="95" source="standard:function-signature" />
-        <error line="36" column="75" source="standard:multiline-expression-wrapping" />
         <error line="36" column="75" source="standard:function-signature" />
-        <error line="40" column="69" source="standard:multiline-expression-wrapping" />
+        <error line="36" column="75" source="standard:multiline-expression-wrapping" />
         <error line="40" column="69" source="standard:function-signature" />
-        <error line="44" column="70" source="standard:multiline-expression-wrapping" />
+        <error line="40" column="69" source="standard:multiline-expression-wrapping" />
         <error line="44" column="70" source="standard:function-signature" />
-        <error line="50" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="44" column="70" source="standard:multiline-expression-wrapping" />
         <error line="50" column="61" source="standard:function-signature" />
-        <error line="56" column="70" source="standard:multiline-expression-wrapping" />
+        <error line="50" column="61" source="standard:multiline-expression-wrapping" />
         <error line="56" column="70" source="standard:function-signature" />
+        <error line="56" column="70" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/PlaybackUiState.kt">
         <error line="16" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1314,20 +1355,6 @@
     <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/VoicePackDownloader.kt">
         <error line="13" column="1" source="standard:final-newline" />
     </file>
-    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/OfflinePregen.kt">
-        <error line="51" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="69" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="71" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="73" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="75" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="77" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="117" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="137" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="249" column="27" source="standard:function-signature" />
-        <error line="249" column="39" source="standard:function-signature" />
-        <error line="249" column="57" source="standard:function-signature" />
-        <error line="259" column="1" source="standard:final-newline" />
-    </file>
     <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/PcmPassageCache.kt">
         <error line="31" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="33" column="5" source="standard:spacing-between-declarations-with-comments" />
@@ -1335,28 +1362,28 @@
         <error line="86" column="13" source="standard:function-signature" />
         <error line="86" column="29" source="standard:function-signature" />
         <error line="86" column="47" source="standard:function-signature" />
-        <error line="86" column="51" source="standard:multiline-expression-wrapping" />
         <error line="86" column="51" source="standard:function-signature" />
-        <error line="101" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="86" column="51" source="standard:multiline-expression-wrapping" />
         <error line="101" column="45" source="standard:function-signature" />
+        <error line="101" column="45" source="standard:multiline-expression-wrapping" />
         <error line="111" column="5" source="standard:blank-line-before-declaration" />
         <error line="111" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="118" column="41" source="standard:multiline-expression-wrapping" />
         <error line="118" column="41" source="standard:function-signature" />
-        <error line="124" column="44" source="standard:multiline-expression-wrapping" />
+        <error line="118" column="41" source="standard:multiline-expression-wrapping" />
         <error line="124" column="44" source="standard:function-signature" />
+        <error line="124" column="44" source="standard:multiline-expression-wrapping" />
         <error line="125" column="13" source="standard:chain-method-continuation" />
         <error line="138" column="23" source="standard:function-signature" />
         <error line="138" column="39" source="standard:function-signature" />
         <error line="138" column="54" source="standard:function-signature" />
         <error line="138" column="67" source="standard:function-signature" />
-        <error line="146" column="34" source="standard:multiline-expression-wrapping" />
         <error line="146" column="34" source="standard:function-signature" />
-        <error line="154" column="38" source="standard:multiline-expression-wrapping" />
+        <error line="146" column="34" source="standard:multiline-expression-wrapping" />
         <error line="154" column="38" source="standard:function-signature" />
+        <error line="154" column="38" source="standard:multiline-expression-wrapping" />
         <error line="174" column="43" source="standard:function-signature" />
-        <error line="200" column="52" source="standard:multiline-expression-wrapping" />
         <error line="200" column="52" source="standard:function-signature" />
+        <error line="200" column="52" source="standard:multiline-expression-wrapping" />
         <error line="208" column="24" source="standard:multiline-expression-wrapping" />
         <error line="212" column="48" source="standard:chain-method-continuation" />
         <error line="217" column="32" source="standard:function-signature" />
@@ -1364,41 +1391,11 @@
         <error line="217" column="55" source="standard:function-signature" />
         <error line="233" column="1" source="standard:final-newline" />
     </file>
-    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/PregenPlanner.kt">
-        <error line="29" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="47" column="13" source="standard:function-signature" />
-        <error line="47" column="32" source="standard:function-signature" />
-        <error line="47" column="49" source="standard:function-signature" />
-        <error line="47" column="63" source="standard:function-signature" />
-        <error line="118" column="1" source="standard:final-newline" />
+    <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/ActivityAggregationTest.kt">
+        <error line="12" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
-    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/PregenQueue.kt">
-        <error line="70" column="24" source="standard:function-signature" />
-        <error line="70" column="46" source="standard:function-signature" />
-        <error line="70" column="84" source="standard:function-signature" />
-        <error line="71" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="122" column="53" source="standard:function-signature" />
-        <error line="132" column="14" source="standard:function-signature" />
-        <error line="132" column="33" source="standard:function-signature" />
-        <error line="132" column="50" source="standard:function-signature" />
-        <error line="132" column="67" source="standard:function-signature" />
-        <error line="137" column="14" source="standard:function-signature" />
-        <error line="137" column="33" source="standard:function-signature" />
-        <error line="137" column="50" source="standard:function-signature" />
-        <error line="137" column="67" source="standard:function-signature" />
-        <error line="146" column="25" source="standard:function-signature" />
-        <error line="146" column="41" source="standard:function-signature" />
-        <error line="146" column="61" source="standard:function-signature" />
-    </file>
-    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/PregenSpaceEstimator.kt">
-        <error line="26" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="85" column="32" source="standard:class-signature" />
-        <error line="85" column="54" source="standard:class-signature" />
-        <error line="85" column="75" source="standard:final-newline" />
-        <error line="85" column="75" source="standard:class-signature" />
-    </file>
-    <file name="core-player/src/main/kotlin/com/moronigranja/localttsreader/player/pregen/PregenTypes.kt">
-        <error line="40" column="38" source="standard:function-signature" />
+    <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/ActivityCaptureTest.kt">
+        <error line="13" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/BookProgressTest.kt">
         <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1407,7 +1404,7 @@
         <error line="108" column="1" source="standard:final-newline" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/PlaybackUiStateTest.kt">
-        <error line="12" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="13" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/PlayerStateMachineTest.kt">
         <error line="20" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1417,75 +1414,75 @@
         <error line="34" column="39" source="standard:function-signature" />
         <error line="34" column="51" source="standard:function-signature" />
         <error line="34" column="54" source="standard:function-signature" />
-        <error line="46" column="50" source="standard:multiline-expression-wrapping" />
         <error line="46" column="50" source="standard:function-signature" />
-        <error line="52" column="81" source="standard:multiline-expression-wrapping" />
+        <error line="46" column="50" source="standard:multiline-expression-wrapping" />
         <error line="52" column="81" source="standard:function-signature" />
+        <error line="52" column="81" source="standard:multiline-expression-wrapping" />
         <error line="58" column="34" source="standard:trailing-comma-on-call-site" />
         <error line="58" column="35" source="standard:paren-spacing" />
-        <error line="64" column="86" source="standard:multiline-expression-wrapping" />
         <error line="64" column="86" source="standard:function-signature" />
-        <error line="76" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="64" column="86" source="standard:multiline-expression-wrapping" />
         <error line="76" column="76" source="standard:function-signature" />
-        <error line="84" column="67" source="standard:multiline-expression-wrapping" />
+        <error line="76" column="76" source="standard:multiline-expression-wrapping" />
         <error line="84" column="67" source="standard:function-signature" />
-        <error line="91" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="84" column="67" source="standard:multiline-expression-wrapping" />
         <error line="91" column="61" source="standard:function-signature" />
-        <error line="122" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="91" column="61" source="standard:multiline-expression-wrapping" />
         <error line="122" column="53" source="standard:function-signature" />
-        <error line="131" column="75" source="standard:multiline-expression-wrapping" />
+        <error line="122" column="53" source="standard:multiline-expression-wrapping" />
         <error line="131" column="75" source="standard:function-signature" />
-        <error line="142" column="80" source="standard:multiline-expression-wrapping" />
+        <error line="131" column="75" source="standard:multiline-expression-wrapping" />
         <error line="142" column="80" source="standard:function-signature" />
-        <error line="150" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="142" column="80" source="standard:multiline-expression-wrapping" />
         <error line="150" column="53" source="standard:function-signature" />
-        <error line="162" column="50" source="standard:multiline-expression-wrapping" />
+        <error line="150" column="53" source="standard:multiline-expression-wrapping" />
         <error line="162" column="50" source="standard:function-signature" />
+        <error line="162" column="50" source="standard:multiline-expression-wrapping" />
         <error line="163" column="22" source="standard:multiline-expression-wrapping" />
         <error line="166" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="183" column="69" source="standard:multiline-expression-wrapping" />
         <error line="183" column="69" source="standard:function-signature" />
-        <error line="196" column="55" source="standard:multiline-expression-wrapping" />
+        <error line="183" column="69" source="standard:multiline-expression-wrapping" />
         <error line="196" column="55" source="standard:function-signature" />
-        <error line="210" column="81" source="standard:multiline-expression-wrapping" />
+        <error line="196" column="55" source="standard:multiline-expression-wrapping" />
         <error line="210" column="81" source="standard:function-signature" />
-        <error line="220" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="210" column="81" source="standard:multiline-expression-wrapping" />
         <error line="220" column="39" source="standard:function-signature" />
-        <error line="230" column="79" source="standard:multiline-expression-wrapping" />
+        <error line="220" column="39" source="standard:multiline-expression-wrapping" />
         <error line="230" column="79" source="standard:function-signature" />
-        <error line="241" column="62" source="standard:multiline-expression-wrapping" />
+        <error line="230" column="79" source="standard:multiline-expression-wrapping" />
         <error line="241" column="62" source="standard:function-signature" />
-        <error line="248" column="73" source="standard:multiline-expression-wrapping" />
+        <error line="241" column="62" source="standard:multiline-expression-wrapping" />
         <error line="248" column="73" source="standard:function-signature" />
-        <error line="263" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="248" column="73" source="standard:multiline-expression-wrapping" />
         <error line="263" column="76" source="standard:function-signature" />
-        <error line="272" column="54" source="standard:multiline-expression-wrapping" />
+        <error line="263" column="76" source="standard:multiline-expression-wrapping" />
         <error line="272" column="54" source="standard:function-signature" />
-        <error line="284" column="77" source="standard:multiline-expression-wrapping" />
+        <error line="272" column="54" source="standard:multiline-expression-wrapping" />
         <error line="284" column="77" source="standard:function-signature" />
-        <error line="294" column="75" source="standard:multiline-expression-wrapping" />
+        <error line="284" column="77" source="standard:multiline-expression-wrapping" />
         <error line="294" column="75" source="standard:function-signature" />
-        <error line="297" column="22" source="standard:wrapping" />
+        <error line="294" column="75" source="standard:multiline-expression-wrapping" />
         <error line="297" column="22" source="standard:argument-list-wrapping" />
+        <error line="297" column="22" source="standard:wrapping" />
         <error line="297" column="64" source="standard:argument-list-wrapping" />
         <error line="298" column="60" source="standard:wrapping" />
         <error line="298" column="61" source="standard:argument-list-wrapping" />
         <error line="298" column="61" source="standard:trailing-comma-on-call-site" />
-        <error line="303" column="32" source="standard:multiline-expression-wrapping" />
         <error line="303" column="32" source="standard:function-signature" />
-        <error line="311" column="54" source="standard:multiline-expression-wrapping" />
+        <error line="303" column="32" source="standard:multiline-expression-wrapping" />
         <error line="311" column="54" source="standard:function-signature" />
-        <error line="325" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="311" column="54" source="standard:multiline-expression-wrapping" />
         <error line="325" column="61" source="standard:function-signature" />
-        <error line="330" column="86" source="standard:multiline-expression-wrapping" />
+        <error line="325" column="61" source="standard:multiline-expression-wrapping" />
         <error line="330" column="86" source="standard:function-signature" />
+        <error line="330" column="86" source="standard:multiline-expression-wrapping" />
         <error line="333" column="56" source="standard:chain-method-continuation" />
-        <error line="339" column="66" source="standard:multiline-expression-wrapping" />
         <error line="339" column="66" source="standard:function-signature" />
-        <error line="348" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="339" column="66" source="standard:multiline-expression-wrapping" />
         <error line="348" column="61" source="standard:function-signature" />
-        <error line="356" column="80" source="standard:multiline-expression-wrapping" />
+        <error line="348" column="61" source="standard:multiline-expression-wrapping" />
         <error line="356" column="80" source="standard:function-signature" />
+        <error line="356" column="80" source="standard:multiline-expression-wrapping" />
         <error line="366" column="28" source="standard:class-signature" />
         <error line="366" column="61" source="standard:class-signature" />
         <error line="368" column="5" source="standard:blank-line-before-declaration" />
@@ -1511,56 +1508,56 @@
         <error line="65" column="46" source="standard:function-signature" />
         <error line="65" column="71" source="standard:function-signature" />
         <error line="65" column="89" source="standard:function-signature" />
-        <error line="76" column="63" source="standard:multiline-expression-wrapping" />
         <error line="76" column="63" source="standard:function-signature" />
-        <error line="85" column="56" source="standard:multiline-expression-wrapping" />
+        <error line="76" column="63" source="standard:multiline-expression-wrapping" />
         <error line="85" column="56" source="standard:function-signature" />
-        <error line="95" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="85" column="56" source="standard:multiline-expression-wrapping" />
         <error line="95" column="46" source="standard:function-signature" />
-        <error line="105" column="49" source="standard:multiline-expression-wrapping" />
+        <error line="95" column="46" source="standard:multiline-expression-wrapping" />
         <error line="105" column="49" source="standard:function-signature" />
-        <error line="114" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="105" column="49" source="standard:multiline-expression-wrapping" />
         <error line="114" column="61" source="standard:function-signature" />
-        <error line="123" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="114" column="61" source="standard:multiline-expression-wrapping" />
         <error line="123" column="48" source="standard:function-signature" />
-        <error line="132" column="70" source="standard:multiline-expression-wrapping" />
+        <error line="123" column="48" source="standard:multiline-expression-wrapping" />
         <error line="132" column="70" source="standard:function-signature" />
-        <error line="143" column="81" source="standard:multiline-expression-wrapping" />
+        <error line="132" column="70" source="standard:multiline-expression-wrapping" />
         <error line="143" column="81" source="standard:function-signature" />
-        <error line="163" column="92" source="standard:multiline-expression-wrapping" />
+        <error line="143" column="81" source="standard:multiline-expression-wrapping" />
         <error line="163" column="92" source="standard:function-signature" />
-        <error line="177" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="163" column="92" source="standard:multiline-expression-wrapping" />
         <error line="177" column="48" source="standard:function-signature" />
-        <error line="191" column="67" source="standard:multiline-expression-wrapping" />
+        <error line="177" column="48" source="standard:multiline-expression-wrapping" />
         <error line="191" column="67" source="standard:function-signature" />
-        <error line="198" column="65" source="standard:multiline-expression-wrapping" />
+        <error line="191" column="67" source="standard:multiline-expression-wrapping" />
         <error line="198" column="65" source="standard:function-signature" />
-        <error line="205" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="198" column="65" source="standard:multiline-expression-wrapping" />
         <error line="205" column="63" source="standard:function-signature" />
-        <error line="215" column="68" source="standard:multiline-expression-wrapping" />
+        <error line="205" column="63" source="standard:multiline-expression-wrapping" />
         <error line="215" column="68" source="standard:function-signature" />
-        <error line="225" column="49" source="standard:multiline-expression-wrapping" />
+        <error line="215" column="68" source="standard:multiline-expression-wrapping" />
         <error line="225" column="49" source="standard:function-signature" />
-        <error line="235" column="80" source="standard:multiline-expression-wrapping" />
+        <error line="225" column="49" source="standard:multiline-expression-wrapping" />
         <error line="235" column="80" source="standard:function-signature" />
-        <error line="245" column="72" source="standard:multiline-expression-wrapping" />
+        <error line="235" column="80" source="standard:multiline-expression-wrapping" />
         <error line="245" column="72" source="standard:function-signature" />
-        <error line="259" column="54" source="standard:multiline-expression-wrapping" />
+        <error line="245" column="72" source="standard:multiline-expression-wrapping" />
         <error line="259" column="54" source="standard:function-signature" />
-        <error line="268" column="65" source="standard:multiline-expression-wrapping" />
+        <error line="259" column="54" source="standard:multiline-expression-wrapping" />
         <error line="268" column="65" source="standard:function-signature" />
+        <error line="268" column="65" source="standard:multiline-expression-wrapping" />
         <error line="274" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="289" column="72" source="standard:multiline-expression-wrapping" />
         <error line="289" column="72" source="standard:function-signature" />
-        <error line="301" column="58" source="standard:multiline-expression-wrapping" />
+        <error line="289" column="72" source="standard:multiline-expression-wrapping" />
         <error line="301" column="58" source="standard:function-signature" />
+        <error line="301" column="58" source="standard:multiline-expression-wrapping" />
         <error line="313" column="1" source="standard:final-newline" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/pregen/PcmPassageCacheTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="19" column="36" source="standard:multiline-expression-wrapping" />
         <error line="19" column="36" source="standard:function-signature" />
+        <error line="19" column="36" source="standard:multiline-expression-wrapping" />
         <error line="25" column="21" source="standard:function-signature" />
         <error line="25" column="35" source="standard:function-signature" />
         <error line="25" column="47" source="standard:function-signature" />
@@ -1577,47 +1574,47 @@
         <error line="29" column="21" source="standard:function-signature" />
         <error line="29" column="29" source="standard:function-signature" />
         <error line="29" column="35" source="standard:function-signature" />
-        <error line="32" column="69" source="standard:multiline-expression-wrapping" />
         <error line="32" column="69" source="standard:function-signature" />
-        <error line="41" column="66" source="standard:multiline-expression-wrapping" />
+        <error line="32" column="69" source="standard:multiline-expression-wrapping" />
         <error line="41" column="66" source="standard:function-signature" />
+        <error line="41" column="66" source="standard:multiline-expression-wrapping" />
         <error line="43" column="49" source="standard:statement-wrapping" />
         <error line="43" column="67" source="standard:statement-wrapping" />
         <error line="43" column="73" source="standard:statement-wrapping" />
-        <error line="48" column="61" source="standard:multiline-expression-wrapping" />
         <error line="48" column="61" source="standard:function-signature" />
+        <error line="48" column="61" source="standard:multiline-expression-wrapping" />
         <error line="50" column="64" source="standard:statement-wrapping" />
         <error line="50" column="82" source="standard:statement-wrapping" />
         <error line="50" column="88" source="standard:statement-wrapping" />
-        <error line="55" column="65" source="standard:multiline-expression-wrapping" />
         <error line="55" column="65" source="standard:function-signature" />
+        <error line="55" column="65" source="standard:multiline-expression-wrapping" />
         <error line="61" column="40" source="standard:statement-wrapping" />
         <error line="61" column="58" source="standard:statement-wrapping" />
         <error line="61" column="64" source="standard:statement-wrapping" />
-        <error line="67" column="66" source="standard:multiline-expression-wrapping" />
         <error line="67" column="66" source="standard:function-signature" />
+        <error line="67" column="66" source="standard:multiline-expression-wrapping" />
         <error line="72" column="40" source="standard:statement-wrapping" />
         <error line="72" column="58" source="standard:statement-wrapping" />
         <error line="72" column="64" source="standard:statement-wrapping" />
-        <error line="78" column="48" source="standard:multiline-expression-wrapping" />
         <error line="78" column="48" source="standard:function-signature" />
+        <error line="78" column="48" source="standard:multiline-expression-wrapping" />
         <error line="80" column="49" source="standard:statement-wrapping" />
         <error line="80" column="67" source="standard:statement-wrapping" />
         <error line="80" column="89" source="standard:statement-wrapping" />
-        <error line="85" column="71" source="standard:multiline-expression-wrapping" />
         <error line="85" column="71" source="standard:function-signature" />
+        <error line="85" column="71" source="standard:multiline-expression-wrapping" />
         <error line="89" column="32" source="standard:statement-wrapping" />
         <error line="89" column="51" source="standard:statement-wrapping" />
         <error line="89" column="59" source="standard:statement-wrapping" />
         <error line="90" column="40" source="standard:statement-wrapping" />
         <error line="90" column="58" source="standard:statement-wrapping" />
         <error line="90" column="64" source="standard:statement-wrapping" />
-        <error line="99" column="67" source="standard:multiline-expression-wrapping" />
         <error line="99" column="67" source="standard:function-signature" />
-        <error line="111" column="52" source="standard:multiline-expression-wrapping" />
+        <error line="99" column="67" source="standard:multiline-expression-wrapping" />
         <error line="111" column="52" source="standard:function-signature" />
-        <error line="117" column="62" source="standard:multiline-expression-wrapping" />
+        <error line="111" column="52" source="standard:multiline-expression-wrapping" />
         <error line="117" column="62" source="standard:function-signature" />
+        <error line="117" column="62" source="standard:multiline-expression-wrapping" />
         <error line="125" column="1" source="standard:final-newline" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/pregen/PregenQueueTest.kt">
@@ -1626,42 +1623,53 @@
         <error line="22" column="24" source="standard:multiline-expression-wrapping" />
         <error line="25" column="20" source="standard:multiline-expression-wrapping" />
         <error line="49" column="44" source="standard:function-signature" />
-        <error line="67" column="64" source="standard:multiline-expression-wrapping" />
         <error line="67" column="64" source="standard:function-signature" />
-        <error line="83" column="73" source="standard:multiline-expression-wrapping" />
+        <error line="67" column="64" source="standard:multiline-expression-wrapping" />
         <error line="83" column="73" source="standard:function-signature" />
-        <error line="92" column="51" source="standard:multiline-expression-wrapping" />
+        <error line="83" column="73" source="standard:multiline-expression-wrapping" />
         <error line="92" column="51" source="standard:function-signature" />
-        <error line="103" column="58" source="standard:multiline-expression-wrapping" />
+        <error line="92" column="51" source="standard:multiline-expression-wrapping" />
         <error line="103" column="58" source="standard:function-signature" />
-        <error line="113" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="103" column="58" source="standard:multiline-expression-wrapping" />
         <error line="113" column="53" source="standard:function-signature" />
-        <error line="122" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="113" column="53" source="standard:multiline-expression-wrapping" />
         <error line="122" column="39" source="standard:function-signature" />
-        <error line="129" column="72" source="standard:multiline-expression-wrapping" />
+        <error line="122" column="39" source="standard:multiline-expression-wrapping" />
         <error line="129" column="72" source="standard:function-signature" />
-        <error line="139" column="98" source="standard:multiline-expression-wrapping" />
+        <error line="129" column="72" source="standard:multiline-expression-wrapping" />
         <error line="139" column="98" source="standard:function-signature" />
+        <error line="139" column="98" source="standard:multiline-expression-wrapping" />
         <error line="144" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="205" column="55" source="standard:multiline-expression-wrapping" />
-        <error line="205" column="55" source="standard:function-signature" />
+        <error line="179" column="72" source="standard:function-signature" />
+        <error line="179" column="72" source="standard:multiline-expression-wrapping" />
+        <error line="184" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="189" column="17" source="standard:multiline-expression-wrapping" />
+        <error line="190" column="23" source="standard:argument-list-wrapping" />
+        <error line="190" column="35" source="standard:argument-list-wrapping" />
+        <error line="205" column="109" source="standard:function-signature" />
+        <error line="205" column="109" source="standard:multiline-expression-wrapping" />
         <error line="209" column="17" source="standard:multiline-expression-wrapping" />
         <error line="210" column="19" source="standard:argument-list-wrapping" />
         <error line="210" column="31" source="standard:argument-list-wrapping" />
-        <error line="233" column="79" source="standard:multiline-expression-wrapping" />
-        <error line="233" column="79" source="standard:function-signature" />
-        <error line="236" column="17" source="standard:multiline-expression-wrapping" />
-        <error line="237" column="19" source="standard:argument-list-wrapping" />
-        <error line="237" column="31" source="standard:argument-list-wrapping" />
-        <error line="263" column="59" source="standard:multiline-expression-wrapping" />
-        <error line="263" column="59" source="standard:function-signature" />
-        <error line="265" column="17" source="standard:multiline-expression-wrapping" />
-        <error line="266" column="19" source="standard:argument-list-wrapping" />
-        <error line="266" column="31" source="standard:argument-list-wrapping" />
-        <error line="266" column="36" source="standard:argument-list-wrapping" />
-        <error line="266" column="44" source="standard:argument-list-wrapping" />
-        <error line="274" column="78" source="standard:multiline-expression-wrapping" />
-        <error line="274" column="78" source="standard:function-signature" />
+        <error line="266" column="55" source="standard:function-signature" />
+        <error line="266" column="55" source="standard:multiline-expression-wrapping" />
+        <error line="270" column="17" source="standard:multiline-expression-wrapping" />
+        <error line="271" column="19" source="standard:argument-list-wrapping" />
+        <error line="271" column="31" source="standard:argument-list-wrapping" />
+        <error line="294" column="79" source="standard:function-signature" />
+        <error line="294" column="79" source="standard:multiline-expression-wrapping" />
+        <error line="297" column="17" source="standard:multiline-expression-wrapping" />
+        <error line="298" column="19" source="standard:argument-list-wrapping" />
+        <error line="298" column="31" source="standard:argument-list-wrapping" />
+        <error line="324" column="59" source="standard:function-signature" />
+        <error line="324" column="59" source="standard:multiline-expression-wrapping" />
+        <error line="326" column="17" source="standard:multiline-expression-wrapping" />
+        <error line="327" column="19" source="standard:argument-list-wrapping" />
+        <error line="327" column="31" source="standard:argument-list-wrapping" />
+        <error line="327" column="36" source="standard:argument-list-wrapping" />
+        <error line="327" column="44" source="standard:argument-list-wrapping" />
+        <error line="335" column="78" source="standard:function-signature" />
+        <error line="335" column="78" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-player/src/test/kotlin/com/moronigranja/localttsreader/player/pregen/PregenSpaceEstimatorTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -1673,12 +1681,13 @@
         <error line="33" column="66" source="standard:function-signature" />
         <error line="33" column="87" source="standard:function-signature" />
         <error line="33" column="96" source="standard:function-signature" />
-        <error line="106" column="1" source="standard:final-newline" />
+        <error line="107" column="1" source="standard:final-newline" />
     </file>
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/DefaultEngines.kt">
-        <error line="14" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="21" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="31" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="15" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="22" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="41" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="54" column="47" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/DownloadTransport.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -1745,8 +1754,8 @@
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/PackRegistry.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="33" column="43" source="standard:multiline-expression-wrapping" />
-        <error line="63" column="55" source="standard:multiline-expression-wrapping" />
         <error line="63" column="55" source="standard:function-signature" />
+        <error line="63" column="55" source="standard:multiline-expression-wrapping" />
         <error line="80" column="20" source="standard:multiline-expression-wrapping" />
         <error line="102" column="23" source="standard:multiline-expression-wrapping" />
         <error line="122" column="24" source="standard:function-signature" />
@@ -1762,6 +1771,9 @@
         <error line="22" column="5" source="standard:blank-line-before-declaration" />
         <error line="22" column="23" source="standard:class-signature" />
         <error line="22" column="56" source="standard:class-signature" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/Pcm16.kt">
+        <error line="16" column="1" source="standard:final-newline" />
     </file>
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/kokoro/AudioTrim.kt">
         <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -1814,8 +1826,8 @@
         <error line="235" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="240" column="37" source="standard:multiline-expression-wrapping" />
         <error line="243" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="254" column="52" source="standard:multiline-expression-wrapping" />
         <error line="254" column="52" source="standard:function-signature" />
+        <error line="254" column="52" source="standard:multiline-expression-wrapping" />
         <error line="259" column="21" source="standard:class-signature" />
         <error line="259" column="37" source="standard:class-signature" />
         <error line="259" column="55" source="standard:class-signature" />
@@ -1828,24 +1840,25 @@
     </file>
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/kokoro/KokoroEngine.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="49" column="16" source="standard:class-signature" />
-        <error line="50" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="102" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="105" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="124" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="131" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="138" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="138" column="38" source="standard:chain-method-continuation" />
-        <error line="146" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="212" column="52" source="standard:multiline-expression-wrapping" />
-        <error line="213" column="30" source="standard:argument-list-wrapping" />
+        <error line="50" column="16" source="standard:class-signature" />
+        <error line="51" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="103" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="106" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="125" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="132" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="139" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="139" column="38" source="standard:chain-method-continuation" />
+        <error line="147" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="213" column="52" source="standard:multiline-expression-wrapping" />
         <error line="214" column="30" source="standard:argument-list-wrapping" />
-        <error line="215" column="27" source="standard:argument-list-wrapping" />
-        <error line="217" column="27" source="standard:argument-list-wrapping" />
+        <error line="215" column="30" source="standard:argument-list-wrapping" />
+        <error line="216" column="27" source="standard:argument-list-wrapping" />
         <error line="218" column="27" source="standard:argument-list-wrapping" />
         <error line="219" column="27" source="standard:argument-list-wrapping" />
-        <error line="220" column="30" source="standard:argument-list-wrapping" />
-        <error line="221" column="28" source="standard:argument-list-wrapping" />
+        <error line="220" column="27" source="standard:argument-list-wrapping" />
+        <error line="221" column="30" source="standard:argument-list-wrapping" />
+        <error line="222" column="28" source="standard:argument-list-wrapping" />
+        <error line="273" column="1" source="standard:no-blank-line-before-rbrace" />
     </file>
     <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/kokoro/KokoroPacks.kt">
         <error line="28" column="17" source="standard:multiline-expression-wrapping" />
@@ -1877,8 +1890,8 @@
         <error line="49" column="36" source="standard:function-signature" />
         <error line="49" column="54" source="standard:function-signature" />
         <error line="49" column="68" source="standard:function-signature" />
-        <error line="49" column="80" source="standard:multiline-expression-wrapping" />
         <error line="49" column="80" source="standard:function-signature" />
+        <error line="49" column="80" source="standard:multiline-expression-wrapping" />
         <error line="60" column="5" source="standard:spacing-between-declarations-with-comments" />
         <error line="76" column="26" source="standard:function-signature" />
         <error line="76" column="49" source="standard:function-signature" />
@@ -1900,8 +1913,8 @@
         <error line="52" column="18" source="standard:function-signature" />
         <error line="52" column="36" source="standard:function-signature" />
         <error line="52" column="67" source="standard:function-signature" />
-        <error line="68" column="43" source="standard:multiline-expression-wrapping" />
         <error line="68" column="43" source="standard:function-signature" />
+        <error line="68" column="43" source="standard:multiline-expression-wrapping" />
         <error line="73" column="19" source="standard:function-signature" />
         <error line="73" column="43" source="standard:function-signature" />
         <error line="73" column="57" source="standard:function-signature" />
@@ -1917,9 +1930,9 @@
         <error line="67" column="74" source="standard:class-signature" />
         <error line="67" column="101" source="standard:class-signature" />
         <error line="67" column="123" source="standard:class-signature" />
+        <error line="70" column="21" source="standard:argument-list-wrapping" />
         <error line="70" column="21" source="standard:multiline-expression-wrapping" />
         <error line="70" column="21" source="standard:wrapping" />
-        <error line="70" column="21" source="standard:argument-list-wrapping" />
         <error line="71" column="141" source="standard:trailing-comma-on-call-site" />
         <error line="74" column="32" source="standard:multiline-expression-wrapping" />
         <error line="76" column="25" source="standard:multiline-expression-wrapping" />
@@ -1975,8 +1988,47 @@
         <error line="12" column="52" source="standard:multiline-expression-wrapping" />
         <error line="26" column="1" source="standard:final-newline" />
     </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/piper/OrtPiperSession.kt">
+        <error line="112" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/piper/PiperEngine.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="57" column="16" source="standard:class-signature" />
+        <error line="58" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="139" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/piper/PiperPacks.kt">
+        <error line="219" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/piper/PiperSession.kt">
+        <error line="15" column="15" source="standard:function-signature" />
+        <error line="15" column="37" source="standard:function-signature" />
+        <error line="15" column="55" source="standard:function-signature" />
+        <error line="18" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/piper/PiperVoiceConfig.kt">
+        <error line="36" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="69" column="44" source="standard:function-signature" />
+        <error line="94" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="96" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="96" column="31" source="standard:wrapping" />
+        <error line="97" column="75" source="standard:wrapping" />
+        <error line="98" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="98" column="32" source="standard:wrapping" />
+        <error line="99" column="76" source="standard:wrapping" />
+        <error line="100" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="100" column="27" source="standard:wrapping" />
+        <error line="101" column="71" source="standard:wrapping" />
+        <error line="102" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="108" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/main/kotlin/com/moronigranja/localttsreader/tts/setup/SetupEnginePacks.kt">
+        <error line="34" column="21" source="standard:function-signature" />
+        <error line="34" column="39" source="standard:function-signature" />
+        <error line="34" column="52" source="standard:function-signature" />
+    </file>
     <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/DefaultEnginesTest.kt">
-        <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="11" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/FakeTransport.kt">
         <error line="13" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2001,40 +2053,40 @@
         <error line="37" column="25" source="standard:function-signature" />
         <error line="37" column="44" source="standard:function-signature" />
         <error line="37" column="69" source="standard:function-signature" />
-        <error line="37" column="82" source="standard:multiline-expression-wrapping" />
         <error line="37" column="82" source="standard:function-signature" />
+        <error line="37" column="82" source="standard:multiline-expression-wrapping" />
         <error line="47" column="30" source="standard:function-signature" />
         <error line="47" column="45" source="standard:function-signature" />
         <error line="47" column="63" source="standard:function-signature" />
         <error line="52" column="29" source="standard:function-signature" />
         <error line="52" column="44" source="standard:function-signature" />
         <error line="52" column="62" source="standard:function-signature" />
-        <error line="62" column="69" source="standard:multiline-expression-wrapping" />
         <error line="62" column="69" source="standard:function-signature" />
-        <error line="84" column="60" source="standard:multiline-expression-wrapping" />
+        <error line="62" column="69" source="standard:multiline-expression-wrapping" />
         <error line="84" column="60" source="standard:function-signature" />
-        <error line="97" column="86" source="standard:multiline-expression-wrapping" />
+        <error line="84" column="60" source="standard:multiline-expression-wrapping" />
         <error line="97" column="86" source="standard:function-signature" />
-        <error line="112" column="69" source="standard:multiline-expression-wrapping" />
+        <error line="97" column="86" source="standard:multiline-expression-wrapping" />
         <error line="112" column="69" source="standard:function-signature" />
-        <error line="124" column="65" source="standard:multiline-expression-wrapping" />
+        <error line="112" column="69" source="standard:multiline-expression-wrapping" />
         <error line="124" column="65" source="standard:function-signature" />
-        <error line="143" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="124" column="65" source="standard:multiline-expression-wrapping" />
         <error line="143" column="53" source="standard:function-signature" />
-        <error line="157" column="81" source="standard:multiline-expression-wrapping" />
+        <error line="143" column="53" source="standard:multiline-expression-wrapping" />
         <error line="157" column="81" source="standard:function-signature" />
-        <error line="172" column="77" source="standard:multiline-expression-wrapping" />
+        <error line="157" column="81" source="standard:multiline-expression-wrapping" />
         <error line="172" column="77" source="standard:function-signature" />
-        <error line="190" column="73" source="standard:multiline-expression-wrapping" />
+        <error line="172" column="77" source="standard:multiline-expression-wrapping" />
         <error line="190" column="73" source="standard:function-signature" />
-        <error line="207" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="190" column="73" source="standard:multiline-expression-wrapping" />
         <error line="207" column="48" source="standard:function-signature" />
-        <error line="224" column="57" source="standard:multiline-expression-wrapping" />
+        <error line="207" column="48" source="standard:multiline-expression-wrapping" />
         <error line="224" column="57" source="standard:function-signature" />
-        <error line="235" column="87" source="standard:multiline-expression-wrapping" />
+        <error line="224" column="57" source="standard:multiline-expression-wrapping" />
         <error line="235" column="87" source="standard:function-signature" />
-        <error line="253" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="235" column="87" source="standard:multiline-expression-wrapping" />
         <error line="253" column="76" source="standard:function-signature" />
+        <error line="253" column="76" source="standard:multiline-expression-wrapping" />
         <error line="260" column="19" source="standard:multiline-expression-wrapping" />
         <error line="293" column="17" source="standard:multiline-expression-wrapping" />
         <error line="310" column="17" source="standard:multiline-expression-wrapping" />
@@ -2048,23 +2100,23 @@
         <error line="62" column="52" source="standard:function-signature" />
         <error line="63" column="29" source="standard:chain-method-continuation" />
         <error line="63" column="60" source="standard:chain-method-continuation" />
-        <error line="87" column="67" source="standard:multiline-expression-wrapping" />
         <error line="87" column="67" source="standard:function-signature" />
+        <error line="87" column="67" source="standard:multiline-expression-wrapping" />
         <error line="89" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="101" column="76" source="standard:multiline-expression-wrapping" />
         <error line="101" column="76" source="standard:function-signature" />
-        <error line="111" column="80" source="standard:multiline-expression-wrapping" />
+        <error line="101" column="76" source="standard:multiline-expression-wrapping" />
         <error line="111" column="80" source="standard:function-signature" />
-        <error line="122" column="80" source="standard:multiline-expression-wrapping" />
+        <error line="111" column="80" source="standard:multiline-expression-wrapping" />
         <error line="122" column="80" source="standard:function-signature" />
+        <error line="122" column="80" source="standard:multiline-expression-wrapping" />
         <error line="125" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="145" column="87" source="standard:multiline-expression-wrapping" />
         <error line="145" column="87" source="standard:function-signature" />
+        <error line="145" column="87" source="standard:multiline-expression-wrapping" />
         <error line="148" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="167" column="57" source="standard:multiline-expression-wrapping" />
         <error line="167" column="57" source="standard:function-signature" />
-        <error line="182" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="167" column="57" source="standard:multiline-expression-wrapping" />
         <error line="182" column="42" source="standard:function-signature" />
+        <error line="182" column="42" source="standard:multiline-expression-wrapping" />
         <error line="193" column="21" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/kokoro/AudioTrimTest.kt">
@@ -2098,8 +2150,8 @@
     <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/kokoro/KokoroEngineTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="24" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="35" column="36" source="standard:multiline-expression-wrapping" />
         <error line="35" column="36" source="standard:function-signature" />
+        <error line="35" column="36" source="standard:multiline-expression-wrapping" />
         <error line="65" column="30" source="standard:binary-expression-wrapping" />
         <error line="65" column="30" source="standard:multiline-expression-wrapping" />
         <error line="65" column="42" source="standard:argument-list-wrapping" />
@@ -2115,30 +2167,30 @@
         <error line="65" column="155" source="standard:argument-list-wrapping" />
         <error line="65" column="156" source="standard:argument-list-wrapping" />
         <error line="76" column="77" source="standard:function-signature" />
-        <error line="80" column="80" source="standard:multiline-expression-wrapping" />
         <error line="80" column="80" source="standard:function-signature" />
-        <error line="96" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="80" source="standard:multiline-expression-wrapping" />
         <error line="96" column="63" source="standard:function-signature" />
-        <error line="103" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="96" column="63" source="standard:multiline-expression-wrapping" />
         <error line="103" column="61" source="standard:function-signature" />
-        <error line="110" column="41" source="standard:multiline-expression-wrapping" />
+        <error line="103" column="61" source="standard:multiline-expression-wrapping" />
         <error line="110" column="41" source="standard:function-signature" />
-        <error line="118" column="41" source="standard:multiline-expression-wrapping" />
+        <error line="110" column="41" source="standard:multiline-expression-wrapping" />
         <error line="118" column="41" source="standard:function-signature" />
-        <error line="126" column="62" source="standard:multiline-expression-wrapping" />
+        <error line="118" column="41" source="standard:multiline-expression-wrapping" />
         <error line="126" column="62" source="standard:function-signature" />
-        <error line="134" column="57" source="standard:multiline-expression-wrapping" />
+        <error line="126" column="62" source="standard:multiline-expression-wrapping" />
         <error line="134" column="57" source="standard:function-signature" />
-        <error line="148" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="134" column="57" source="standard:multiline-expression-wrapping" />
         <error line="148" column="53" source="standard:function-signature" />
-        <error line="158" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="148" column="53" source="standard:multiline-expression-wrapping" />
         <error line="158" column="53" source="standard:function-signature" />
-        <error line="167" column="77" source="standard:multiline-expression-wrapping" />
+        <error line="158" column="53" source="standard:multiline-expression-wrapping" />
         <error line="167" column="77" source="standard:function-signature" />
-        <error line="182" column="65" source="standard:multiline-expression-wrapping" />
+        <error line="167" column="77" source="standard:multiline-expression-wrapping" />
         <error line="182" column="65" source="standard:function-signature" />
-        <error line="190" column="64" source="standard:multiline-expression-wrapping" />
+        <error line="182" column="65" source="standard:multiline-expression-wrapping" />
         <error line="190" column="64" source="standard:function-signature" />
+        <error line="190" column="64" source="standard:multiline-expression-wrapping" />
         <error line="205" column="32" source="standard:function-signature" />
         <error line="205" column="46" source="standard:function-signature" />
         <error line="205" column="62" source="standard:function-signature" />
@@ -2147,8 +2199,8 @@
         <error line="225" column="68" source="standard:function-signature" />
         <error line="225" column="81" source="standard:function-signature" />
         <error line="236" column="30" source="standard:function-expression-body" />
-        <error line="242" column="49" source="standard:multiline-expression-wrapping" />
         <error line="242" column="49" source="standard:function-signature" />
+        <error line="242" column="49" source="standard:multiline-expression-wrapping" />
         <error line="282" column="35" source="standard:class-signature" />
         <error line="282" column="57" source="standard:class-signature" />
         <error line="282" column="81" source="standard:class-signature" />
@@ -2164,12 +2216,12 @@
         <error line="49" column="20" source="standard:multiline-expression-wrapping" />
         <error line="51" column="22" source="standard:argument-list-wrapping" />
         <error line="51" column="33" source="standard:wrapping" />
-        <error line="51" column="34" source="standard:multiline-expression-wrapping" />
         <error line="51" column="34" source="standard:argument-list-wrapping" />
+        <error line="51" column="34" source="standard:multiline-expression-wrapping" />
         <error line="61" column="22" source="standard:argument-list-wrapping" />
         <error line="61" column="32" source="standard:wrapping" />
-        <error line="61" column="33" source="standard:multiline-expression-wrapping" />
         <error line="61" column="33" source="standard:argument-list-wrapping" />
+        <error line="61" column="33" source="standard:multiline-expression-wrapping" />
         <error line="101" column="26" source="standard:argument-list-wrapping" />
         <error line="101" column="37" source="standard:argument-list-wrapping" />
         <error line="101" column="44" source="standard:argument-list-wrapping" />
@@ -2187,10 +2239,10 @@
         <error line="160" column="23" source="standard:multiline-expression-wrapping" />
         <error line="160" column="23" source="standard:wrapping" />
         <error line="164" column="17" source="standard:wrapping" />
-        <error line="184" column="34" source="standard:multiline-expression-wrapping" />
         <error line="184" column="34" source="standard:function-signature" />
-        <error line="188" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="184" column="34" source="standard:multiline-expression-wrapping" />
         <error line="188" column="35" source="standard:function-signature" />
+        <error line="188" column="35" source="standard:multiline-expression-wrapping" />
         <error line="196" column="29" source="standard:class-signature" />
         <error line="196" column="51" source="standard:class-signature" />
         <error line="196" column="69" source="standard:class-signature" />
@@ -2281,11 +2333,58 @@
     <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/kokoro/PtBrVoiceHostTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="24" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="49" column="44" source="standard:multiline-expression-wrapping" />
         <error line="49" column="44" source="standard:function-signature" />
-        <error line="66" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="49" column="44" source="standard:multiline-expression-wrapping" />
         <error line="66" column="46" source="standard:function-signature" />
+        <error line="66" column="46" source="standard:multiline-expression-wrapping" />
         <error line="73" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/piper/PiperEngineTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="18" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="38" column="5" source="standard:blank-line-before-declaration" />
+        <error line="38" column="77" source="standard:function-signature" />
+        <error line="42" column="78" source="standard:function-signature" />
+        <error line="42" column="78" source="standard:multiline-expression-wrapping" />
+        <error line="73" column="61" source="standard:function-signature" />
+        <error line="73" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="63" source="standard:function-signature" />
+        <error line="80" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="88" column="41" source="standard:function-signature" />
+        <error line="88" column="41" source="standard:multiline-expression-wrapping" />
+        <error line="96" column="75" source="standard:function-signature" />
+        <error line="96" column="75" source="standard:multiline-expression-wrapping" />
+        <error line="104" column="62" source="standard:function-signature" />
+        <error line="104" column="62" source="standard:multiline-expression-wrapping" />
+        <error line="112" column="53" source="standard:function-signature" />
+        <error line="112" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="121" column="59" source="standard:function-signature" />
+        <error line="121" column="59" source="standard:multiline-expression-wrapping" />
+        <error line="150" column="32" source="standard:function-signature" />
+        <error line="150" column="46" source="standard:function-signature" />
+        <error line="150" column="62" source="standard:function-signature" />
+        <error line="175" column="30" source="standard:function-expression-body" />
+        <error line="180" column="29" source="standard:class-signature" />
+        <error line="180" column="48" source="standard:class-signature" />
+        <error line="180" column="70" source="standard:class-signature" />
+        <error line="203" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/piper/PiperSmoke.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="41" column="46" source="standard:chain-method-continuation" />
+        <error line="41" column="78" source="standard:chain-method-continuation" />
+        <error line="126" column="36" source="standard:argument-list-wrapping" />
+        <error line="126" column="55" source="standard:argument-list-wrapping" />
+        <error line="126" column="74" source="standard:argument-list-wrapping" />
+        <error line="161" column="1" source="standard:final-newline" />
+    </file>
+    <file name="core-tts/src/test/kotlin/com/moronigranja/localttsreader/tts/piper/PiperVoiceConfigTest.kt">
+        <error line="9" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="56" column="29" source="standard:chain-method-continuation" />
+        <error line="56" column="36" source="standard:argument-list-wrapping" />
+        <error line="56" column="141" source="standard:max-line-length" />
+        <error line="56" column="143" source="standard:argument-list-wrapping" />
+        <error line="117" column="1" source="standard:final-newline" />
     </file>
     <file name="core-ui/src/main/kotlin/com/moronigranja/localttsreader/ui/BookCover.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -2343,6 +2442,10 @@
         <error line="219" column="43" source="standard:function-signature" />
         <error line="219" column="58" source="standard:function-signature" />
     </file>
+    <file name="core-ui/src/main/kotlin/com/moronigranja/localttsreader/ui/ReadInLanguage.kt">
+        <error line="63" column="5" source="standard:function-naming" />
+        <error line="112" column="13" source="standard:function-naming" />
+    </file>
     <file name="core-ui/src/main/kotlin/com/moronigranja/localttsreader/ui/SectionHeader.kt">
         <error line="10" column="5" source="standard:function-naming" />
         <error line="10" column="19" source="standard:function-signature" />
@@ -2364,15 +2467,15 @@
         <error line="103" column="5" source="standard:function-naming" />
         <error line="199" column="13" source="standard:function-naming" />
         <error line="291" column="13" source="standard:function-naming" />
-</file>
+    </file>
     <file name="core-ui/src/test/kotlin/com/moronigranja/localttsreader/ui/AyvuThemeTest.kt">
         <error line="16" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="85" column="1" source="standard:final-newline" />
     </file>
     <file name="feature-library/src/main/kotlin/com/moronigranja/localttsreader/featurelibrary/BookSources.kt">
         <error line="15" column="1" source="standard:no-consecutive-comments" />
-        <error line="36" column="54" source="standard:multiline-expression-wrapping" />
         <error line="36" column="54" source="standard:function-signature" />
+        <error line="36" column="54" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-library/src/main/kotlin/com/moronigranja/localttsreader/featurelibrary/CoverStore.kt">
         <error line="11" column="18" source="standard:class-signature" />
@@ -2396,21 +2499,18 @@
     </file>
     <file name="feature-library/src/main/kotlin/com/moronigranja/localttsreader/featurelibrary/FolderScanner.kt">
         <error line="14" column="16" source="standard:multiline-expression-wrapping" />
-        <error line="19" column="56" source="standard:multiline-expression-wrapping" />
         <error line="19" column="56" source="standard:function-signature" />
+        <error line="19" column="56" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-library/src/main/kotlin/com/moronigranja/localttsreader/featurelibrary/LibraryScreen.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="80" column="1" source="standard:blank-line-before-declaration" />
-        <error line="80" column="1" source="standard:no-consecutive-comments" />
-        <error line="83" column="33" source="standard:multiline-expression-wrapping" />
-        <error line="90" column="1" source="standard:blank-line-before-declaration" />
-        <error line="90" column="1" source="standard:spacing-between-declarations-with-annotations" />
-        <error line="92" column="5" source="standard:function-naming" />
-        <error line="417" column="13" source="standard:function-naming" />
-        <error line="638" column="13" source="standard:function-naming" />
-        <error line="685" column="13" source="standard:function-naming" />
-</file>
+        <error line="93" column="1" source="standard:no-consecutive-comments" />
+        <error line="107" column="5" source="standard:function-naming" />
+        <error line="461" column="13" source="standard:function-naming" />
+        <error line="673" column="13" source="standard:function-naming" />
+        <error line="720" column="13" source="standard:function-naming" />
+        <error line="767" column="13" source="standard:function-naming" />
+        <error line="784" column="13" source="standard:function-naming" />
+    </file>
     <file name="feature-library/src/test/kotlin/com/moronigranja/localttsreader/ebook/EpubFixture.kt">
         <error line="14" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="41" column="24" source="standard:multiline-expression-wrapping" />
@@ -2421,8 +2521,8 @@
         <error line="85" column="21" source="standard:function-signature" />
         <error line="85" column="46" source="standard:function-signature" />
         <error line="85" column="70" source="standard:function-signature" />
-        <error line="85" column="82" source="standard:multiline-expression-wrapping" />
         <error line="85" column="82" source="standard:function-signature" />
+        <error line="85" column="82" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-library/src/test/kotlin/com/moronigranja/localttsreader/featurelibrary/FolderScanPolicyTest.kt">
         <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2449,6 +2549,58 @@
         <error line="29" column="53" source="standard:function-signature" />
         <error line="29" column="76" source="standard:function-signature" />
         <error line="36" column="39" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="feature-player/src/androidTest/kotlin/com/moronigranja/localttsreader/featureplayer/playback/D1SeekHorizonBenchmarkTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="94" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="101" column="34" source="standard:class-signature" />
+        <error line="101" column="65" source="standard:class-signature" />
+        <error line="135" column="27" source="standard:function-signature" />
+        <error line="135" column="43" source="standard:function-signature" />
+        <error line="135" column="60" source="standard:function-signature" />
+        <error line="135" column="73" source="standard:function-signature" />
+        <error line="140" column="9" source="standard:blank-line-before-declaration" />
+        <error line="141" column="9" source="standard:blank-line-before-declaration" />
+        <error line="170" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="170" column="28" source="standard:chain-method-continuation" />
+        <error line="174" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="177" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="192" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="198" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="200" column="17" source="standard:blank-line-before-declaration" />
+        <error line="207" column="63" source="standard:chain-method-continuation" />
+        <error line="214" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="233" column="41" source="standard:function-signature" />
+        <error line="282" column="48" source="standard:chain-method-continuation" />
+        <error line="282" column="78" source="standard:chain-method-continuation" />
+        <error line="302" column="39" source="standard:chain-method-continuation" />
+        <error line="304" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="325" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="371" column="5" source="standard:blank-line-before-declaration" />
+    </file>
+    <file name="feature-player/src/androidTest/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PiperDeviceSmokeTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="35" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="76" column="20" source="standard:chain-method-continuation" />
+        <error line="82" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="98" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="110" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="133" column="26" source="standard:function-signature" />
+        <error line="133" column="38" source="standard:function-signature" />
+        <error line="133" column="59" source="standard:function-signature" />
+        <error line="133" column="74" source="standard:function-signature" />
+        <error line="135" column="38" source="standard:chain-method-continuation" />
+        <error line="135" column="62" source="standard:chain-method-continuation" />
+        <error line="137" column="12" source="standard:chain-method-continuation" />
+        <error line="137" column="38" source="standard:chain-method-continuation" />
+        <error line="137" column="49" source="standard:chain-method-continuation" />
+        <error line="137" column="61" source="standard:chain-method-continuation" />
+        <error line="138" column="12" source="standard:chain-method-continuation" />
+        <error line="138" column="31" source="standard:chain-method-continuation" />
+        <error line="138" column="54" source="standard:chain-method-continuation" />
+        <error line="138" column="66" source="standard:chain-method-continuation" />
+        <error line="143" column="5" source="standard:blank-line-before-declaration" />
+        <error line="153" column="1" source="standard:final-newline" />
     </file>
     <file name="feature-player/src/main/kotlin/com/moronigranja/localttsreader/featureplayer/playback/CachedBookMapper.kt">
         <error line="14" column="20" source="standard:multiline-expression-wrapping" />
@@ -2519,6 +2671,10 @@
         <error line="184" column="77" source="standard:function-signature" />
         <error line="187" column="80" source="standard:final-newline" />
     </file>
+    <file name="feature-player/src/main/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PiperRuntime.kt">
+        <error line="58" column="47" source="standard:function-signature" />
+        <error line="126" column="30" source="standard:multiline-expression-wrapping" />
+    </file>
     <file name="feature-player/src/main/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PregenCache.kt">
         <error line="17" column="18" source="standard:annotation" />
         <error line="17" column="26" source="standard:annotation" />
@@ -2545,46 +2701,10 @@
         <error line="23" column="28" source="standard:annotation" />
         <error line="28" column="2" source="standard:colon-spacing" />
         <error line="29" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="52" column="40" source="standard:multiline-expression-wrapping" />
-        <error line="52" column="40" source="standard:function-signature" />
-        <error line="56" column="1" source="standard:final-newline" />
     </file>
-    <file name="feature-player/src/main/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PregenWorker.kt">
-        <error line="61" column="19" source="standard:annotation" />
-        <error line="61" column="35" source="standard:annotation" />
-        <error line="76" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="84" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="84" column="31" source="standard:chain-method-continuation" />
-        <error line="84" column="64" source="standard:chain-method-continuation" />
-        <error line="220" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="242" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="252" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="294" column="33" source="standard:function-signature" />
-        <error line="294" column="52" source="standard:function-signature" />
-        <error line="294" column="78" source="standard:function-signature" />
-        <error line="294" column="102" source="standard:function-signature" />
-        <error line="295" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="313" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="318" column="34" source="standard:chain-method-continuation" />
-        <error line="337" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="354" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="356" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="360" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="367" column="9" source="standard:blank-line-before-declaration" />
-        <error line="369" column="1" source="standard:final-newline" />
-</file>
     <file name="feature-player/src/main/kotlin/com/moronigranja/localttsreader/featureplayer/ui/ReaderScreen.kt">
-        <error line="2" column="1" source="standard:import-ordering" />
-        <error line="121" column="5" source="standard:function-naming" />
-        <error line="140" column="5" source="standard:blank-line-before-declaration" />
-        <error line="140" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="462" column="13" source="standard:function-naming" />
-        <error line="658" column="30" source="standard:chain-method-continuation" />
-        <error line="757" column="9" source="standard:blank-line-before-declaration" />
-        <error line="757" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="795" column="39" source="standard:function-signature" />
-        <error line="795" column="49" source="standard:function-signature" />
-        <error line="795" column="75" source="standard:function-signature" />
+        <error line="122" column="5" source="standard:function-naming" />
+        <error line="479" column="13" source="standard:function-naming" />
     </file>
     <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/CachedBookMapperTest.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2601,7 +2721,8 @@
         <error line="86" column="9" source="standard:blank-line-before-declaration" />
         <error line="89" column="9" source="standard:blank-line-before-declaration" />
         <error line="90" column="9" source="standard:blank-line-before-declaration" />
-        <error line="177" column="1" source="standard:final-newline" />
+        <error line="93" column="9" source="standard:blank-line-before-declaration" />
+        <error line="180" column="1" source="standard:final-newline" />
     </file>
     <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PassageOutputReuseTest.kt">
         <error line="37" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2614,43 +2735,6 @@
         <error line="61" column="43" source="standard:function-signature" />
         <error line="61" column="57" source="standard:function-signature" />
         <error line="166" column="1" source="standard:final-newline" />
-    </file>
-    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceA57Test.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="60" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="67" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="91" column="9" source="standard:blank-line-before-declaration" />
-        <error line="103" column="9" source="standard:blank-line-before-declaration" />
-        <error line="105" column="5" source="standard:blank-line-before-declaration" />
-        <error line="105" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="107" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="112" column="27" source="standard:function-signature" />
-        <error line="112" column="43" source="standard:function-signature" />
-        <error line="112" column="60" source="standard:function-signature" />
-        <error line="112" column="73" source="standard:function-signature" />
-        <error line="113" column="9" source="standard:blank-line-before-declaration" />
-        <error line="114" column="9" source="standard:blank-line-before-declaration" />
-        <error line="115" column="9" source="standard:blank-line-before-declaration" />
-        <error line="120" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="120" column="24" source="standard:chain-method-continuation" />
-        <error line="132" column="32" source="standard:function-signature" />
-        <error line="132" column="52" source="standard:function-signature" />
-        <error line="132" column="75" source="standard:function-signature" />
-        <error line="145" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="145" column="26" source="standard:function-signature" />
-        <error line="268" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="326" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="329" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="351" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="354" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="392" column="9" source="standard:blank-line-before-declaration" />
-        <error line="431" column="23" source="standard:function-signature" />
-        <error line="431" column="38" source="standard:function-signature" />
-        <error line="431" column="64" source="standard:function-signature" />
-        <error line="431" column="88" source="standard:function-signature" />
-        <error line="448" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="489" column="1" source="standard:final-newline" />
     </file>
     <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceCr2Test.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -2669,39 +2753,13 @@
         <error line="72" column="45" source="standard:function-signature" />
         <error line="72" column="71" source="standard:function-signature" />
         <error line="72" column="96" source="standard:function-signature" />
-        <error line="89" column="26" source="standard:multiline-expression-wrapping" />
         <error line="89" column="26" source="standard:function-signature" />
+        <error line="89" column="26" source="standard:multiline-expression-wrapping" />
         <error line="96" column="26" source="standard:function-signature" />
         <error line="96" column="46" source="standard:function-signature" />
         <error line="96" column="62" source="standard:function-signature" />
         <error line="96" column="76" source="standard:function-signature" />
         <error line="176" column="1" source="standard:final-newline" />
-    </file>
-    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceFillRestartTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="67" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="76" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="79" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="99" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="101" column="9" source="standard:blank-line-before-declaration" />
-        <error line="114" column="9" source="standard:blank-line-before-declaration" />
-        <error line="118" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="127" column="9" source="standard:blank-line-before-declaration" />
-        <error line="127" column="27" source="standard:function-signature" />
-        <error line="127" column="43" source="standard:function-signature" />
-        <error line="127" column="60" source="standard:function-signature" />
-        <error line="127" column="73" source="standard:function-signature" />
-        <error line="130" column="9" source="standard:blank-line-before-declaration" />
-        <error line="131" column="9" source="standard:blank-line-before-declaration" />
-        <error line="132" column="9" source="standard:blank-line-before-declaration" />
-        <error line="137" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="137" column="24" source="standard:chain-method-continuation" />
-        <error line="170" column="23" source="standard:function-signature" />
-        <error line="170" column="38" source="standard:function-signature" />
-        <error line="170" column="64" source="standard:function-signature" />
-        <error line="170" column="88" source="standard:function-signature" />
-        <error line="184" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="236" column="23" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceProbesTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -2715,8 +2773,8 @@
         <error line="71" column="9" source="standard:blank-line-before-declaration" />
         <error line="72" column="9" source="standard:blank-line-before-declaration" />
         <error line="73" column="9" source="standard:blank-line-before-declaration" />
-        <error line="79" column="46" source="standard:multiline-expression-wrapping" />
         <error line="79" column="46" source="standard:function-signature" />
+        <error line="79" column="46" source="standard:multiline-expression-wrapping" />
         <error line="94" column="29" source="standard:function-signature" />
         <error line="94" column="55" source="standard:function-signature" />
         <error line="94" column="68" source="standard:function-signature" />
@@ -2724,67 +2782,8 @@
         <error line="100" column="45" source="standard:function-signature" />
         <error line="200" column="1" source="standard:final-newline" />
     </file>
-    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServicePublishGuardTest.kt">
-        <error line="69" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="77" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="82" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="88" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="91" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="103" column="9" source="standard:blank-line-before-declaration" />
-        <error line="113" column="9" source="standard:blank-line-before-declaration" />
-        <error line="115" column="5" source="standard:blank-line-before-declaration" />
-        <error line="115" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="116" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="121" column="27" source="standard:function-signature" />
-        <error line="121" column="43" source="standard:function-signature" />
-        <error line="121" column="60" source="standard:function-signature" />
-        <error line="121" column="73" source="standard:function-signature" />
-        <error line="122" column="9" source="standard:blank-line-before-declaration" />
-        <error line="123" column="9" source="standard:blank-line-before-declaration" />
-        <error line="124" column="9" source="standard:blank-line-before-declaration" />
-        <error line="129" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="129" column="24" source="standard:chain-method-continuation" />
-        <error line="180" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="180" column="26" source="standard:function-signature" />
-        <error line="199" column="29" source="standard:function-signature" />
-        <error line="199" column="55" source="standard:function-signature" />
-        <error line="199" column="84" source="standard:function-signature" />
-        <error line="273" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="291" column="1" source="standard:no-trailing-spaces" />
-        <error line="355" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="355" column="36" source="standard:chain-method-continuation" />
-        <error line="366" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="366" column="31" source="standard:chain-method-continuation" />
-        <error line="372" column="1" source="standard:final-newline" />
-    </file>
-    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceRevivalTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="66" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="71" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="74" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="91" column="9" source="standard:blank-line-before-declaration" />
-        <error line="103" column="9" source="standard:blank-line-before-declaration" />
-        <error line="105" column="5" source="standard:blank-line-before-declaration" />
-        <error line="105" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="106" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="111" column="27" source="standard:function-signature" />
-        <error line="111" column="43" source="standard:function-signature" />
-        <error line="111" column="60" source="standard:function-signature" />
-        <error line="111" column="73" source="standard:function-signature" />
-        <error line="112" column="9" source="standard:blank-line-before-declaration" />
-        <error line="113" column="9" source="standard:blank-line-before-declaration" />
-        <error line="114" column="9" source="standard:blank-line-before-declaration" />
-        <error line="119" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="119" column="24" source="standard:chain-method-continuation" />
-        <error line="143" column="9" source="standard:blank-line-before-declaration" />
-        <error line="143" column="19" source="standard:function-signature" />
-        <error line="143" column="33" source="standard:function-signature" />
-        <error line="143" column="43" source="standard:function-signature" />
-        <error line="163" column="23" source="standard:function-signature" />
-        <error line="163" column="40" source="standard:function-signature" />
-        <error line="163" column="64" source="standard:function-signature" />
-        <error line="163" column="88" source="standard:function-signature" />
-        <error line="206" column="107" source="standard:chain-method-continuation" />
+    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PlaybackServiceStatsTest.kt">
+        <error line="27" column="1" source="standard:no-empty-first-line-in-class-body" />
     </file>
     <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PregenManagerCancelTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -2802,99 +2801,31 @@
         <error line="84" column="68" source="standard:chain-method-continuation" />
         <error line="87" column="1" source="standard:final-newline" />
     </file>
-    <file name="feature-player/src/test/kotlin/com/moronigranja/localttsreader/featureplayer/playback/PregenWorkerTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="64" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="72" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="75" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="99" column="87" source="standard:function-signature" />
-        <error line="120" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="127" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="132" column="35" source="standard:function-signature" />
-        <error line="141" column="51" source="standard:multiline-expression-wrapping" />
-        <error line="141" column="51" source="standard:function-signature" />
-        <error line="150" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="158" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="158" column="24" source="standard:chain-method-continuation" />
-        <error line="175" column="79" source="standard:multiline-expression-wrapping" />
-        <error line="175" column="79" source="standard:function-signature" />
-        <error line="196" column="72" source="standard:multiline-expression-wrapping" />
-        <error line="196" column="72" source="standard:function-signature" />
-        <error line="199" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="216" column="55" source="standard:multiline-expression-wrapping" />
-        <error line="216" column="55" source="standard:function-signature" />
-        <error line="219" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="231" column="82" source="standard:multiline-expression-wrapping" />
-        <error line="231" column="82" source="standard:function-signature" />
-        <error line="239" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="266" column="93" source="standard:multiline-expression-wrapping" />
-        <error line="266" column="93" source="standard:function-signature" />
-        <error line="278" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="299" column="96" source="standard:multiline-expression-wrapping" />
-        <error line="299" column="96" source="standard:function-signature" />
-        <error line="300" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="313" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="337" column="67" source="standard:multiline-expression-wrapping" />
-        <error line="337" column="67" source="standard:function-signature" />
-        <error line="340" column="9" source="standard:blank-line-before-declaration" />
-        <error line="340" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="352" column="38" source="standard:chain-method-continuation" />
-        <error line="352" column="58" source="standard:chain-method-continuation" />
-        <error line="352" column="67" source="standard:chain-method-continuation" />
-        <error line="352" column="87" source="standard:chain-method-continuation" />
-        <error line="355" column="22" source="standard:argument-list-wrapping" />
-        <error line="355" column="65" source="standard:argument-list-wrapping" />
-        <error line="355" column="72" source="standard:argument-list-wrapping" />
-        <error line="355" column="81" source="standard:argument-list-wrapping" />
-        <error line="355" column="88" source="standard:argument-list-wrapping" />
-        <error line="355" column="89" source="standard:chain-method-continuation" />
-        <error line="355" column="109" source="standard:chain-method-continuation" />
-        <error line="355" column="118" source="standard:chain-method-continuation" />
-        <error line="355" column="138" source="standard:chain-method-continuation" />
-        <error line="355" column="141" source="standard:max-line-length" />
-        <error line="355" column="149" source="standard:argument-list-wrapping" />
-        <error line="355" column="184" source="standard:argument-list-wrapping" />
-        <error line="355" column="185" source="standard:argument-list-wrapping" />
-        <error line="362" column="26" source="standard:chain-method-continuation" />
-        <error line="362" column="35" source="standard:chain-method-continuation" />
-        <error line="362" column="55" source="standard:chain-method-continuation" />
-        <error line="362" column="104" source="standard:chain-method-continuation" />
-        <error line="370" column="66" source="standard:multiline-expression-wrapping" />
-        <error line="370" column="66" source="standard:function-signature" />
-        <error line="384" column="37" source="standard:chain-method-continuation" />
-        <error line="384" column="57" source="standard:chain-method-continuation" />
-        <error line="384" column="66" source="standard:chain-method-continuation" />
-        <error line="384" column="86" source="standard:chain-method-continuation" />
-        <error line="389" column="70" source="standard:multiline-expression-wrapping" />
-        <error line="389" column="70" source="standard:function-signature" />
-        <error line="400" column="58" source="standard:multiline-expression-wrapping" />
-        <error line="400" column="58" source="standard:function-signature" />
-        <error line="412" column="52" source="standard:multiline-expression-wrapping" />
-        <error line="412" column="52" source="standard:function-signature" />
-        <error line="418" column="87" source="standard:multiline-expression-wrapping" />
-        <error line="418" column="87" source="standard:function-signature" />
-        <error line="428" column="1" source="standard:final-newline" />
-</file>
     <file name="feature-settings/src/main/kotlin/com/moronigranja/localttsreader/featuresettings/AndroidHttpTransport.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="24" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="25" column="31" source="standard:function-signature" />
         <error line="25" column="44" source="standard:function-signature" />
         <error line="25" column="60" source="standard:function-signature" />
-        <error line="25" column="76" source="standard:multiline-expression-wrapping" />
         <error line="25" column="76" source="standard:function-signature" />
+        <error line="25" column="76" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-settings/src/main/kotlin/com/moronigranja/localttsreader/featuresettings/BackupSection.kt">
         <error line="38" column="5" source="standard:function-naming" />
     </file>
     <file name="feature-settings/src/main/kotlin/com/moronigranja/localttsreader/featuresettings/SettingsScreen.kt">
-        <error line="65" column="5" source="standard:function-naming" />
-        <error line="359" column="13" source="standard:function-naming" />
-        <error line="394" column="13" source="standard:function-naming" />
-        <error line="441" column="13" source="standard:function-naming" />
-</file>
-    <file name="feature-settings/src/main/kotlin/com/moronigranja/localttsreader/featuresettings/SettingsViewModel.kt">
-        <error line="346" column="23" source="standard:property-naming" />
+        <error line="70" column="5" source="standard:function-naming" />
+        <error line="240" column="13" source="standard:function-naming" />
+        <error line="424" column="13" source="standard:function-naming" />
+        <error line="454" column="13" source="standard:function-naming" />
+        <error line="488" column="13" source="standard:function-naming" />
+        <error line="523" column="13" source="standard:function-naming" />
+        <error line="570" column="13" source="standard:function-naming" />
+    </file>
+    <file name="feature-settings/src/test/kotlin/com/moronigranja/localttsreader/featuresettings/SettingsPackRowsTest.kt">
+        <error line="78" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="147" column="25" source="standard:chain-method-continuation" />
+        <error line="147" column="57" source="standard:chain-method-continuation" />
     </file>
     <file name="feature-settings/src/test/kotlin/com/moronigranja/localttsreader/featuresettings/SettingsViewModelTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -2902,28 +2833,34 @@
         <error line="58" column="9" source="standard:blank-line-before-declaration" />
         <error line="59" column="9" source="standard:blank-line-before-declaration" />
         <error line="62" column="9" source="standard:blank-line-before-declaration" />
-        <error line="69" column="33" source="standard:class-signature" />
-        <error line="69" column="60" source="standard:class-signature" />
-        <error line="70" column="35" source="standard:function-signature" />
-        <error line="70" column="48" source="standard:function-signature" />
-        <error line="70" column="64" source="standard:function-signature" />
-        <error line="70" column="79" source="standard:function-signature" />
-        <error line="74" column="1" source="standard:no-consecutive-blank-lines" />
-        <error line="81" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="87" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="87" column="38" source="standard:chain-method-continuation" />
-        <error line="87" column="61" source="standard:chain-method-continuation" />
-        <error line="97" column="27" source="standard:function-signature" />
-        <error line="97" column="51" source="standard:function-signature" />
-        <error line="97" column="71" source="standard:function-signature" />
-        <error line="117" column="61" source="standard:multiline-expression-wrapping" />
-        <error line="117" column="61" source="standard:function-signature" />
-        <error line="145" column="70" source="standard:multiline-expression-wrapping" />
-        <error line="145" column="70" source="standard:function-signature" />
-        <error line="156" column="39" source="standard:chain-method-continuation" />
-        <error line="163" column="75" source="standard:multiline-expression-wrapping" />
-        <error line="163" column="75" source="standard:function-signature" />
-        <error line="173" column="39" source="standard:chain-method-continuation" />
+        <error line="73" column="33" source="standard:class-signature" />
+        <error line="73" column="60" source="standard:class-signature" />
+        <error line="74" column="35" source="standard:function-signature" />
+        <error line="74" column="48" source="standard:function-signature" />
+        <error line="74" column="64" source="standard:function-signature" />
+        <error line="74" column="79" source="standard:function-signature" />
+        <error line="78" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="85" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="91" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="91" column="38" source="standard:chain-method-continuation" />
+        <error line="91" column="61" source="standard:chain-method-continuation" />
+        <error line="101" column="27" source="standard:function-signature" />
+        <error line="101" column="51" source="standard:function-signature" />
+        <error line="101" column="71" source="standard:function-signature" />
+        <error line="121" column="61" source="standard:function-signature" />
+        <error line="121" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="149" column="70" source="standard:function-signature" />
+        <error line="149" column="70" source="standard:multiline-expression-wrapping" />
+        <error line="160" column="39" source="standard:chain-method-continuation" />
+        <error line="167" column="75" source="standard:function-signature" />
+        <error line="167" column="75" source="standard:multiline-expression-wrapping" />
+        <error line="177" column="39" source="standard:chain-method-continuation" />
+        <error line="183" column="66" source="standard:function-signature" />
+        <error line="183" column="66" source="standard:multiline-expression-wrapping" />
+        <error line="187" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="196" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="207" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="227" column="40" source="standard:chain-method-continuation" />
     </file>
     <file name="feature-share/src/main/kotlin/com/moronigranja/localttsreader/featureshare/ImageDecoder.kt">
         <error line="19" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2941,8 +2878,8 @@
     </file>
     <file name="feature-share/src/main/kotlin/com/moronigranja/localttsreader/featureshare/ShareModule.kt">
         <error line="21" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="29" column="31" source="standard:multiline-expression-wrapping" />
         <error line="29" column="31" source="standard:function-signature" />
+        <error line="29" column="31" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="feature-share/src/main/kotlin/com/moronigranja/localttsreader/featureshare/ShareResultScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -3006,34 +2943,34 @@
         <error line="44" column="57" source="standard:function-signature" />
         <error line="44" column="80" source="standard:function-signature" />
         <error line="59" column="9" source="standard:blank-line-before-declaration" />
-        <error line="59" column="25" source="standard:multiline-expression-wrapping" />
         <error line="59" column="25" source="standard:function-signature" />
+        <error line="59" column="25" source="standard:multiline-expression-wrapping" />
         <error line="65" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="85" column="65" source="standard:multiline-expression-wrapping" />
         <error line="85" column="65" source="standard:function-signature" />
+        <error line="85" column="65" source="standard:multiline-expression-wrapping" />
         <error line="88" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="102" column="61" source="standard:multiline-expression-wrapping" />
         <error line="102" column="61" source="standard:function-signature" />
-        <error line="112" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="102" column="61" source="standard:multiline-expression-wrapping" />
         <error line="112" column="76" source="standard:function-signature" />
+        <error line="112" column="76" source="standard:multiline-expression-wrapping" />
         <error line="115" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="128" column="67" source="standard:multiline-expression-wrapping" />
         <error line="128" column="67" source="standard:function-signature" />
-        <error line="138" column="60" source="standard:multiline-expression-wrapping" />
+        <error line="128" column="67" source="standard:multiline-expression-wrapping" />
         <error line="138" column="60" source="standard:function-signature" />
-        <error line="152" column="58" source="standard:multiline-expression-wrapping" />
+        <error line="138" column="60" source="standard:multiline-expression-wrapping" />
         <error line="152" column="58" source="standard:function-signature" />
-        <error line="160" column="64" source="standard:multiline-expression-wrapping" />
+        <error line="152" column="58" source="standard:multiline-expression-wrapping" />
         <error line="160" column="64" source="standard:function-signature" />
-        <error line="168" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="160" column="64" source="standard:multiline-expression-wrapping" />
         <error line="168" column="61" source="standard:function-signature" />
-        <error line="181" column="70" source="standard:multiline-expression-wrapping" />
+        <error line="168" column="61" source="standard:multiline-expression-wrapping" />
         <error line="181" column="70" source="standard:function-signature" />
+        <error line="181" column="70" source="standard:multiline-expression-wrapping" />
         <error line="186" column="17" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="spike-tts/src/androidTest/kotlin/com/moronigranja/localttsreader/spiketts/KokoroAotCompileTest.kt">
-        <error line="34" column="38" source="standard:multiline-expression-wrapping" />
         <error line="34" column="38" source="standard:function-signature" />
+        <error line="34" column="38" source="standard:multiline-expression-wrapping" />
         <error line="41" column="30" source="standard:function-signature" />
         <error line="41" column="51" source="standard:function-signature" />
         <error line="41" column="67" source="standard:function-signature" />
@@ -3102,6 +3039,12 @@
         <error line="32" column="18" source="standard:multiline-expression-wrapping" />
         <error line="37" column="1" source="standard:final-newline" />
     </file>
+    <file name="spike-tts/src/androidTest/kotlin/com/moronigranja/localttsreader/spiketts/PocketProbeBenchmarkTest.kt">
+        <error line="44" column="1" source="standard:final-newline" />
+    </file>
+    <file name="spike-tts/src/androidTest/kotlin/com/moronigranja/localttsreader/spiketts/ThreadSweepBenchmarkTest.kt">
+        <error line="40" column="17" source="standard:chain-method-continuation" />
+    </file>
     <file name="spike-tts/src/main/kotlin/com/moronigranja/localttsreader/spiketts/KokoroBenchmarkRunner.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="130" column="35" source="standard:multiline-expression-wrapping" />
@@ -3114,8 +3057,8 @@
         <error line="68" column="48" source="standard:function-signature" />
         <error line="68" column="63" source="standard:function-signature" />
         <error line="82" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="90" column="38" source="standard:multiline-expression-wrapping" />
         <error line="90" column="38" source="standard:function-signature" />
+        <error line="90" column="38" source="standard:multiline-expression-wrapping" />
         <error line="96" column="5" source="standard:blank-line-before-declaration" />
         <error line="96" column="5" source="standard:spacing-between-declarations-with-comments" />
         <error line="149" column="30" source="standard:function-signature" />
@@ -3135,9 +3078,9 @@
         <error line="184" column="39" source="standard:statement-wrapping" />
         <error line="195" column="32" source="standard:multiline-expression-wrapping" />
         <error line="220" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="231" column="40" source="standard:argument-list-wrapping" />
         <error line="231" column="40" source="standard:multiline-expression-wrapping" />
         <error line="231" column="40" source="standard:wrapping" />
-        <error line="231" column="40" source="standard:argument-list-wrapping" />
         <error line="231" column="52" source="standard:chain-method-continuation" />
         <error line="231" column="79" source="standard:chain-method-continuation" />
         <error line="232" column="34" source="standard:argument-list-wrapping" />
@@ -3153,15 +3096,15 @@
         <error line="232" column="141" source="standard:max-line-length" />
         <error line="232" column="151" source="standard:chain-method-continuation" />
         <error line="232" column="156" source="standard:argument-list-wrapping" />
-        <error line="232" column="157" source="standard:wrapping" />
         <error line="232" column="157" source="standard:argument-list-wrapping" />
+        <error line="232" column="157" source="standard:wrapping" />
         <error line="232" column="158" source="standard:argument-list-wrapping" />
         <error line="235" column="31" source="standard:statement-wrapping" />
         <error line="235" column="63" source="standard:statement-wrapping" />
         <error line="235" column="78" source="standard:statement-wrapping" />
+        <error line="243" column="32" source="standard:argument-list-wrapping" />
         <error line="243" column="32" source="standard:multiline-expression-wrapping" />
         <error line="243" column="32" source="standard:wrapping" />
-        <error line="243" column="32" source="standard:argument-list-wrapping" />
         <error line="243" column="44" source="standard:chain-method-continuation" />
         <error line="243" column="70" source="standard:chain-method-continuation" />
         <error line="244" column="75" source="standard:wrapping" />
@@ -3270,9 +3213,9 @@
         <error line="356" column="144" source="standard:argument-list-wrapping" />
         <error line="356" column="145" source="standard:argument-list-wrapping" />
         <error line="357" column="25" source="standard:wrapping" />
+        <error line="360" column="40" source="standard:argument-list-wrapping" />
         <error line="360" column="40" source="standard:multiline-expression-wrapping" />
         <error line="360" column="40" source="standard:wrapping" />
-        <error line="360" column="40" source="standard:argument-list-wrapping" />
         <error line="360" column="52" source="standard:chain-method-continuation" />
         <error line="360" column="71" source="standard:chain-method-continuation" />
         <error line="361" column="54" source="standard:wrapping" />
@@ -3369,9 +3312,9 @@
         <error line="502" column="146" source="standard:argument-list-wrapping" />
         <error line="503" column="29" source="standard:wrapping" />
         <error line="506" column="37" source="standard:statement-wrapping" />
+        <error line="512" column="37" source="standard:argument-list-wrapping" />
         <error line="512" column="37" source="standard:multiline-expression-wrapping" />
         <error line="512" column="37" source="standard:wrapping" />
-        <error line="512" column="37" source="standard:argument-list-wrapping" />
         <error line="513" column="43" source="standard:chain-method-continuation" />
         <error line="514" column="54" source="standard:chain-method-continuation" />
         <error line="515" column="48" source="standard:chain-method-continuation" />
@@ -3403,5 +3346,75 @@
     </file>
     <file name="spike-tts/src/main/kotlin/com/moronigranja/localttsreader/spiketts/Mel.kt">
         <error line="221" column="1" source="standard:indent" />
+    </file>
+    <file name="spike-tts/src/main/kotlin/com/moronigranja/localttsreader/spiketts/PocketProbeRunner.kt">
+        <error line="69" column="13" source="standard:function-signature" />
+        <error line="69" column="27" source="standard:function-signature" />
+        <error line="69" column="48" source="standard:function-signature" />
+        <error line="76" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="129" column="9" source="standard:blank-line-before-declaration" />
+        <error line="129" column="18" source="standard:function-signature" />
+        <error line="129" column="32" source="standard:function-signature" />
+        <error line="129" column="44" source="standard:function-signature" />
+        <error line="157" column="29" source="standard:statement-wrapping" />
+        <error line="159" column="16" source="standard:chain-method-continuation" />
+        <error line="171" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="180" column="38" source="standard:multiline-expression-wrapping" />
+        <error line="181" column="34" source="standard:argument-list-wrapping" />
+        <error line="181" column="66" source="standard:argument-list-wrapping" />
+        <error line="181" column="78" source="standard:argument-list-wrapping" />
+        <error line="213" column="25" source="standard:statement-wrapping" />
+        <error line="213" column="38" source="standard:statement-wrapping" />
+        <error line="213" column="53" source="standard:statement-wrapping" />
+        <error line="213" column="68" source="standard:statement-wrapping" />
+        <error line="235" column="33" source="standard:chain-method-continuation" />
+        <error line="235" column="52" source="standard:chain-method-continuation" />
+        <error line="235" column="71" source="standard:chain-method-continuation" />
+        <error line="235" column="90" source="standard:chain-method-continuation" />
+        <error line="289" column="32" source="standard:statement-wrapping" />
+        <error line="290" column="26" source="standard:chain-method-continuation" />
+        <error line="335" column="23" source="standard:statement-wrapping" />
+        <error line="336" column="29" source="standard:statement-wrapping" />
+        <error line="336" column="53" source="standard:statement-wrapping" />
+        <error line="336" column="80" source="standard:statement-wrapping" />
+        <error line="336" column="104" source="standard:statement-wrapping" />
+        <error line="345" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="390" column="27" source="standard:function-signature" />
+        <error line="390" column="45" source="standard:function-signature" />
+        <error line="390" column="61" source="standard:function-signature" />
+        <error line="413" column="26" source="standard:function-signature" />
+        <error line="413" column="38" source="standard:function-signature" />
+        <error line="413" column="54" source="standard:function-signature" />
+        <error line="420" column="28" source="standard:function-signature" />
+        <error line="420" column="43" source="standard:function-signature" />
+        <error line="420" column="56" source="standard:function-signature" />
+        <error line="427" column="23" source="standard:function-signature" />
+        <error line="427" column="37" source="standard:function-signature" />
+        <error line="427" column="58" source="standard:function-signature" />
+        <error line="427" column="79" source="standard:function-signature" />
+        <error line="459" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="465" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="490" column="33" source="standard:class-signature" />
+        <error line="490" column="66" source="standard:class-signature" />
+        <error line="490" column="89" source="standard:class-signature" />
+        <error line="512" column="27" source="standard:chain-method-continuation" />
+        <error line="513" column="52" source="standard:chain-method-continuation" />
+        <error line="521" column="18" source="standard:function-signature" />
+        <error line="521" column="36" source="standard:function-signature" />
+        <error line="521" column="52" source="standard:function-signature" />
+        <error line="521" column="67" source="standard:function-signature" />
+        <error line="538" column="37" source="standard:statement-wrapping" />
+        <error line="538" column="53" source="standard:statement-wrapping" />
+        <error line="543" column="21" source="standard:class-signature" />
+        <error line="543" column="43" source="standard:class-signature" />
+        <error line="543" column="57" source="standard:class-signature" />
+        <error line="557" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="568" column="17" source="standard:function-signature" />
+        <error line="568" column="49" source="standard:function-signature" />
+        <error line="568" column="64" source="standard:function-signature" />
+        <error line="582" column="1" source="standard:final-newline" />
+    </file>
+    <file name="spike-tts/src/main/kotlin/com/moronigranja/localttsreader/spiketts/ThreadSweepRunner.kt">
+        <error line="84" column="16" source="standard:function-expression-body" />
     </file>
 </baseline>
