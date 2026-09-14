@@ -318,8 +318,9 @@ confirmation before a G1 rule lands.
   proper pauses. No normalization defect.
 - `long-paragraph` — **owner-verified fine (2026-09-13)**: no mispronunciations;
   pacing/prosody is engine-level, not a normalization fix.
-- `&&` → `ˈændænd` ("and and"); `e.g.` → `ˈiː.dʒˈiː.`; `i.e.` → `ˈaɪ.ˈiː.` —
-  plausible renderings, still open owner-calls.
+- `&&` → `ˈændænd` ("and and") — **owner-accepted as-is (2026-09-13)**: no rule.
+- `e.g.` → `ˈiː.dʒˈiː.`; `i.e.` → `ˈaɪ.ˈiː.` — plausible letter-by-letter renderings,
+  still open owner-call.
 
 ## ja / cmn / hi spot-checks (IPA only, non-native limitation)
 
