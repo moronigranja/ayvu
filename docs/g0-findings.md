@@ -72,7 +72,9 @@ Template:
   `pág.`→"pag", `aprox.`→"aprox" (0219/0220). Expected: approximately, figure,
   volume, página, eccetera, etc.
 - Frequency: the dominant G0 class — every honorific/abbreviation row in en-us,
-  en-gb, it and pt-br shows it; es and fr partially.
+  en-gb, it and pt-br shows it; es and fr partially. Plus (resolved 2026-09-13)
+  `e.g.`→"for example" and `i.e.`→"that is" — the natural spoken expansions, for a
+  more natural feel.
 - G1 rule: an ordered literal replacement dictionary (abbreviation + period → full
   word), word-boundary bounded — the `Ms.→Miz` rule is the shape. The dictionary
   MUST consume the trailing period (see the next class). This class bounds G1's
@@ -301,6 +303,24 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "pause after the comma in 'dois
   virgula cinco graus'."
 
+### heading-title-colon-pause (pause at the heading colon too short before the title)
+- Category: `heading`
+- Example (owner-confirmed): "CHAPTER ONE: An Unexpected Party" (en-us 0028) → the
+  colon break between "chapter one" and "an unexpected party" reads too short;
+  expected a clear pause ("chapter one [pause] an unexpected party"). Same at the
+  em-dash forms ("PART TWO — The Road Goes Ever On" 0029) and the appendix colon
+  ("Appendix A: Pronunciation Guide" 0030), across all six Latin-script heading
+  rows (0073–0075, 0116–0118, 0157–0159, 0198–0200, 0239–0241).
+- Expected: a clear pause at the heading's number → title boundary (colon or
+  em-dash).
+- Frequency: every heading row (Latin-script 0028–0030, 0073–0075, 0116–0118,
+  0157–0159, 0198–0200, 0239–0241).
+- G1 rule: boundary-pause family — the SAME clause-boundary pause rule as
+  dialogue-quote-attribution-pause / question-boundary-pause-short, applied to the
+  heading colon/em-dash. One shared mechanism.
+- Status: **owner-confirmed (2026-09-13)** — "a pause after the heading, before the
+  title would be better."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
@@ -319,8 +339,10 @@ confirmation before a G1 rule lands.
 - `long-paragraph` — **owner-verified fine (2026-09-13)**: no mispronunciations;
   pacing/prosody is engine-level, not a normalization fix.
 - `&&` → `ˈændænd` ("and and") — **owner-accepted as-is (2026-09-13)**: no rule.
-- `e.g.` → `ˈiː.dʒˈiː.`; `i.e.` → `ˈaɪ.ˈiː.` — plausible letter-by-letter renderings,
-  still open owner-call.
+- `e.g.` → `ˈiː.dʒˈiː.` and `i.e.` → `ˈaɪ.ˈiː.` — **resolved (2026-09-13)**: expand
+  to the natural spoken forms, "for example" / "that is" (owner: "for a more
+  natural feel"). Folds into the `abbrev-not-expanded` G1 dictionary. No remaining
+  open owner-calls.
 
 ## ja / cmn / hi spot-checks (IPA only, non-native limitation)
 
