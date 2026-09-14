@@ -240,6 +240,48 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "weird lack of pause between three
   and no."
 
+### negative-sign-english-injection (minus read with an English "minus" or dropped)
+- Category: `number`
+- Example (owner-confirmed): "La temperatura bajó a −5 grados…" (es 0099) → "a
+  **minus** cinco grados" — the minus sign renders as an English-accented "minus"
+  (`(en)mˈaɪnəs(es)`) injected into the Spanish text; expected "menos cinco". fr 0140
+  has the same English "minus" in French (expected "moins cinq"); pt 0222 *drops*
+  the minus entirely ("caiu a cinco graus", expected "menos cinco"). it 0181 reads
+  correctly ("meno cinque").
+- Scope: the minus sign (U+2212 − and ASCII `-`) is read as an English loanword in
+  es/fr and dropped in pt; only it handles it natively. en-us 0011 is correct
+  ("minus forty").
+- Frequency: every es/fr/pt negative-number row (0099, 0140, 0222).
+- G1 rule: normalize the minus sign to the per-language negative marker
+  (menos / moins / pt must keep "menos") before phonemization.
+- Status: **owner-confirmed (2026-09-13)** — "weird minus."
+
+### currency-amount-misread (English currency name before the number + decimal not cents)
+- Category: `currency`
+- Example (owner-confirmed): "Prices rose from ¥10,000…" (en-us 0017) → "**yen ten
+  thousand**" instead of "ten thousand yen"; "₹750" → "**rupee seven hundred
+  fifty**" instead of "seven hundred fifty rupees". And "$1,234.56" (0016) →
+  "**dollar** one thousand… **point five six**" — the currency name precedes the
+  number and the decimal reads as "point five six" instead of "one thousand two
+  hundred thirty-four dollars and fifty-six cents".
+- Scope: every English currency row reads the symbol/name first (dollar/pound/
+  euro/yen/rupee before the number) and the cents as "point N N". The name-first
+  order mirrors the symbol's text position (`¥10,000`, `$1,234.56`) but is not the
+  natural English spoken form.
+- Expected: "<amount> <currency> and <cents> cents" — "ten thousand yen", "one
+  thousand two hundred thirty-four dollars **and fifty-six cents**" (owner settled
+  the cents wording to the "and" form, 2026-09-13).
+- Frequency: all en-us/en-gb currency rows (0016–0018, 0061–0063).
+- G1 rule: a currency-amount normalizer that reorders name-after-number and renders
+  the decimal as "<cents> cents" (with the "and" connector) for English.
+- Status: **owner-confirmed (2026-09-13)** — "reading yen ten thousand instead of
+  ten thousand yen."
+
+> Withdrawn the same day: `decimal-comma-read-aloud` (es 0098 "3,14159" →
+> "tres coma catorce mil…") — the owner decided the spoken decimal comma and the
+> fractional reading are **fine** ("decimal comma is fine, nevermind"), so no rule.
+> The Spanish "coma" convention stands as-is.
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
