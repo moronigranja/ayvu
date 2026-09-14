@@ -299,7 +299,7 @@ classes with examples; G1's built-in rule set is derived from them.
 Status: corpus (377 entries, 9 languages × 15 categories) built and synthesized
 end-to-end on the S22; device corpus, WAVs and measurements complete
 ([g0-findings.md](g0-findings.md)). Listening pass **in progress** (2026-09-13,
-owner): eight classes confirmed and recorded — `abbrev-not-expanded` (abbreviations
+owner): nine classes confirmed and recorded — `abbrev-not-expanded` (abbreviations
 truncated or spelled letter-by-letter instead of the full word, cross-language, the
 class that bounds G1's built-in set) plus its paired `abbrev-period-pause`,
 `date-slash-read-aloud` (slash-dates spoken as numbers with the slash verbalized),
@@ -308,9 +308,11 @@ gaps; `km/h` also verbalizes the slash), `dialogue-quote-attribution-pause` (no
 pause between a closing quote and its narration attribution),
 `decade-trailing-s-read-literally` (decades read with "hundred" + dangling s),
 `roman-numeral-read-with-label` (espeak-en/fr prepend a literal "roman"/"romain"
-label), and `footnote-reference-marker-read-aloud` (superscript footnote markers
-read as numbers; the `filter_page_numbers`-family drop). ja/cmn/hi are recorded as
-a non-native-ear limitation.
+label), `footnote-reference-marker-read-aloud` (superscript footnote markers read
+as numbers; the `filter_page_numbers`-family drop), and
+`question-boundary-pause-short` (insufficient pause after `?` before the next
+clause, sharing the boundary-pause family with the dialogue class). ja/cmn/hi are
+recorded as a non-native-ear limitation.
 
 **Gates:** G1's built-in rule set (bounded by the typed findings) and D5's engine choice
 (its quality gate is the G0 blind read, and the pt-BR blind read decides whether

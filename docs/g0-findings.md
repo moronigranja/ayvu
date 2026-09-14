@@ -225,6 +225,21 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "the three at the end …
   likely shouldn't be read aloud."
 
+### question-boundary-pause-short (insufficient pause after "?" before the next utterance)
+- Category: `speed-transition`
+- Example (owner-confirmed): "One. Two... three? No — four." (en-us 0044) — the
+  pause between "three?" and "No" is weirdly short / nearly absent; expected a
+  clear pause at the question boundary. The same rapid-interjection pattern
+  repeats across the Latin-script speed-transition rows (0089 en-gb, 0131 es
+  "¿tres? No", 0172 fr, 0213 it, 0254 pt).
+- Expected: a natural pause after the question mark before the next clause.
+- Frequency: every Latin-script speed-transition row (0044/0089/0131/0172/0213/0254).
+- G1 rule: pause-family — likely the SAME boundary-pause mechanism as
+  dialogue-quote-attribution-pause, extended to the `?` → next-clause boundary;
+  one shared clause-boundary pause rule rather than two.
+- Status: **owner-confirmed (2026-09-13)** — "weird lack of pause between three
+  and no."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
