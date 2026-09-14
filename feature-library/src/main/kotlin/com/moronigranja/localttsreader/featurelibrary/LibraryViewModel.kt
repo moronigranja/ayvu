@@ -39,6 +39,7 @@ import com.moronigranja.localttsreader.player.WeekSummary
 import com.moronigranja.localttsreader.tts.PackRegistry
 import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
+import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
 import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
 import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
@@ -172,6 +173,26 @@ class LibraryViewModel
                         packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
                             (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
                     downloadProgress = downloading?.takeIf { it.first == bookId }?.second,
+                    degradeReason =
+                        com.moronigranja.localttsreader.tts.translate.TranslateAvailability.degradeReason(
+                            target = target,
+                            catalog =
+                                if (prefsSnapshot.ttsEngine == SettingsStore.PIPER_ENGINE) {
+                                    PiperVoiceMetadata.all
+                                } else {
+                                    KokoroVoiceMetadata.all
+                                },
+                            voiceServable = { voice ->
+                                prefsSnapshot.ttsEngine != SettingsStore.PIPER_ENGINE ||
+                                    PiperPacks.forVoice(voice).all { pack ->
+                                        packStates.any { it.pack.id == pack.id && it.status == PackStatus.Ready }
+                                    }
+                            },
+                            translatorReady =
+                                packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
+                                    (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
+                            translatorFailure = null,
+                        ),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReadInLanguageUiState(bookId = bookId))
         }

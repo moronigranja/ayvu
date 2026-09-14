@@ -1,26 +1,25 @@
 package com.moronigranja.localttsreader.ebook
 
-import java.io.ByteArrayInputStream
-import java.nio.file.Files
-import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayInputStream
+import java.nio.file.Files
+import java.nio.file.Path
 
 class MobiParserTest {
-
-    private fun fixture(name: String): ByteArray =
-        Files.readAllBytes(Path.of("core-ebook/src/test/resources", name))
+    private fun fixture(name: String): ByteArray = Files.readAllBytes(Path.of("core-ebook/src/test/resources", name))
 
     /** Expected passages from the shared MOBI7 fixture body. */
-    private val expectedPassages = listOf(
-        "Chapter 1",
-        "It is a truth universally acknowledged\u00A0— that a single man in possession of a good " +
-            "fortune, must be in want of a wife.",
-        "A second paragraph with café and \u2019quotes\u2019.", // &rsquo; decodes to U+2019
-    )
+    private val expectedPassages =
+        listOf(
+            "Chapter 1",
+            "It is a truth universally acknowledged\u00A0— that a single man in possession of a good " +
+                "fortune, must be in want of a wife.",
+            "A second paragraph with café and \u2019quotes\u2019.", // &rsquo; decodes to U+2019
+        )
 
     private fun assertMobi7Content(book: com.moronigranja.localttsreader.model.Book) {
         assertEquals("Pride and Prejudice", book.title)
@@ -51,9 +50,10 @@ class MobiParserTest {
 
     @Test
     fun `rejects drm-encrypted mobi`() {
-        val error = assertThrows(EBookParseException::class.java) {
-            MobiParser.parse(fixture("mobi7_encrypted.mobi"))
-        }
+        val error =
+            assertThrows(EBookParseException::class.java) {
+                MobiParser.parse(fixture("mobi7_encrypted.mobi"))
+            }
         assertTrue(error.message.orEmpty().contains("DRM"), error.message.toString())
     }
 
@@ -90,16 +90,17 @@ class MobiParserTest {
     // ------------------------------------------------------------------
 
     /** Whole-book passages of the NCX fixture body, in document order. */
-    private val expectedNcxPassages = listOf(
-        "Chapter 1",
-        "First paragraph of the first chapter with café and \u2019quotes\u2019.",
-        "Second paragraph of the first chapter.",
-        "Chapter 2",
-        "Only paragraph of the second chapter.",
-        "Chapter 3",
-        "First paragraph of the third chapter.",
-        "Second paragraph of the third chapter.",
-    )
+    private val expectedNcxPassages =
+        listOf(
+            "Chapter 1",
+            "First paragraph of the first chapter with café and \u2019quotes\u2019.",
+            "Second paragraph of the first chapter.",
+            "Chapter 2",
+            "Only paragraph of the second chapter.",
+            "Chapter 3",
+            "First paragraph of the third chapter.",
+            "Second paragraph of the third chapter.",
+        )
 
     @Test
     fun `splits mobi7 chapters at ncx navpoint boundaries`() {
@@ -187,7 +188,10 @@ class MobiParserTest {
         val numRecords = ((bytes[76].toInt() and 0xFF) shl 8) or (bytes[77].toInt() and 0xFF)
         val ncxField = 78 + 8 * numRecords + 0xF4
         // Point the INDX field at the plain text record, which is not an INDX index.
-        bytes[ncxField] = 0; bytes[ncxField + 1] = 0; bytes[ncxField + 2] = 0; bytes[ncxField + 3] = 1
+        bytes[ncxField] = 0
+        bytes[ncxField + 1] = 0
+        bytes[ncxField + 2] = 0
+        bytes[ncxField + 3] = 1
         val book = MobiParser.parse(bytes)
         assertEquals(1, book.chapters.size)
         assertNull(book.chapters[0].title)
@@ -198,22 +202,29 @@ class MobiParserTest {
     fun `source name is used as fallback title for plain palmdoc books`() {
         // A pure PalmDOC book (no MOBI header, no name beyond PDB): title = file name.
         val rec0 = ByteArray(16)
-        rec0[0] = 0; rec0[1] = 1 // compression = 1, big-endian u16
-        rec0[8] = 0; rec0[9] = 1 // text records = 1
+        rec0[0] = 0
+        rec0[1] = 1 // compression = 1, big-endian u16
+        rec0[8] = 0
+        rec0[9] = 1 // text records = 1
         val body = "<html><body><p>Plain PalmDOC text.</p></body></html>".toByteArray(Charsets.UTF_8)
         val tableSize = 8 * 2
         val rec0Off = 78 + tableSize
         val bodyOff = rec0Off + rec0.size
         val bytes = ByteArray(bodyOff + body.size)
         val bytesPerRecord = 8
-        fun putOffset(slot: Int, off: Int) {
+
+        fun putOffset(
+            slot: Int,
+            off: Int,
+        ) {
             bytes[78 + slot] = (off ushr 24).toByte()
             bytes[79 + slot] = (off ushr 16).toByte()
             bytes[80 + slot] = (off ushr 8).toByte()
             bytes[81 + slot] = off.toByte()
         }
         "Plain".toByteArray(Charsets.US_ASCII).copyInto(bytes, 0)
-        bytes[76] = 0; bytes[77] = 2 // numRecords
+        bytes[76] = 0
+        bytes[77] = 2 // numRecords
         putOffset(0, rec0Off)
         putOffset(bytesPerRecord, bodyOff)
         rec0.copyInto(bytes, rec0Off)
@@ -221,5 +232,104 @@ class MobiParserTest {
         val book = MobiParser.parse(EBookSource("Plain.mobi") { ByteArrayInputStream(bytes) })
         assertEquals("Plain", book.title)
         assertEquals(listOf("Plain PalmDOC text."), book.chapters[0].passages.map { it.text })
+    }
+
+    // ------------------------------------------------------------------
+    // EXTH string decode (2026-09-14: ASCII 503 record decoded as UTF-16LE
+    // produced CJK mojibake — the old heuristic tested decoded plausibility)
+    // ------------------------------------------------------------------
+
+    /** Rewrites the shared fixture's EXTH 503 record body with [title]
+     * (US-ASCII, space-padded to the record's size). */
+    private fun withExth503Title(
+        bytes: ByteArray,
+        title: String,
+    ): ByteArray {
+        val copy = bytes.copyOf()
+        val rec0 =
+            ((copy[78].toInt() and 0xFF) shl 24) or ((copy[79].toInt() and 0xFF) shl 16) or
+                ((copy[80].toInt() and 0xFF) shl 8) or (copy[81].toInt() and 0xFF)
+        val headerLength = readU32(copy, rec0 + 0x14)
+        var pos = rec0 + 16 + headerLength + 12
+        val count = readU32(copy, rec0 + 16 + headerLength + 8)
+        repeat(count) {
+            val id = readU32(copy, pos)
+            val size = readU32(copy, pos + 4)
+            if (id == 503) {
+                val ascii = title.toByteArray(Charsets.US_ASCII)
+                require(ascii.size <= size - 8) { "title does not fit the record" }
+                for (j in 0 until size - 8) copy[pos + 8 + j] = 0x20
+                ascii.copyInto(copy, pos + 8)
+                return copy
+            }
+            pos += size
+        }
+        throw IllegalStateException("fixture has no EXTH 503 record")
+    }
+
+    private fun readU32(
+        data: ByteArray,
+        at: Int,
+    ): Int =
+        ((data[at].toInt() and 0xFF) shl 24) or ((data[at + 1].toInt() and 0xFF) shl 16) or
+            ((data[at + 2].toInt() and 0xFF) shl 8) or (data[at + 3].toInt() and 0xFF)
+
+    @Test
+    fun `even-length ascii exth title decodes via the declared charset`() {
+        // "Jumper" is 6 bytes — even, so the old UTF-16-first heuristic
+        // produced clean CJK and won. Structure, not plausibility, decides.
+        val book = MobiParser.parse(withExth503Title(fixture("mobi7_plain.mobi"), "Jumper"))
+        assertEquals("Jumper", book.title)
+    }
+
+    @Test
+    fun `genuine utf16le exth title still decodes`() {
+        val book =
+            MobiParser.parse(
+                withExth503Title(fixture("mobi7_plain.mobi"), "Jumper").let { bytes ->
+                    // Re-encode the padded title bytes as genuine UTF-16LE.
+                    val rec0 =
+                        ((bytes[78].toInt() and 0xFF) shl 24) or ((bytes[79].toInt() and 0xFF) shl 16) or
+                            ((bytes[80].toInt() and 0xFF) shl 8) or (bytes[81].toInt() and 0xFF)
+                    val headerLength = readU32(bytes, rec0 + 0x14)
+                    var pos = rec0 + 16 + headerLength + 12
+                    val count = readU32(bytes, rec0 + 16 + headerLength + 8)
+                    val out = bytes.copyOf()
+                    repeat(count) {
+                        val id = readU32(out, pos)
+                        val size = readU32(out, pos + 4)
+                        if (id == 503) {
+                            "Jumper".toByteArray(Charsets.UTF_16LE).copyInto(out, pos + 8)
+                            // zero the record tail so no stray bytes pollute the decode
+                            for (j in pos + 8 + "Jumper".toByteArray(Charsets.UTF_16LE).size until pos + size) {
+                                out[j] = 0
+                            }
+                        }
+                        pos += size
+                    }
+                    out
+                },
+            )
+        assertEquals("Jumper", book.title)
+    }
+
+    @Test
+    fun `exth author records become the book authors`() {
+        // Re-id the fixture's single EXTH record 503 → 100: the string flows
+        // through the SAME decode rule into the author list, and the title
+        // falls back to the full-name field ("Pride and Prejudice").
+        val bytes = fixture("mobi7_plain.mobi").copyOf()
+        val rec0 =
+            ((bytes[78].toInt() and 0xFF) shl 24) or ((bytes[79].toInt() and 0xFF) shl 16) or
+                ((bytes[80].toInt() and 0xFF) shl 8) or (bytes[81].toInt() and 0xFF)
+        val headerLength = readU32(bytes, rec0 + 0x14)
+        val record503 = rec0 + 16 + headerLength + 12
+        bytes[record503] = 0
+        bytes[record503 + 1] = 0
+        bytes[record503 + 2] = 0
+        bytes[record503 + 3] = 100
+        val book = MobiParser.parse(bytes)
+        assertEquals(listOf("Pride and Prejudice"), book.authors)
+        assertEquals("Pride and Prejudice", book.title)
     }
 }

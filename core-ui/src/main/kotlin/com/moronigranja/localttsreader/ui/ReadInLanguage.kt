@@ -35,6 +35,9 @@ data class ReadInLanguageUiState(
     val packDownloaded: Boolean? = null,
     /** Non-null while the pack download is in flight (0..1). */
     val downloadProgress: Float? = null,
+    /** Why the selected target is not rendering (null = in force, or Off).
+     * The picker's feedback row — a silent degrade reads as "broken". */
+    val degradeReason: String? = null,
 )
 
 /** Display label for a canonical target app language code. */
@@ -76,6 +79,14 @@ fun ReadInLanguagePicker(
                 label = languageLabel(code),
                 selected = state.target == code,
                 onClick = { onSelect(code) },
+            )
+        }
+        if (state.target != null && state.degradeReason != null) {
+            Text(
+                "Playing original — ${state.degradeReason}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(vertical = AyvuSpacing.SM),
             )
         }
         if (state.packDownloaded == false) {

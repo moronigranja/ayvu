@@ -119,6 +119,23 @@ class EngineSelector
         fun translateLangInUse(bookId: String?): String? = (resolve(bookId).first as? TranslatingEngine)?.targetLang
 
         /**
+         * Why [bookId]'s read-in target is NOT being rendered (null = the
+         * translation is in force, or no target is set). The Read-in picker's
+         * feedback row — a silent degrade left the user staring at original
+         * audio with no explanation (S22 2026-09-14).
+         */
+        fun translateDegradeReason(bookId: String?): String? =
+            com.moronigranja.localttsreader.tts.translate.TranslateAvailability.degradeReason(
+                target = bookId?.let { translateTarget(it) },
+                catalog = activeCatalog(),
+                voiceServable = { voice ->
+                    selected != SettingsStore.PIPER_ENGINE || piper.voicePackReady(voice)
+                },
+                translatorReady = translate.translator() != null,
+                translatorFailure = translate.failureReason,
+            )
+
+        /**
          * The first voice of the ACTIVE engine catalog whose language matches
          * [target] (normalized `-`/`_`/case; `pt-BR` matches `pt_BR` and the
          * bare base `pt`). Deterministic catalog order. The pseudo-engine

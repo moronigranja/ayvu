@@ -143,6 +143,7 @@ class ReaderViewModel
                         packs.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
                             TranslatePackStager.isStaged(context.filesDir),
                     downloadProgress = progress,
+                    degradeReason = selector.translateDegradeReason(playback.bookId),
                 )
             }.stateIn(
                 viewModelScope,
@@ -158,7 +159,11 @@ class ReaderViewModel
          * queue + cache keys pick up the `x<lang>` dimension.
          */
         fun setTranslateTarget(target: String?) {
-            val bookId = PlaybackStateHolder.state.value.bookId ?: return
+            // The published state lags a fresh open (the service publishes
+            // after the queue builds) — fall back to the VM's opened book
+            // instead of silently dropping the selection (S22 2026-09-14:
+            // the user's pick vanished with zero feedback).
+            val bookId = PlaybackStateHolder.state.value.bookId ?: openedBookId ?: return
             val current = settings.bookTranslate(bookId)
             if (target != current) {
                 viewModelScope.launch { settings.setBookTranslate(bookId, target) }

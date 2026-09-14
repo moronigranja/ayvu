@@ -27,14 +27,16 @@ import java.nio.charset.CodingErrorAction
  * KindleUnpack semantics. DRM-encrypted files are rejected by [MobiContainer].
  */
 object MobiParser : EBookParser {
-
     override fun parse(source: EBookSource): Book {
         val bytes = source.readCapped()
         val base = source.fileName.substringBeforeLast('.').substringAfterLast('/')
         return parse(bytes, fallbackTitle = base.ifBlank { "Untitled" })
     }
 
-    fun parse(bytes: ByteArray, fallbackTitle: String = "Untitled"): Book {
+    fun parse(
+        bytes: ByteArray,
+        fallbackTitle: String = "Untitled",
+    ): Book {
         val id = Bytes.sha256Hex(bytes)
         val container = MobiContainer(bytes)
         val mobiHeader = container.mobiHeader()
@@ -51,15 +53,21 @@ object MobiParser : EBookParser {
     // KF8: text records = ZIP stream
     // ------------------------------------------------------------------
 
-    private fun parseKf8(id: String, container: MobiContainer, mobiHeader: ByteArray, fallbackTitle: String): Book {
+    private fun parseKf8(
+        id: String,
+        container: MobiContainer,
+        mobiHeader: ByteArray,
+        fallbackTitle: String,
+    ): Book {
         if (container.compression == 2) {
             throw EBookParseException("KF8 with PalmDOC compression is invalid")
         }
         val huff = if (container.compression == MobiContainer.HUFF_CDIC) loadHuffCdic(container) else null
         val zipBytes = readTextRecords(container, huff)
         val entries = ZipEntries.readUntilBroken(zipBytes)
-        val opfPath = entries.keys.firstOrNull { it.lowercase().endsWith(".opf") }
-            ?: throw EBookParseException("KF8 archive has no OPF file")
+        val opfPath =
+            entries.keys.firstOrNull { it.lowercase().endsWith(".opf") }
+                ?: throw EBookParseException("KF8 archive has no OPF file")
         return OpfBookReader.parseBook(id, entries, opfPath, fallbackTitle)
     }
 
@@ -75,11 +83,12 @@ object MobiParser : EBookParser {
     ): Book {
         val huff = if (container.compression == MobiContainer.HUFF_CDIC) loadHuffCdic(container) else null
         val rawMl = readTextRecords(container, huff)
-        val charset = if (mobiHeader != null && mobiHeader.size >= 0x20 && Bytes.u32(mobiHeader, 0x1C) == 65001L) {
-            Charsets.UTF_8
-        } else {
-            Charset.forName("windows-1252")
-        }
+        val charset =
+            if (mobiHeader != null && mobiHeader.size >= 0x20 && Bytes.u32(mobiHeader, 0x1C) == 65001L) {
+                Charsets.UTF_8
+            } else {
+                Charset.forName("windows-1252")
+            }
         val text = String(rawMl, charset)
         val passages = OpfBookReader.extractParagraphs(text).map(::TextPassage)
         if (passages.isEmpty()) throw EBookParseException("no readable text in mobi")
@@ -87,9 +96,11 @@ object MobiParser : EBookParser {
         val fullName = mobiHeader?.let { fullNameTitle(it) }
         val exthTitle = mobiHeader?.let { exthTitle(it, charset) }
         val title = exthTitle ?: fullName ?: container.palmName.takeIf { it.isNotBlank() } ?: fallbackTitle
-        val chapters = splitMobi7Chapters(rawMl, charset, text, MobiNcx.navPoints(container, mobiHeader))
-            ?: listOf(Chapter(0, null, passages))
-        return Book(id, title, chapters = chapters)
+        val authors = mobiHeader?.let { exthAuthors(it, charset) } ?: emptyList()
+        val chapters =
+            splitMobi7Chapters(rawMl, charset, text, MobiNcx.navPoints(container, mobiHeader))
+                ?: listOf(Chapter(0, null, passages))
+        return Book(id = id, title = title, authors = authors, chapters = chapters)
     }
 
     /**
@@ -146,10 +157,15 @@ object MobiParser : EBookParser {
      * character's start (the character belongs to the earlier chapter; nothing is
      * corrupted or dropped).
      */
-    private fun byteToCharOffsets(bytes: ByteArray, charset: Charset): IntArray {
-        val decoder = charset.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPLACE)
-            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+    private fun byteToCharOffsets(
+        bytes: ByteArray,
+        charset: Charset,
+    ): IntArray {
+        val decoder =
+            charset
+                .newDecoder()
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE)
         val offsets = IntArray(bytes.size + 1)
         val work = ByteBuffer.allocate(8) // carry prefix + one new byte is at most 4 bytes
         val outBuf = CharBuffer.allocate(4)
@@ -192,18 +208,23 @@ object MobiParser : EBookParser {
         val huffOffset = Bytes.u32(mobiHeader, 0x70).toInt()
         val huffCount = Bytes.u32(mobiHeader, 0x74).toInt()
         if (huffCount < 2) throw EBookParseException("HUFF/CDIC compression without dictionary records")
-        val huff = container.records.getOrNull(huffOffset)
-            ?: throw EBookParseException("HUFF record missing (section $huffOffset)")
+        val huff =
+            container.records.getOrNull(huffOffset)
+                ?: throw EBookParseException("HUFF record missing (section $huffOffset)")
         reader.loadHuff(huff)
         for (i in 1 until huffCount) {
-            val cdic = container.records.getOrNull(huffOffset + i)
-                ?: throw EBookParseException("CDIC record missing (section ${huffOffset + i})")
+            val cdic =
+                container.records.getOrNull(huffOffset + i)
+                    ?: throw EBookParseException("CDIC record missing (section ${huffOffset + i})")
             reader.loadCdic(cdic)
         }
         return reader
     }
 
-    private fun readTextRecords(container: MobiContainer, huff: HuffCdicDecoder?): ByteArray {
+    private fun readTextRecords(
+        container: MobiContainer,
+        huff: HuffCdicDecoder?,
+    ): ByteArray {
         val out = ByteArrayOutputStream()
         val mobiHeader = container.mobiHeader()
         val trim = trailingTrimSetup(mobiHeader)
@@ -235,7 +256,11 @@ object MobiParser : EBookParser {
         return trailers to multibyte
     }
 
-    private fun trimTrailingDataEntries(data: ByteArray, trailers: Int, multibyte: Boolean): ByteArray {
+    private fun trimTrailingDataEntries(
+        data: ByteArray,
+        trailers: Int,
+        multibyte: Boolean,
+    ): ByteArray {
         var result = data
         repeat(trailers) {
             var num = 0
@@ -257,33 +282,71 @@ object MobiParser : EBookParser {
     // Titles
     // ------------------------------------------------------------------
 
-    /** EXTH record type 503 ("Updated Title"). EXTH starts at 0x10 + header length. */
-    private fun exthTitle(mobiHeader: ByteArray, charset: Charset): String? {
-        if (mobiHeader.size < 0x84 || (Bytes.u32(mobiHeader, 0x80) and 0x40L) == 0L) return null
+    /** EXTH record bodies for [id] (100 = author, may repeat; 503 = "Updated
+     * Title"). EXTH starts at 0x10 + header length; the flag bit at 0x80 is
+     * advisory — the "EXTH" magic is authoritative. */
+    private fun exthRecords(
+        mobiHeader: ByteArray,
+        id: Int,
+    ): List<ByteArray> {
+        if (mobiHeader.size < 0x84) return emptyList()
         val headerLength = Bytes.u32(mobiHeader, 0x14).toInt()
         val exthStart = 0x10 + headerLength
-        if (exthStart + 12 > mobiHeader.size || !Bytes.hasText(mobiHeader, exthStart, "EXTH")) return null
+        if (exthStart + 12 > mobiHeader.size || !Bytes.hasText(mobiHeader, exthStart, "EXTH")) return emptyList()
         val count = Bytes.u32(mobiHeader, exthStart + 8).toInt()
         var pos = exthStart + 12
+        val out = mutableListOf<ByteArray>()
         for (i in 0 until count) {
             if (pos + 8 > mobiHeader.size) break
-            val id = Bytes.u32(mobiHeader, pos).toInt()
+            val recordId = Bytes.u32(mobiHeader, pos).toInt()
             val size = Bytes.u32(mobiHeader, pos + 4).toInt()
             if (size < 8 || pos + size > mobiHeader.size) break
-            if (id == 503) {
-                val titleBytes = mobiHeader.copyOfRange(pos + 8, pos + size)
-                // KF8 EXTH strings are occasionally UTF-16; try the declared charset first.
-                val utf16 = try {
-                    String(titleBytes, Charsets.UTF_16LE).takeIf { it.all { c -> c.isLetterOrDigit() || c.isWhitespace() || "-'.&()".contains(c) } }
-                } catch (_: Exception) {
-                    null
-                }
-                return (utf16?.takeIf { it.isNotBlank() } ?: String(titleBytes, charset).trim()).ifEmpty { null }
-            }
+            if (recordId == id) out += mobiHeader.copyOfRange(pos + 8, pos + size)
             pos += size
+        }
+        return out
+    }
+
+    /**
+     * EXTH string decode. UTF-16LE is detected by STRUCTURE, never by decoded
+     * plausibility: genuine UTF-16LE for Latin-script text carries 0x00 at
+     * most odd offsets, while single-byte text (cp1252 / UTF-8) has none —
+     * decoding dense ASCII as UTF-16LE yields plausible CJK, so a "looks like
+     * letters" heuristic accepts garbage (jumper.mobi's EXTH 503 "Jumper"
+     * rendered as 畊灭牥; the old heuristic only survived the suite because
+     * the shared fixture's 19-byte title had an odd trailing byte).
+     */
+    private fun decodeExthString(
+        bytes: ByteArray,
+        charset: Charset,
+    ): String? {
+        val oddZeroBytes = bytes.indices.count { it % 2 == 1 && bytes[it] == 0.toByte() }
+        val looksUtf16Le = bytes.size >= 4 && oddZeroBytes >= bytes.size / 4
+        if (looksUtf16Le) {
+            // EXTH records pad to 4-byte boundaries — a trailing byte (or
+            // NUL-padded tail) rides along; decode the even prefix and trim.
+            val usable = bytes.size - (bytes.size % 2)
+            val utf16 = String(bytes, 0, usable, Charsets.UTF_16LE).trimEnd('\u0000')
+            if (!utf16.contains('\uFFFD')) return utf16.trim().ifEmpty { null }
+        }
+        val declared = String(bytes, charset)
+        if (!declared.contains('\uFFFD')) return declared.trim().ifEmpty { null }
+        if (bytes.size % 2 == 0) {
+            val utf16 = String(bytes, Charsets.UTF_16LE)
+            return utf16.trim().takeIf { it.isNotEmpty() && !it.contains('\uFFFD') }
         }
         return null
     }
+
+    private fun exthTitle(
+        mobiHeader: ByteArray,
+        charset: Charset,
+    ): String? = decodeExthString(exthRecords(mobiHeader, 503).firstOrNull() ?: return null, charset)
+
+    private fun exthAuthors(
+        mobiHeader: ByteArray,
+        charset: Charset,
+    ): List<String> = exthRecords(mobiHeader, 100).mapNotNull { decodeExthString(it, charset) }
 
     /** Full-name field (0x54 offset / 0x58 length, record-0-relative). */
     private fun fullNameTitle(mobiHeader: ByteArray): String? {
