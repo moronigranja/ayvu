@@ -148,6 +148,23 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "measurements are reading k g instead
   of kilograms, f t instead of feet."
 
+### dialogue-quote-attribution-pause (no pause between closing quote and attribution)
+- Category: `dialogue`
+- Example (owner-confirmed): `"Mind the gap," he said.` (en-us 0026) — the closing
+  quote + comma runs straight into "he said" with no distinct pause; expected
+  `"Mind the gap"` [pause] `he said.` Same across the guillemet forms
+  (`«Cuidado», dijo él.` 0114, `«Attento», disse lui.` 0196, `"Cuidado", disse ele.`
+  0237).
+- Expected: a natural pause at the closing-quote / narration-tag boundary.
+- Frequency: every quote-first dialogue row with a following attribution
+  (en-us/en-gb 0026/0071, es 0114, fr-fr 0155, it 0196, pt-br 0237).
+- G1 rule: a pause rule at the closing-quote + attribution boundary — the comma is
+  present but reads too short; the pause-family (parenthetical-pause rules already
+  in G1's candidate set) needs a quote-attribution boundary that inserts or
+  strengthens the pause. Must handle both curly-quote and guillemet forms.
+- Status: **owner-confirmed (2026-09-13)** — "there should be a pause on dialogue
+  after closing quotation marks."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
