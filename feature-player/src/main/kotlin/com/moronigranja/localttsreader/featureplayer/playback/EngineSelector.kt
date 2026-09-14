@@ -176,8 +176,17 @@ class EngineSelector
             val translator = translate.translator()
             val decorated =
                 if (target != null && modelLang != null && targetVoice != null && voiceServable && translator != null) {
+                    // The translated render needs an instance that SERVES the
+                    // target voice: Piper is one-voice-per-instance, so the
+                    // base (original-voice) instance fails typed on the
+                    // swapped request and every passage degraded to the
+                    // original audio — cached under the x<lang> key (S22
+                    // 2026-09-14). Kokoro serves its whole catalog from one
+                    // instance, so engineFor returns the same engine.
+                    val targetEngine = engineFor(targetVoice) ?: return base to voice
                     TranslatingEngine(
                         delegate = base,
+                        targetEngine = targetEngine,
                         translate = { text ->
                             val startedAt = System.currentTimeMillis()
                             val translated = translator.translate(text, modelLang)

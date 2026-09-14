@@ -47,9 +47,15 @@ open class PiperRuntime
         @ApplicationContext private val context: Context,
         private val settings: AppSettings,
     ) {
-        @Volatile private var engine: TTSEngine? = null
-
-        @Volatile private var engineVoice: String? = null
+        /**
+         * Per-voice engine instances. The one-slot cache this replaces
+         * re-pointed on every voice change — and the translate decorator
+         * needs the ORIGINAL and TARGET voices alive simultaneously, so
+         * resolve()'s two engineFor calls thrashed the slot: one model load
+         * per passage (S22 2026-09-14, "stops to load every half sentence").
+         * Bounded: each entry holds an ORT session (~tens of MB).
+         */
+        private val engines = java.util.concurrent.ConcurrentHashMap<String, TTSEngine>()
 
         @Volatile private var failure: String? = null
         private var failedOpens = 0
@@ -63,22 +69,21 @@ open class PiperRuntime
         fun voicePackReady(voice: String): Boolean = missingPrerequisites(voice) == null
 
         /**
-         * The ready engine for the resolved voice, or null with [failure] set.
-         * A resolved-voice change discards the cached instance (one voice per
-         * instance) and re-opens on the next call.
+         * The ready engine for the resolved global voice, or null with
+         * [failure] set. Cached per voice — see [engines].
          */
         open fun engine(): TTSEngine? = engineFor(voiceFor(settings.state.value.voice))
 
         /**
          * The ready engine serving exactly [voice] (the #144 per-book
-         * override path): the one-voice-per-instance re-point when the
-         * resolved voice differs from the cached instance's. Same open/
-         * retry semantics as [engine].
+         * override path). Cached per voice — simultaneous voices (playback +
+         * translate target) must coexist. Same open/retry semantics as the
+         * single-slot cache it replaces.
          */
         open fun engineFor(voice: String): TTSEngine? {
-            engine?.takeIf { engineVoice == voice }?.let { return it }
+            engines[voice]?.let { return it }
             synchronized(this) {
-                engine?.takeIf { engineVoice == voice }?.let { return it }
+                engines[voice]?.let { return it }
                 if (failedOpens >= MAX_FAILED_OPEN_ATTEMPTS) return null
                 val missing = missingPrerequisites(voice)
                 if (missing != null) {
@@ -86,11 +91,13 @@ open class PiperRuntime
                     return null
                 }
                 return try {
-                    openEngine(voice).also {
-                        engine = it
-                        engineVoice = voice
+                    openEngine(voice).also { opened ->
+                        engines[voice] = opened
                         failure = null
                         failedOpens = 0
+                        while (engines.size > MAX_CACHED_ENGINES) {
+                            engines.keys.firstOrNull()?.let { engines.remove(it) }
+                        }
                     }
                 } catch (e: Throwable) {
                     failedOpens++
@@ -164,5 +171,9 @@ open class PiperRuntime
         companion object {
             /** Per-process retry cap for genuine open failures (corrupt model). */
             const val MAX_FAILED_OPEN_ATTEMPTS = 3
+
+            /** Per-voice engine instances kept open (playback voice + translate
+             * target must coexist; each holds an ORT session). */
+            const val MAX_CACHED_ENGINES = 3
         }
     }

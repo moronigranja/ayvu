@@ -24,7 +24,16 @@ import com.moronigranja.localttsreader.tts.TtsPack
  * recorded degradation (#101), not a defect.
  */
 class TranslatingEngine(
+    /** The engine serving the ORIGINAL voice — every degrade path lands here. */
     private val delegate: TTSEngine,
+    /**
+     * The engine serving [targetVoice]. Distinct from [delegate] for
+     * one-voice-per-instance engines (Piper): the delegate is opened for the
+     * book's original voice and fails typed on any other — routing the
+     * translated render to it degraded every passage to the original
+     * English audio AND cached it under the x<lang> key (S22 2026-09-14).
+     */
+    private val targetEngine: TTSEngine,
     private val translate: suspend (String) -> String?,
     private val targetVoice: String,
     /** The in-force target lang — the cache-key dimension ([translateLangInUse]):
@@ -36,10 +45,10 @@ class TranslatingEngine(
     override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome {
         val orchestrated = orchestrate(request)
         if (orchestrated === request) return delegate.synthesize(request)
-        val outcome = delegate.synthesize(orchestrated)
-        // The translated render itself failed (e.g. the target voice's pack is
-        // missing) — the #29 contract covers the WHOLE translated attempt:
-        // retry with the original text and voice so playback never dies.
+        val outcome = targetEngine.synthesize(orchestrated)
+        // The translated render itself failed — the #29 contract covers the
+        // WHOLE translated attempt: retry with the original text and voice
+        // so playback never dies.
         return if (outcome is SynthesisOutcome.Failed) delegate.synthesize(request) else outcome
     }
 
@@ -51,7 +60,7 @@ class TranslatingEngine(
         if (orchestrated === request) return delegate.synthesizeStreaming(request, onWindow)
         var emitted = false
         val outcome =
-            delegate.synthesizeStreaming(orchestrated) { bytes ->
+            targetEngine.synthesizeStreaming(orchestrated) { bytes ->
                 emitted = true
                 onWindow(bytes)
             }

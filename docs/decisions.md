@@ -91,6 +91,36 @@ co-residency check remains a pending gate (not attached):
      renders). The setup SAF file-picker also failed to open on this build (excluded
      as environmental; the import exercised through the app's own stored book).
 
+**Addendum (2026-09-14, the owner's listening pass):** the pass above verified
+translated playback from logs only — the owner's ear caught what they hid. Three
+defects fixed in the follow-up commit:
+
+1. **The translated render went to the WRONG ENGINE INSTANCE.** `resolve()` handed
+   `TranslatingEngine` the base (original-voice) engine as its only synth target,
+   and Piper is one-voice-per-instance: the pt request failed typed
+   (`unknown voice 'pt_BR-faber-medium'`) and the #29 degrade played the ORIGINAL
+   English audio — while `translateLangInUse` still reported the decoration, so the
+   English renders were **cached under `x<lang>` keys** (the poisoning mode defect 3
+   below was meant to kill, resurfacing one level deeper). Defect 2's `voiceServable`
+   gate checked pack FILES, not which instance would synthesize. Fix: the decorator
+   takes a distinct `targetEngine` (= `engineFor(targetVoice)`, the same instance for
+   Kokoro's serves-whole-catalog contract); the routing contract is now pinned by
+   `TranslatingEngineTest` (target engine receives the translated request; the
+   delegate receives the original only on degrade). Poisoned `xpt-BR` caches purged
+   on-device after the fix.
+2. **MOBI EXTH titles decoded UTF-16-first**: dense ASCII read as plausible CJK —
+   `jumper.mobi`'s 6-byte `"Jumper"` rendered as `畊灭牥` (the suite survived by an
+   odd-trailing-byte accident in the fixture). UTF-16LE is now detected by structure
+   (odd-offset zero-byte density), EXTH 100 author records are extracted, and both
+   flows share one decoder. Regression-tested for even-length ASCII, genuine
+   UTF-16LE, and the author path.
+3. **The Read-in selection could drop silently**: the reader sheet returned without
+   persisting when the service hadn't published the book yet (no `bookId` in state),
+   and a degraded target rendered original audio with no explanation. The sheet now
+   falls back to the VM's opened book, and both pickers surface the in-force state
+   via a shared `TranslateAvailability.degradeReason` (core-translate) as an error
+   caption ("Playing original — …").
+
 ktlint's baseline was regenerated (this week's lands drifted its line numbers; the
 slice itself introduces zero new violations — core-translate and every touched file
 report clean apart from Compose-CapitalCase function-naming entries the baseline
