@@ -8,7 +8,7 @@ import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.EspeakStager
 import com.moronigranja.localttsreader.tts.PackRegistry
-import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
+import com.moronigranja.localttsreader.tts.setup.SetupEnginePacks
 import com.moronigranja.localttsreader.tts.setup.SetupFacts
 import com.moronigranja.localttsreader.tts.setup.SetupState
 import java.io.File
@@ -48,27 +48,20 @@ class SetupGate
             // process) must be visible to the gate even if the registry's cached
             // statuses predate them.
             registry.refresh()
+            val prefs = settings.state.value
+            val requiredIds = SetupEnginePacks.requiredIds(prefs.ttsEngine, prefs.voice)
             val facts =
                 SetupFacts(
-                    requiredPacksReady = REQUIRED_PACK_IDS.all(registry::isReady),
+                    requiredPacksReady = requiredIds.all(registry::isReady),
                     espeakStaged = EspeakStager.isStaged(filesDir),
-                    voiceSelected = settings.state.value.voice != SettingsStore.DEFAULT_VOICE,
+                    voiceSelected = prefs.voice != SettingsStore.DEFAULT_VOICE,
                     bookCount = libraryStore.books.value.size,
-                    systemTtsOptedIn = settings.state.value.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                    systemTtsOptedIn = prefs.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
                 )
             active = !SetupState.isTerminal(SetupState.derive(facts))
         }
 
         fun dismiss() {
             active = false
-        }
-
-        companion object {
-            val REQUIRED_PACK_IDS =
-                listOf(
-                    KokoroPacks.model.id,
-                    KokoroPacks.voices.id,
-                    KokoroPacks.espeak.id,
-                )
         }
     }

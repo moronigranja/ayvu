@@ -31,6 +31,12 @@ hosts**; only the espeak-ng bundle is served from this project's own releases:
   9,857,162 B) — GPL-3.0-or-later with the espeak-ng toolchain exception —
   served from this project's `espeak-ng-1.52.0` release:
   <https://github.com/espeak-ng/espeak-ng>
+- **Piper** VITS voices (one model + config per voice, 22050 Hz) — from the
+  MIT-licensed `rhasspy/piper-voices` repo @ `1162a917`; per-voice dataset
+  licenses: en_US-lessac-medium + de_DE-thorsten-high (repo MIT),
+  es_ES-davefx-medium (CC0), it_IT-serena-medium (CC-BY-4.0),
+  pt_BR-faber-medium (CC0):
+  <https://huggingface.co/rhasspy/piper-voices>
 - **Tesseract OCR** data (tessdata, one file per OCR language) — Apache-2.0 — served
   from the upstream `tesseract-ocr/tessdata` repository (tag `3.04.00`, legacy
   non-LSTM models; see the README's OCR limitation):

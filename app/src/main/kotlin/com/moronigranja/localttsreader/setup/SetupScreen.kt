@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.moronigranja.localttsreader.featurelibrary.takeReadPermission
 import com.moronigranja.localttsreader.featurelibrary.toEBookSources
+import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.formatBytes
 import com.moronigranja.localttsreader.tts.setup.SetupState
 import com.moronigranja.localttsreader.tts.setup.StepKind
@@ -103,7 +105,11 @@ fun SetupScreen(
             val step = state.currentStep ?: return@LazyColumn
             item(key = "step-$step") {
                 when (step) {
-                    StepKind.PRIVACY -> PrivacyCard()
+                    StepKind.PRIVACY ->
+                        PrivacyCard(
+                            ttsEngine = state.ttsEngine,
+                            onSetEngine = viewModel::setEngine,
+                        )
                     StepKind.CHOOSE_VOICE ->
                         ChooseVoiceCard(
                             voiceSelector = state.voiceSelector,
@@ -165,7 +171,10 @@ fun SetupScreen(
 }
 
 @Composable
-private fun PrivacyCard() {
+private fun PrivacyCard(
+    ttsEngine: String,
+    onSetEngine: (String) -> Unit,
+) {
     StepCard {
         Text("Ayvu is offline-first", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -175,6 +184,52 @@ private fun PrivacyCard() {
                 "exact size of everything before any download starts.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        Text("Speech engine", style = MaterialTheme.typography.titleSmall)
+        EngineRow(
+            label = "Kokoro-82M (default)",
+            sub = "Best prosody; requires a ~364 MB download.",
+            selected = ttsEngine != SettingsStore.PIPER_ENGINE && ttsEngine != SettingsStore.SYSTEM_TTS_ENGINE,
+            onClick = { onSetEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
+        )
+        EngineRow(
+            label = "Piper",
+            sub = "Smaller and faster — recommended on weaker devices; covers German.",
+            selected = ttsEngine == SettingsStore.PIPER_ENGINE,
+            onClick = { onSetEngine(SettingsStore.PIPER_ENGINE) },
+        )
+        EngineRow(
+            label = "Device voice (system)",
+            sub = "Zero download, degraded quality. Switch to an engine later in Settings.",
+            selected = ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+            onClick = { onSetEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
+        )
+    }
+}
+
+@Composable
+private fun EngineRow(
+    label: String,
+    sub: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(selected = selected, onClick = onClick)
+                .padding(vertical = AyvuSpacing.XS),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column(modifier = Modifier.padding(start = AyvuSpacing.SM)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                sub,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -349,7 +404,7 @@ private fun DownloadPacksCard(
     StepCard {
         Text("Download the speech engine", style = MaterialTheme.typography.titleMedium)
         Text(
-            "One plan, three assets, coordinated with per-file progress. Downloads " +
+            "One plan, coordinated with per-file progress. Downloads " +
                 "resume after interruptions and verify checksums before they count as done.",
             style = MaterialTheme.typography.bodyMedium,
         )

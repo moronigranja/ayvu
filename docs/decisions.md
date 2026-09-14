@@ -4,6 +4,56 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 159. Setup engine-awareness (reopening + language-select fixes) and the es/it/pt-BR Piper pins (2026-09-13)
+
+Owner report: the first-run setup reopened on every launch because the user
+switched to Piper and never downloaded all three Kokoro packs, and the
+language/voice step was skipped. Three defects, one root: the setup flow was
+Kokoro-hardcoded.
+
+- **Gate/VM engine-aware (reopening fix).** `SetupGate` and `SetupViewModel`
+  required the literal Kokoro trio (`REQUIRED_PACK_IDS`), so a piper-v1 user
+  with books never satisfied `requiredPacksReady` → setup re-derived active on
+  every cold start. New `SetupEnginePacks.requiredIds(engineId, voice)`
+  (core-tts) is the one engine→pack table the gate, the download plan and the
+  voice readiness share: kokoro → its three packs; piper → the resolved
+  voice's model + config + the shared espeak bundle; system-tts/unknown →
+  none. The gate now derives `requiredPacksReady` from the ACTIVE engine, so a
+  piper user with books + piper packs ready is COMPLETE (no reopen); a piper
+  user who chose piper but hasn't downloaded it stays active (setup prompts the
+  piper download). Same K2 descriptor-driven shape as the Settings rows
+  (decisions #156).
+- **VOICE step reachable (language-select fix).** `SetupState.derive` collapsed
+  to `[IMPORT_BOOK]` the instant packs completed, so the wizard clamp jumped
+  past CHOOSE_VOICE — the language/voice step was unreachable on the download
+  path. `derive` is now voice-aware: `packsDone && !voiceSelected →
+  [CHOOSE_VOICE, IMPORT_BOOK]`, so completing the download lands on the voice
+  step; a chosen voice keeps `[IMPORT_BOOK]`. (The `voice never chosen does not
+  gate` case still holds for the not-done-packs branch.)
+- **Piper in the setup flow.** `PrivacyCard` gains an engine radio (Kokoro /
+  Piper / Device voice) calling `SetupViewModel.setEngine`; the required packs,
+  the voice catalog (`PiperVoiceMetadata` under piper-v1) and
+  `downloadVoicePacks` all follow the active engine. The download card copy is
+  no longer "three assets".
+- **es/it/pt-BR Piper pins (same revision `1162a917`).**
+  `es_ES-davefx-medium` (63,201,294 B, CC0), `it_IT-serena-medium`
+  (63,511,037 B, CC-BY-4.0), `pt_BR-faber-medium` (63,201,294 B, CC0) — model
+  + config each, sha256 taken from the downloaded artifacts, registered in
+  `PiperPacks`/`PiperVoices`/`PiperVoiceMetadata`/`PiperVoicePreview` and added
+  to `DefaultEngines.piper.languages`. **Korean is deliberately NOT pinned:**
+  the only ko voice (`ko_KR-kss-medium`, 63,221,984 B) is CC-BY-NC-SA-4.0,
+  outside the permissive pack policy (decisions #149 excludes CC-BY-NC) —
+  recorded for an owner licensing call before it ships. NOTICE.md gained the
+  Piper pack attributions (repo MIT; per-voice dataset licenses).
+
+Evidence: `SetupEnginePacksTest` (kokoro/piper/fallback/unserved-voice table),
+`SetupGateTest` +2 (piper + books + piper packs → inactive; piper + books +
+missing piper packs → active), `SetupViewModelTest` +1 (setEngine(piper) →
+pack rows become piper's), `SetupStateTest` updated (voice-aware derive),
+`DefaultEnginesTest` + `SettingsPackRowsTest` updated to the new pack sets;
+`:core-tts:test :app:testDebugUnitTest :feature-settings:testDebugUnitTest
+:feature-player:testDebugUnitTest` green.
+
 ## 158. D4 PiperEngine engine-output listening pass — Bigme HiBreak PASSED, S22 still owed (2026-09-13)
 
 The last open D4 item (a listening pass on the engine output, beyond the #99 render

@@ -68,6 +68,8 @@ class SetupViewModelTest {
     private val model = fixturePack("kokoro-model", 64)
     private val voices = fixturePack("kokoro-voices", 32)
     private val espeak = fixturePack("espeak-ng", 16)
+    private val piperModel = fixturePack("piper-lessac-medium", 64, engineId = "piper-v1")
+    private val piperConfig = fixturePack("piper-lessac-medium-config", 4, engineId = "piper-v1")
 
     @BeforeEach
     fun setUp() {
@@ -78,6 +80,10 @@ class SetupViewModelTest {
                 EngineDescriptor(
                     spec = EngineSpec("kokoro-82m", "Kokoro", EngineTier.PRIMARY, setOf("en")),
                     packs = listOf(model, voices, espeak),
+                ),
+                EngineDescriptor(
+                    spec = EngineSpec("piper-v1", "Piper", EngineTier.PRIMARY, setOf("en", "de")),
+                    packs = listOf(piperModel, piperConfig),
                 ),
             )
         registry = PackRegistry(cache, PackDownloader(cache, FailTransport()), descriptors)
@@ -129,10 +135,11 @@ class SetupViewModelTest {
     private fun fixturePack(
         id: String,
         size: Long,
+        engineId: String = "kokoro-82m",
     ): TtsPack =
         TtsPack(
             id = id,
-            engineId = "kokoro-82m",
+            engineId = engineId,
             kind = PackKind.MODEL,
             displayName = id,
             url = "https://example.test/$id",
@@ -267,6 +274,25 @@ class SetupViewModelTest {
             vm.wizardBack()
             advanceUntilIdle()
             assertEquals(StepKind.PRIVACY, vm.state.value.currentStep)
+        }
+
+    @Test
+    fun `selecting piper drives the download plan to piper packs`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            Dispatchers.setMain(dispatcher)
+            val vm = viewModel(dispatcher)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
+            advanceUntilIdle()
+
+            vm.setEngine(SettingsStore.PIPER_ENGINE)
+            advanceUntilIdle()
+            assertEquals(SettingsStore.PIPER_ENGINE, vm.state.value.ttsEngine)
+            // The required pack rows become piper's (model + config + espeak).
+            assertEquals(
+                setOf("piper-lessac-medium", "piper-lessac-medium-config", "espeak-ng"),
+                vm.state.value.packs.map { it.packId }.toSet(),
+            )
         }
 
     @Test

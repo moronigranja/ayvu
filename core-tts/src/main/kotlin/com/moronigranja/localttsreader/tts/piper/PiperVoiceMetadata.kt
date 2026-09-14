@@ -28,6 +28,24 @@ object PiperVoiceMetadata {
                 gender = "Male",
                 displayName = "Thorsten",
             ),
+            KokoroVoiceMeta(
+                name = PiperVoices.ES_ES_DAVEFX,
+                language = "Spanish (ES)",
+                gender = "Female",
+                displayName = "Davefx",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.IT_IT_SERENA,
+                language = "Italian",
+                gender = "Female",
+                displayName = "Serena",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.PT_BR_FABER,
+                language = "Portuguese (BR)",
+                gender = "Male",
+                displayName = "Faber",
+            ),
         )
 }
 
@@ -42,6 +60,9 @@ object PiperVoicePreview {
         mapOf(
             PiperVoices.LESSAC to "The quick brown fox jumps over the lazy dog.",
             PiperVoices.THORSTEN to "Der schnelle braune Fuchs springt über den faulen Hund.",
+            PiperVoices.ES_ES_DAVEFX to "El veloz zorro marrón salta sobre el perro perezoso.",
+            PiperVoices.IT_IT_SERENA to "La rapida volpe marrone salta sul cane pigro.",
+            PiperVoices.PT_BR_FABER to "A rápida raposa marrom salta sobre o cão preguiçoso.",
         )
 
     /** The fixed phrase for [voice], or null when the name is not a known

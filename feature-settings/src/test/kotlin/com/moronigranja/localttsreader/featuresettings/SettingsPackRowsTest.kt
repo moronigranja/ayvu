@@ -116,7 +116,14 @@ class SettingsPackRowsTest {
             // with their model, so one voice is one row, not two.
             vm.setEngine(SettingsStore.PIPER_ENGINE)
             assertEquals(
-                setOf("piper-lessac-medium", "piper-thorsten-high", "espeak-ng"),
+                setOf(
+                    "piper-lessac-medium",
+                    "piper-thorsten-high",
+                    "piper-davefx-medium",
+                    "piper-serena-medium",
+                    "piper-faber-medium",
+                    "espeak-ng",
+                ),
                 vm.state.first { it.ttsEngine == SettingsStore.PIPER_ENGINE }.speechPackIds,
             )
 

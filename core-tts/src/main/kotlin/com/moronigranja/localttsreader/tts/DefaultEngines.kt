@@ -42,10 +42,13 @@ object DefaultEngines {
         id = "piper-v1",
         displayName = "Piper",
         tier = EngineTier.PRIMARY,
-        // The languages the two pinned voices serve (rhasspy/piper-voices
-        // @ 1162a917): en_US-lessac-medium + de_DE-thorsten-high. German is
-        // Piper-only at v1 — Kokoro ships no German voices.
-        languages = setOf("en", "de"),
+        // The languages the pinned voices serve (rhasspy/piper-voices
+        // @ 1162a917): en_US-lessac-medium, de_DE-thorsten-high and the
+        // 2026-09-13 pins es_ES-davefx-medium / it_IT-serena-medium /
+        // pt_BR-faber-medium. German is Piper-only at v1 — Kokoro ships no
+        // German voices; Korean (ko_KR-kss-medium) stays unpinned on its
+        // CC-BY-NC license until the owner clears it.
+        languages = setOf("en", "de", "es", "it", "pt"),
     )
 
     val descriptors: List<EngineDescriptor> = listOf(

@@ -63,8 +63,13 @@ object SetupState {
         val packsDone = facts.requiredPacksReady && facts.espeakStaged
         return when {
             packsDone && facts.bookCount > 0 -> listOf(StepKind.COMPLETE)
-            // Ready packs win over the opted-in path: a user who installed
-            // Kokoro later (or re-entered with packs present) sees only the
+            // Packs done but no voice chosen yet — keep CHOOSE_VOICE in the
+            // plan (after the download, per the C1 reversal) so the language/
+            // voice step is reachable on the download-completion path instead
+            // of being skipped straight to import.
+            packsDone && !facts.voiceSelected -> listOf(StepKind.CHOOSE_VOICE, StepKind.IMPORT_BOOK)
+            // Ready packs win over the opted-in path: a user who installed an
+            // engine later (or re-entered with packs present) sees only the
             // import step, whatever the engine choice (C3: durable facts).
             packsDone -> listOf(StepKind.IMPORT_BOOK)
             facts.systemTtsOptedIn && facts.bookCount > 0 -> listOf(StepKind.DEGRADED_READY)

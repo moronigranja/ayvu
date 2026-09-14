@@ -46,6 +46,10 @@ class SetupGateTest {
     private val model = fixturePack("kokoro-model", 64)
     private val voices = fixturePack("kokoro-voices", 32)
     private val espeak = fixturePack("espeak-ng", 16)
+    // Real piper pack ids so SetupEnginePacks.requiredIds("piper-v1", …)
+    // resolves against the registry (the D4 engine-aware gate regression).
+    private val piperModel = fixturePack("piper-lessac-medium", 64, engineId = "piper-v1")
+    private val piperConfig = fixturePack("piper-lessac-medium-config", 4, engineId = "piper-v1")
 
     @BeforeEach
     fun setUp() {
@@ -56,6 +60,10 @@ class SetupGateTest {
                 EngineDescriptor(
                     spec = EngineSpec("kokoro-82m", "Kokoro", EngineTier.PRIMARY, setOf("en")),
                     packs = listOf(model, voices, espeak),
+                ),
+                EngineDescriptor(
+                    spec = EngineSpec("piper-v1", "Piper", EngineTier.PRIMARY, setOf("en", "de")),
+                    packs = listOf(piperModel, piperConfig),
                 ),
             )
         registry = PackRegistry(cache, PackDownloader(cache, FailTransport()), descriptors)
@@ -119,6 +127,48 @@ class SetupGateTest {
             val gate = gate()
             gate.evaluate()
             assertTrue(gate.active, "opted-in user still must import a book")
+        }
+
+    // ------------------------------------------------------------------
+    // D4 engine-awareness (2026-09-13): the required packs follow the
+    // ACTIVE engine, not a hardcoded Kokoro list — a piper user with books
+    // must not have setup reopen because some Kokoro pack is missing.
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `piper selected with piper packs and a book deactivates the gate`() =
+        runTest {
+            settings.setTtsEngine(SettingsStore.PIPER_ENGINE)
+            markReady(piperModel)
+            markReady(piperConfig)
+            markReady(espeak)
+            markStagedEspeak()
+            library.add(entry("book-1"))
+
+            val gate = gate()
+            gate.evaluate()
+            assertFalse(
+                gate.active,
+                "piper user with books + piper ready → done, even without the kokoro pack set",
+            )
+        }
+
+    @Test
+    fun `piper selected with a book but missing piper packs stays active`() =
+        runTest {
+            // The engine-aware gate now requires the PIPER packs (not kokoro's):
+            // a user who chose piper but hasn't downloaded it must be prompted
+            // to download piper, so setup stays active.
+            settings.setTtsEngine(SettingsStore.PIPER_ENGINE)
+            markReady(model)
+            markReady(voices)
+            markReady(espeak)
+            markStagedEspeak()
+            library.add(entry("book-1"))
+
+            val gate = gate()
+            gate.evaluate()
+            assertTrue(gate.active, "piper chosen but its packs missing → setup prompts the piper download")
         }
 
     // ------------------------------------------------------------------
@@ -198,10 +248,11 @@ class SetupGateTest {
     private fun fixturePack(
         id: String,
         size: Long,
+        engineId: String = "kokoro-82m",
     ): TtsPack =
         TtsPack(
             id = id,
-            engineId = "kokoro-82m",
+            engineId = engineId,
             kind = PackKind.MODEL,
             displayName = id,
             url = "https://example.test/$id",

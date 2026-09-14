@@ -19,8 +19,9 @@ import com.moronigranja.localttsreader.tts.PackState
 import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.VoiceCatalog
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
-import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
+import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
+import com.moronigranja.localttsreader.tts.setup.SetupEnginePacks
 import com.moronigranja.localttsreader.tts.setup.SetupFacts
 import com.moronigranja.localttsreader.tts.setup.SetupState
 import com.moronigranja.localttsreader.tts.setup.StepKind
@@ -48,10 +49,8 @@ data class SetupUiState(
      * clamp rules — a step that disappears never throws the user back, a
      * reappearing step inserts without moving the pointer. */
     val currentStep: StepKind? = null,
-    /** The three required Kokoro packs, mapped for the shared plan card. */
+    /** The active engine's required packs, mapped for the shared plan card. */
     val packs: List<PlanPackRow> = emptyList(),
-    /** Static 54-voice catalog — usable before any download. */
-    val voices: List<KokoroVoiceMeta> = KokoroVoiceMetadata.all,
     val selectedVoice: String = SettingsStore.DEFAULT_VOICE,
     /** C2: the shared selector rows + "Selected voice:" summary (+ the one
      * audition), built from the static catalog + pack readiness. */
@@ -68,6 +67,9 @@ data class SetupUiState(
      * before any download starts, C1 acceptance leg 4). */
     val shortfallBytes: Long = 0L,
     val systemTtsOptedIn: Boolean = false,
+    /** The active engine id ([SettingsStore] constants) — drives the required
+     * packs, the voice catalog and the engine radio. */
+    val ttsEngine: String = SettingsStore.DEFAULT_TTS_ENGINE,
     val importSummary: String? = null,
 )
 
@@ -120,9 +122,10 @@ class SetupViewModel
                 libraryStore.books,
                 combine(stageTick, importTick, wizardTick, auditionFlow) { _, _, _, audition -> audition },
             ) { (packs, err, prefs), books, audition ->
-                val required = REQUIRED_PACK_IDS.mapNotNull { id -> packs.firstOrNull { it.pack.id == id } }
+                val requiredIds = SetupEnginePacks.requiredIds(prefs.ttsEngine, prefs.voice)
+                val required = requiredIds.mapNotNull { id -> packs.firstOrNull { it.pack.id == id } }
                 val requiredReady =
-                    REQUIRED_PACK_IDS.all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
+                    requiredIds.all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
                 val facts =
                     SetupFacts(
                         requiredPacksReady = requiredReady,
@@ -146,12 +149,12 @@ class SetupViewModel
                     packs = required.map { it.toPlanRow(err, filesDir) },
                     selectedVoice = prefs.voice,
                     voiceSelector = voiceSelector(required, prefs, audition),
-                    voices = KokoroVoiceMetadata.all,
                     storageTotalBytes = required.sumOf { it.pack.sizeBytes },
                     requiredBytes = requiredBytes,
                     availableBytes = available,
                     shortfallBytes = (requiredBytes - available).coerceAtLeast(0L),
                     systemTtsOptedIn = prefs.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                    ttsEngine = prefs.ttsEngine,
                     importSummary = importSummaryValue,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SetupUiState())
@@ -252,28 +255,37 @@ class SetupViewModel
 
         fun stopPreview() = voiceAudition.stop()
 
-        /** C2: the explicit per-row download action while Kokoro packs are
-         * missing — starts the same three downloads the plan card lists. */
+        /** C2: the explicit per-row download action while the active engine's
+         * packs are missing — starts the same downloads the plan card lists. */
         fun downloadVoicePacks() {
-            REQUIRED_PACK_IDS.forEach { download(it) }
+            val prefs = settings.state.value
+            SetupEnginePacks.requiredIds(prefs.ttsEngine, prefs.voice).forEach { download(it) }
         }
 
         /** C2 shared selector state — pack readiness + the one audition,
-         * via the single shared builder (C2, #102.4). */
+         * via the single shared builder (C2, #102.4). The catalog follows the
+         * selected engine (D4 #154 addendum): Piper voices under piper-v1,
+         * Kokoro's otherwise. */
         private fun voiceSelector(
             required: List<PackState>,
-            prefs: com.moronigranja.localttsreader.persistence.AppSettings.Snapshot,
+            prefs: AppSettings.Snapshot,
             audition: com.moronigranja.localttsreader.player.AuditionUiState,
         ): com.moronigranja.localttsreader.ui.VoiceSelectorUiState {
+            val piperSelected = prefs.ttsEngine == SettingsStore.PIPER_ENGINE
             val ready = required.all { it.status == com.moronigranja.localttsreader.tts.PackStatus.Ready }
             return com.moronigranja.localttsreader.ui.buildVoiceSelectorState(
-                voices = com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata.all,
+                voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
                 selectedVoice = prefs.voice,
                 favorites = prefs.favorites.toSet(),
                 ready = ready,
                 audition = audition,
             )
         }
+
+        /** The active-engine radio — the engine is a device decision
+         * (decisions #144); selecting it re-derives the required packs, the
+         * voice catalog and the download plan. */
+        fun setEngine(engineId: String) = viewModelScope.launch { settings.setTtsEngine(engineId) }
 
         /** SAF import hand-off — the contact LibraryScreen uses, driven here
          * against app-injected dependencies (no feature-library VM). */
@@ -355,12 +367,6 @@ class SetupViewModel
 
         private companion object {
             const val ESPEAK_PACK_ID = "espeak-ng"
-            val REQUIRED_PACK_IDS =
-                listOf(
-                    KokoroPacks.model.id,
-                    KokoroPacks.voices.id,
-                    KokoroPacks.espeak.id,
-                )
         }
     }
 

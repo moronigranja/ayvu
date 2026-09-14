@@ -270,7 +270,10 @@ voice selector + playback volume; back/up mirror the OCR-languages pattern. The 
 of the root stays flat — ~40 rows in 5 sections is still one-flick territory; the
 subscreen threshold is a section whose content is a multi-row picker or a list longer
 than the root viewport, which only Speech (engine + packs + ~60 voice rows) crosses.
-Remaining for this slice family: further voice-pack pins (es/it/pt-BR/ko) — the
+Remaining for this slice family: es/it/pt-BR pinned (decisions #159 —
+`es_ES-davefx-medium` CC0, `it_IT-serena-medium` CC-BY-4.0, `pt_BR-faber-medium`
+CC0, same revision); ko is deliberately unpinned (`ko_KR-kss-medium` is
+CC-BY-NC-SA, awaiting an owner licensing call). The
 passage-level-only read-along stays recorded degradation (#30b). **Engine device smoke
 verified on both devices** (2026-09-13, `PiperDeviceSmokeTest`): B6 RTF 0.579 / S22
 RTF 0.094, finite 22.05 kHz mono PCM, segments=null on device —

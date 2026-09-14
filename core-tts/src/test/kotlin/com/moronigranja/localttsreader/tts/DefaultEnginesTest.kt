@@ -62,13 +62,15 @@ class DefaultEnginesTest {
     }
 
     @Test
-    fun `piper is the adopted D4 primary-tier engine with its two pinned voices`() {
+    fun `piper is the adopted D4 primary-tier engine with its pinned voices`() {
         val spec = DefaultEngines.piper
         assertEquals("piper-v1", spec.id)
         assertEquals(EngineTier.PRIMARY, spec.tier, "quality gate passed + realtime measured (decisions #99 addenda)")
-        // The two pinned rhasspy/piper-voices voices @ 1162a917; German is
-        // Piper-only at v1 (Kokoro ships no German voices).
-        assertEquals(setOf("en", "de"), spec.languages)
+        // The pinned rhasspy/piper-voices voices @ 1162a917; German is
+        // Piper-only at v1 (Kokoro ships no German voices). Korean stays
+        // unpinned on its CC-BY-NC license (owner call).
+        assertEquals(setOf("en", "de", "es", "it", "pt"), spec.languages)
+        assertFalse("ko" in spec.languages, "ko_KR-kss-medium is CC-BY-NC-SA — not pinned")
     }
 
     @Test
@@ -76,7 +78,18 @@ class DefaultEnginesTest {
         val piper = DefaultEngines.descriptors.first { it.spec.id == "piper-v1" }
         assertEquals(PiperPacks.all, piper.packs)
         assertEquals(
-            listOf("piper-lessac-medium", "piper-lessac-medium-config", "piper-thorsten-high", "piper-thorsten-high-config"),
+            listOf(
+                "piper-lessac-medium",
+                "piper-lessac-medium-config",
+                "piper-thorsten-high",
+                "piper-thorsten-high-config",
+                "piper-davefx-medium",
+                "piper-davefx-medium-config",
+                "piper-serena-medium",
+                "piper-serena-medium-config",
+                "piper-faber-medium",
+                "piper-faber-medium-config",
+            ),
             piper.packs.map { it.id },
         )
 

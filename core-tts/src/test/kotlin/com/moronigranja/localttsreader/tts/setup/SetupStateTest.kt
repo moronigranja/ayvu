@@ -33,10 +33,22 @@ class SetupStateTest {
     }
 
     @Test
-    fun `packs ready with no books shows import only`() {
+    fun `packs ready with no books and no voice shows voice then import`() {
         val steps =
             SetupState.derive(
                 nothing.copy(requiredPacksReady = true, espeakStaged = true),
+            )
+        // C1 reversal keeps CHOOSE_VOICE after the download — a user who never
+        // picked a voice lands there, not straight on import.
+        assertEquals(listOf(StepKind.CHOOSE_VOICE, StepKind.IMPORT_BOOK), steps)
+        assertFalse(SetupState.isTerminal(steps))
+    }
+
+    @Test
+    fun `packs ready with no books and a voice chosen shows import only`() {
+        val steps =
+            SetupState.derive(
+                nothing.copy(requiredPacksReady = true, espeakStaged = true, voiceSelected = true),
             )
         assertEquals(listOf(StepKind.IMPORT_BOOK), steps)
         assertFalse(SetupState.isTerminal(steps))
@@ -87,9 +99,9 @@ class SetupStateTest {
     }
 
     @Test
-    fun `opted in with packs later installed shows import only`() {
-        // Ready packs win over the degraded path (C3): a user who installed
-        // Kokoro after opting in re-enters at import, not the full plan.
+    fun `opted in with packs later installed re-enters at voice then import`() {
+        // Ready packs win over the degraded path (C3): a user who installed an
+        // engine after opting in re-enters at voice + import, not the full plan.
         val steps =
             SetupState.derive(
                 nothing.copy(
@@ -99,7 +111,7 @@ class SetupStateTest {
                     systemTtsOptedIn = true,
                 ),
             )
-        assertEquals(listOf(StepKind.IMPORT_BOOK), steps)
+        assertEquals(listOf(StepKind.CHOOSE_VOICE, StepKind.IMPORT_BOOK), steps)
     }
 
     @Test
