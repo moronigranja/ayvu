@@ -165,20 +165,70 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "there should be a pause on dialogue
   after closing quotation marks."
 
+### decade-trailing-s-read-literally (decades read with "hundred" + dangling s)
+- Category: `date`
+- Example (owner-confirmed): "The 1800s, the '90s, and 2024 C.E. …" (en-us 0015)
+  → "the one **thousand eight hundred s**" (`ðə wˈʌn θˈaʊzənd ˈeɪthˈʌndɹɪd z`)
+  — should be "the eighteen hundreds"; "the '90s" → "the **ninety s**"
+  (`nˈaɪnti z`) — should be "the nineties"; "the 1910s" (en-gb 0060) → "the
+  **nineteen hundred and ten s**" — should be "the nineteen-tens".
+- Expected (idiomatic): the named decade — "the eighteen hundreds", "the
+  nineteen-tens", "the nineties".
+- Frequency: 3/377 (0015 ×2, 0060) — low count in the corpus, but the class is
+  generic: every `YYYYs` / `'YYs` decade with a trailing s.
+- G1 rule: `YYYYs` / `'YYs` decade → named-decade form ("eighteen hundreds" /
+  "nineteen-tens" / "nineties"); the trailing-`s` century form is the
+  `filter_page_numbers`-adjacent shape.
+- Status: **owner-confirmed (2026-09-13)** — "1800s is reading as one thousand
+  eight hundreds, not eighteen hundreds."
+
+### roman-numeral-read-with-label (roman numerals read with a literal "roman" prefix)
+- Category: `roman-numeral`
+- Example (owner-confirmed): "King Henry VIII ruled" (en-us 0022) → "King Henry
+  **roman eight**" (`hˈɛnɹi ɹˌoʊmən ˈeɪt`) — should be "Henry the Eighth" / "Henry
+  eight"; "Chapter IV" → "chapter **roman four**" (`ɹˌoʊmən fˈɔːɹ`). Same across
+  en-us/en-gb (0022–0024, 0067–0069): every numeral `IV`, `VIII`, `II`, `XII`,
+  `XIV`, `xlii`, `iii`, `XIX` gets the "roman" label.
+- Scope: espeak-en prepends "roman" to every roman numeral; espeak-fr does the
+  same with "romain" (`quatre **romain**` 0151, `deux **romain**` 0153). espeak-es
+  and espeak-it/pt read them as plain cardinals/ordinals without a label (`cuatro`,
+  `quarto`, `dodicesimo`, `doze`) — so the G1 fix is en/fr-scoped.
+- Expected: the plain number (cardinal for chapters/sections, ordinal for monarchs:
+  "the Eighth", "the Fourteenth").
+- Frequency: every en-us/en-gb/fr-fr roman-numeral row (0022–0024, 0067–0069,
+  0151–0153).
+- G1 rule: a roman-numeral → plain-number literal mapping (`IV`→"four", `VIII`→
+  "eight", `XIX`→"nineteen", …) applied before phonemization so espeak never sees
+  the glyph it labels "roman"; ordinal form for monarch ordinals is a refinement
+  (context rule), the cardinal form is the safe default.
+- Status: **owner-confirmed (2026-09-13)** — "roman numerals reading as 'roman
+  eight' instead of just eight."
+
+### footnote-reference-marker-read-aloud (superscript footnote markers read as numbers)
+- Category: `footnote`
+- Example (owner-confirmed): "The claim is disputed.² Other scholars disagree.³"
+  (en-us 0032) → "The claim is disputed **two** Other scholars disagree **three**"
+  (`…dɪspjˈuːɾᵻd.tˈuː …dˌɪsɐɡɹˈiː.θɹˈiː`); "See note 1 for details.¹" (0031) →
+  "…for details **one**". The superscript reference markers are read as cardinal
+  numbers at sentence end — they should be silent page furniture.
+- Scope (phoneme-verified, all six Latin-script languages): es `detˈaʎes.ˈuno`,
+  `.dˈos`/`.tɾˈes` (0119/0120); fr `.detˈaj.ˈœ̃` (0160); it `.detːˈaʎɪ.ˈuno`,
+  `.dˈue`/`.trˈe` (0201/0202); pt `.dˌetˈaljys.ˈũŋ`, `.dˈoɪz`/`.trˈes`
+  (0242/0243). The dagger forms are already silent (`Table 2†` reads "Table two",
+  no marker, 0033) — only the numeric superscripts leak.
+- Expected: markers dropped entirely (like page numbers).
+- Frequency: every footnote row with a numeric superscript marker (0031/0032,
+  0076/0077, 0119/0120, 0160/0161, 0201/0202, 0242/0243).
+- G1 rule: strip footnote reference markers (¹ ² ³ … superscript digits, and the
+  bracketed `[3]` form) before phonemization — the `filter_page_numbers`-family
+  drop; dagger/cross forms are already silent and need no rule.
+- Status: **owner-confirmed (2026-09-13)** — "the three at the end …
+  likely shouldn't be read aloud."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
 confirmation before a G1 rule lands.
-
-### year-decade-read-digit-by-digit
-- Category: `date`
-- Example: "The 1800s, the '90s, and 2024 C.E. all appear in the timeline."
-- Produced (en-US row 0015 IPA): `ðə wˈʌn θˈaʊzənd ˈeɪthˈʌndɹɪd z` — "the one
-  thousand eight hundred s"
-- Expected (idiomatic): "the eighteen hundreds"
-- Frequency: TBD
-- G1 rule: TBD (candidate: `18xx`-range year + trailing `s` → "eighteen <rest>
-  hundreds"; needs the full class enumerated by ear first).
 
 ## Non-findings worth recording
 
