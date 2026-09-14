@@ -282,6 +282,25 @@ Template:
 > fractional reading are **fine** ("decimal comma is fine, nevermind"), so no rule.
 > The Spanish "coma" convention stands as-is.
 
+### decimal-comma-pause (pause inserted at the decimal comma inside a number)
+- Category: `number`
+- Example (owner-confirmed): "…subiu 2,5 graus…" (pt-br 0222) → "dois virgula
+  [pause] cinco graus" — the decimal comma is treated as a clause-boundary comma,
+  inserting a pause inside the number; a decimal separator must be spoken without a
+  gap ("dois virgula cinco").
+- Scope: likely every language using the comma as the decimal separator (pt/es/fr/it);
+  the owner confirmed pt-br. Distinct from the withdrawn decimal-comma reading
+  finding — the spoken "virgula"/"coma" word is fine; only the pause is the defect.
+- Frequency: every comma-decimal row (0222; currency 0104/0106/0227/0229; fr/it/es
+  number rows 0139/0180/0098).
+- G1 rule: when a comma is a decimal separator (`digit , digit`), rewrite it to a
+  non-punctuation separator so espeak adds no clause pause — keep the spoken
+  "virgula"/"coma" word, remove the pause. Opposite direction from the
+  boundary-pause family (those strengthen clause pauses; this removes a
+  number-internal one).
+- Status: **owner-confirmed (2026-09-13)** — "pause after the comma in 'dois
+  virgula cinco graus'."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner

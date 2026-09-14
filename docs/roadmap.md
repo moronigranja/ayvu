@@ -299,7 +299,7 @@ classes with examples; G1's built-in rule set is derived from them.
 Status: corpus (377 entries, 9 languages × 15 categories) built and synthesized
 end-to-end on the S22; device corpus, WAVs and measurements complete
 ([g0-findings.md](g0-findings.md)). Listening pass **in progress** (2026-09-13,
-owner): eleven classes confirmed and recorded — `abbrev-not-expanded` (abbreviations
+owner): twelve classes confirmed and recorded — `abbrev-not-expanded` (abbreviations
 truncated or spelled letter-by-letter instead of the full word, cross-language, the
 class that bounds G1's built-in set) plus its paired `abbrev-period-pause`,
 `date-slash-read-aloud` (slash-dates spoken as numbers with the slash verbalized),
@@ -313,9 +313,12 @@ as numbers; the `filter_page_numbers`-family drop), and
 `question-boundary-pause-short` (insufficient pause after `?` before the next
 clause, sharing the boundary-pause family with the dialogue class),
 `negative-sign-english-injection` (es/fr read the minus as an English "minus",
-pt drops it), and `currency-amount-misread` (English currency name before the
+pt drops it), `currency-amount-misread` (English currency name before the
 number + decimal read as "point N N" instead of "and <cents> cents" — owner
-settled the "and" form). Verified clean the same day: page-furniture,
+settled the "and" form), and `decimal-comma-pause` (the decimal comma is
+treated as a clause comma, inserting a pause inside numbers like "dois virgula
+[gap] cinco"; the spoken separator word itself was accepted). Verified clean
+the same day: page-furniture,
 long-paragraph, url-code (owner-accepted as-is — closes one owner-call), and the
 decimal comma (owner withdrew it — the Spanish "coma" convention stands). ja/cmn/hi
 are recorded as a non-native-ear limitation.
