@@ -4,6 +4,50 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 161. Offline pre-translation model candidate: LFM2.5-1.2B-Instruct; runtime = llama.cpp pending the LiteRT S22 check (2026-09-14)
+
+Model-search closure after the beam-spike exploration (full measurements in
+`docs/prints/beam-spike/README.md`). Question: a better translator than
+SMaLL-100 (chrF 62.77 en→por) that fits on-device for a one-time whole-book
+offline pregen pass (requires the #97-adjacent second-runtime exception —
+LLM inference is not SMaLL-100's ONNX graph).
+
+- **Selected candidate: LFM2.5-1.2B-Instruct Q4_K_M (730 MB, LFM Open
+  License v1.0 — free for this project's use).** Measured on the S22 via
+  llama.cpp-android: chrF 67.37 (40 FLORES en→por), 22.3 tok/s, 44
+  tokens/passage (no thinking preamble — the Instruct tier does not
+  reason), 2.7 s/passage → whole book (2,878 passages) ≈ 2.2 h as an
+  overnight one-time pass. Co-residency PASSED: full gate ran during
+  active Kokoro playback; app PSS 394 MB + server RSS 1.63 GB; zero lmkd
+  events. Quality class: +4.6 over SMaLL-100, tied with tc-big (67.4).
+- Quality ceiling options measured, not selected: LFM2.5-2.6B-Base 68.30
+  few-shot (1.67 GB, 2.3× memory, few-shot prompt fragility); Gemma-4-E2B
+  QAT 68.79 via LiteRT / 70.25-class via llama.cpp (3.35 GB, 9.5 tok/s on
+  S22 — 2.4× slower than LFM1.2B for +1.4 chrF).
+- Reasoning suppression (the blocker that killed earlier LLM candidates):
+  SOLVED. llama.cpp `-rea off` collapses Gemma-4's 453-token thinking
+  preamble to ~20-38 tokens; LFM needs none (non-thinking Instruct tier;
+  the `-Thinking` variants are separate models). LFM2.5-2.6B (thinking)
+  remains unusable — suppression unreliable (`-rea off` no, template
+  kwarg no, `/no_think` inconsistent).
+- Runtime: llama.cpp-android is the reference (i8mm kernels, `-rea off`
+  thinking control). LiteRT-LM measured 6.4-6.5× slower on identical
+  host CPU for both Gemma-E2B (16.4 vs 104.4 tok/s) and LFM1.2B (18.0 vs
+  117.0), with identical quality. On-device exception to test: LiteRT's
+  mobile kernels may flip the verdict on ARM (litert-community ships
+  LFM2.5-1.2B int8 1.25 GB / int4 0.74 GB; third-party S26 measured 41
+  tok/s). S22 harness measurement pending; runtime choice locks after it.
+- Failure-mode comparison vs SMaLL-100 (listening-relevant): SMaLL-100
+  produces word salad ("feijões" for feathers) and silently truncates
+  long passages; LFM1.2B is fluent with rare small hallucinations
+  (misleading but rarely unreadable).
+
+Consequence: NOT yet wired into the product. Requires the #97
+second-runtime exception (llama.cpp or LiteRT), a PregenKey model
+dimension, and a pack/download surface for the LLM weights. The S22
+LiteRT-vs-llama.cpp harness measurement decides the runtime; then this
+becomes the "translate whole book offline" slice.
+
 ## 160. core-translate: the SMaLL-100 tokenizer port, translate pack, and read-in-language wiring (2026-09-14)
 
 The translate-then-read slice (Phase J verdict #114 → product): `:core-translate`
