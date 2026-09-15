@@ -414,7 +414,10 @@ es**; it ordinalizes throughout per its own convention and needs no rule) — pl
 **scope extension** to the
 existing `measurement-unit-not-expanded`: espeak-es/fr also spell single-letter
 metric symbols and imperial abbreviations as letters (`8 m` → "ocho eme"), so the
-G1 dictionary needs all six Latin-script languages, not en/it/pt.
+G1 dictionary needs all six Latin-script languages, not en/it/pt — and the pt-br
+currency rule (`R$` expands to "real dólar", owner: "deveria ser 'reais' somente",
+100% of `R$` uses; needs number agreement, so it is value-dependent and pt-only, since
+es/fr/it already say the currency after the amount).
 
 Verified clean
 the same day (page-furniture's verdict covers pagination and boundaries only — its

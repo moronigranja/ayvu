@@ -407,10 +407,40 @@ Template:
 - G1 rule: one shared **separator** mechanism with the confirmed pt-br
   `decimal-comma-pause`: rewrite the separator so it carries no punctuation role, keeping
   the spoken word ("point" / "vírgula" / "coma"). Language-aware, and it must cover the
-  thousands separator too (es 0106 / it 0188 read `1.234,56` as "uno. **[break]**
-  doscientos treinta y cuatro coma…" — a full stop inside the number).
+  thousands separator too (es 0106 / it 0188 / pt 0229 read `1.234,56` as "uno.
+  **[break]** doscientos treinta y cuatro coma…" — a full stop inside the number). The
+  inconsistency that decides the rule's shape: es 0104 reads the **identical** `1.234,56`
+  correctly ("mil doscientos treinta y cuatro coma cincuenta y seis") in the same corpus,
+  so the fix must normalize digit separators deterministically rather than patch the
+  observed cases. (Frequency counts in this doc come from the IPA column and are
+  approximate — the break signature can hide behind IPA characters outside the naive
+  pattern, and a "dash"/"dollar" search can hit an unrelated word: 0210's "frutti**vendol**i"
+  was a false positive. The owner's ear remains the verdict.)
 - Status: **owner-confirmed (2026-09-15)** — "0.5 percent has an unnecessary pause after
   the dot."
+
+### pt-br-currency-real-read-with-dollar (`R$` expands to "real dólar")
+- Category: `currency`
+- Example (owner-confirmed, pt-br 0228): "Gorjeta de 15% sobre R$ 45,00…" → "sobre **real
+  dólar** quarenta e cinco vírgula zero zero" (`sˈobry xeˈaʊ dˈolar
+  kwˌaɾˈeɪŋtæisˈiŋkʊ`). Owner, in Portuguese: "0228 como real-dollar também está
+  incorreto. **Deveria ser 'reais' somente.**"
+- Scope: **every `R$` occurrence** — 0227 ("R$ 1.234,56" → "real dólar mil duzentos…"),
+  0228, 0229 (two `R$` in one row). The symbol expands to the singular "real" *and* the
+  stray "dólar", and the amount's number is never applied to the currency word.
+- Expected: the amount, then the currency in the correct number — "quarenta e cinco
+  **reais**", "um **real**" for R$ 1, cents only when non-zero ("e vinte centavos").
+- Frequency: 4/377 symbols in 3 rows (0227, 0228, 0229) — 100% of `R$` uses.
+- G1 rule: a **pt-br-only** currency rule mapping `R$` → the currency word placed after
+  the amount, with **number agreement** (singular "real" / plural "reais" by the integer
+  part). Two notes: (a) this is the one currency case where the confirmed
+  `currency-amount-misread` reordering does *not* apply — es/fr/it already put the
+  currency after the amount (`45 €` → "cuarenta y cinco euros"), so pt is the outlier and
+  the rule stays language-scoped; (b) the agreement makes it a second **value-dependent**
+  rule, like the regnal threshold — a bare literal replacement cannot express it.
+- Also visible here: 0229's `R$ 1.234,56` → "**um.** duzentos e trinta e quatro", the
+  thousands `.` spoken as a full stop — the same separator family as es 0106 / it 0188.
+- Status: **owner-confirmed (2026-09-15)**.
 
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
