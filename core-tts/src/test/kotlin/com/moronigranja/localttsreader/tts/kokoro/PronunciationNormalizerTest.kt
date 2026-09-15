@@ -191,7 +191,6 @@ class PronunciationNormalizerTest {
     // ------------------------------------------------------------------
     // Scoping
     // ------------------------------------------------------------------
-
     @Test
     fun `a rule never fires in another language`() {
         // "Prof." is a Spanish word only in es; the same token in en keeps its
@@ -200,5 +199,47 @@ class PronunciationNormalizerTest {
         assertEquals("professor Salas", spoken("Prof. Salas", "en-us"))
         assertEquals("Prof. Salas", spoken("Prof. Salas", "de"))
         assertEquals("Sr. Oliveira", spoken("Sr. Oliveira", "en-us"))
+    }
+
+    /**
+     * Android's regex engine (ICU) rejects a LOOKBEHIND of unbounded length —
+     * `(?<!\p{Lu}\p{Ll}+\s)` compiles on the host JVM and throws
+     * `PatternSyntaxException` the moment the class loads on the device, which is
+     * how the S22 listening harness found it (2026-09-15). A host test cannot
+     * observe that directly, so this asserts the property that makes it safe:
+     * every lookbehind in every rule is bounded.
+     */
+    @Test
+    fun `no rule uses an unbounded lookbehind, which Android's engine rejects`() {
+        val patterns = PronunciationNormalizer.patternSources
+        assertEquals(true, patterns.isNotEmpty(), "the rule set should not be empty")
+
+        val offenders =
+            patterns.filter { pattern ->
+                var i = 0
+                var found = false
+                while (i < pattern.length) {
+                    val start = pattern.indexOf("(?<", i)
+                    if (start < 0) break
+                    val isLookbehind = pattern.startsWith("(?<!", start) || pattern.startsWith("(?<=", start)
+                    val close = pattern.indexOf(')', start)
+                    if (!isLookbehind || close < 0) {
+                        i = start + 3
+                        continue
+                    }
+                    val body = pattern.substring(start, close)
+                    if (body.contains("+") || body.contains("*") || Regex("\\{\\d+,}").containsMatchIn(body)) {
+                        found = true
+                    }
+                    i = close
+                }
+                found
+            }
+
+        assertEquals(
+            emptyList<String>(),
+            offenders,
+            "unbounded lookbehind (ICU rejects these on Android): $offenders",
+        )
     }
 }

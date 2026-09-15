@@ -72,11 +72,18 @@ object PronunciationNormalizer {
      * initial BEFORE it (`J. M. Dupont`) or a full first name (`João D. Silva`)
      * means `M.`/`D.` is a name part, not an abbreviation. Both shapes appear in
      * real text, so both are guarded.
+     *
+     * The first-name guard is BOUNDED (`{1,20}`) on purpose: these rules execute
+     * on Android's ICU regex engine, which rejects a lookbehind of unbounded
+     * length — `\p{Ll}+` compiles on the host JVM and throws
+     * `PatternSyntaxException` on the device (found by the S22 listening harness,
+     * 2026-09-15). [patternSources] plus the suite's ICU-safety test keep every
+     * rule inside that constraint.
      */
     private fun namePartAbbrev(
         abbreviation: String,
         expansion: String,
-    ): Rule = rule("(?<!\\p{Lu}\\.\\s)(?<!\\p{Lu}\\p{Ll}+\\s)$abbreviation\\.", expansion)
+    ): Rule = rule("(?<!\\p{Lu}\\.\\s)(?<!\\p{Lu}\\p{Ll}{1,20}\\s)$abbreviation\\.", expansion)
 
     /**
      * Digit separators, applied FIRST (they restructure the number the other
@@ -295,4 +302,13 @@ object PronunciationNormalizer {
         }
         return out
     }
+
+    /**
+     * Test seam: every rule's source pattern. The suite scans these for the
+     * ICU-safety constraint (no unbounded lookbehind) — an Android-only failure
+     * mode that a host test cannot otherwise observe, since `java.util.regex`
+     * on the JVM accepts what ICU rejects.
+     */
+    internal val patternSources: List<String>
+        get() = byLanguage.values.flatten().map { it.first.pattern }
 }
