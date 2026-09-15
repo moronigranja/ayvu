@@ -21,7 +21,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppCoreModule {
-
     @Binds
     @Singleton
     abstract fun bindPlayerCommands(sender: PlaybackCommandSender): PlayerCommands

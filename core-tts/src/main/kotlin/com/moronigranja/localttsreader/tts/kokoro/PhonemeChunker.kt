@@ -12,20 +12,24 @@ package com.moronigranja.localttsreader.tts.kokoro
  * so the smallest limit that needs no extra pass over the text is used.
  */
 object PhonemeChunker {
-
     private const val SENTENCE_MARKS = ".!?…"
     private const val CLAUSE_MARKS = ",;:"
 
     // Least to most disruptive place to cut. Punctuation stays with the text
     // before it, which is how the model was trained.
-    private val boundaries = listOf(
-        Regex("(?<=[.!?…])\\s+"),
-        Regex("(?<=[,;:])\\s+"),
-        Regex("\\s+"),
-    )
+    private val boundaries =
+        listOf(
+            Regex("(?<=[.!?…])\\s+"),
+            Regex("(?<=[,;:])\\s+"),
+            Regex("\\s+"),
+        )
 
     /** Seconds of silence a batch ending with [phonemes] should be followed by. */
-    fun pauseAfter(phonemes: String, sentence: Double, clause: Double): Double {
+    fun pauseAfter(
+        phonemes: String,
+        sentence: Double,
+        clause: Double,
+    ): Double {
         val mark = phonemes.trimEnd().lastOrNull()
         return when (mark) {
             null -> 0.0
@@ -36,7 +40,10 @@ object PhonemeChunker {
     }
 
     /** Splits [phonemes] into balanced batches of at most [maxLength] phonemes. */
-    fun split(phonemes: String, maxLength: Int = MAX_PHONEME_LENGTH): List<String> {
+    fun split(
+        phonemes: String,
+        maxLength: Int = MAX_PHONEME_LENGTH,
+    ): List<String> {
         val atoms = mutableListOf<String>()
         collectAtoms(phonemes.trim(), maxLength, 0, atoms)
         if (atoms.isEmpty()) return emptyList()
@@ -61,7 +68,12 @@ object PhonemeChunker {
         return pack(lengths, low).map { range -> atoms.subList(range.first, range.last + 1).joinToString(" ") }
     }
 
-    private fun collectAtoms(phonemes: String, maxLength: Int, level: Int, out: MutableList<String>) {
+    private fun collectAtoms(
+        phonemes: String,
+        maxLength: Int,
+        level: Int,
+        out: MutableList<String>,
+    ) {
         if (phonemes.isEmpty()) return
         if (phonemes.length <= maxLength) {
             out += phonemes
@@ -85,7 +97,10 @@ object PhonemeChunker {
     }
 
     /** Groups consecutive atoms into batches within [limit], as index ranges. */
-    private fun pack(lengths: IntArray, limit: Int): List<IntRange> {
+    private fun pack(
+        lengths: IntArray,
+        limit: Int,
+    ): List<IntRange> {
         val batches = mutableListOf<IntRange>()
         var start = 0
         var size = 0

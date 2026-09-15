@@ -12,16 +12,17 @@ import org.junit.jupiter.api.Test
  * over the segmented [Book] the player is bound to.
  */
 class BookProgressTest {
-
     // 3 passages: 150 + 300 + 450 chars — 60 s of speech at 15 chars/s.
-    private val book = Book(
-        id = "b1",
-        title = "T",
-        chapters = listOf(
-            Chapter(0, "One", listOf(TextPassage("a".repeat(150)), TextPassage("b".repeat(300)))),
-            Chapter(1, "Two", listOf(TextPassage("c".repeat(450)))),
-        ),
-    )
+    private val book =
+        Book(
+            id = "b1",
+            title = "T",
+            chapters =
+                listOf(
+                    Chapter(0, "One", listOf(TextPassage("a".repeat(150)), TextPassage("b".repeat(300)))),
+                    Chapter(1, "Two", listOf(TextPassage("c".repeat(450)))),
+                ),
+        )
 
     @Test
     fun `fraction counts completed passages including the current one`() {

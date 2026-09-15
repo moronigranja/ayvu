@@ -5,7 +5,6 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.LibraryEntry
@@ -14,6 +13,7 @@ import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,51 +35,55 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PlayPositionE2eTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var database: LibraryDatabase
     private lateinit var store: RoomLibraryStore
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "position-e2e-book",
-        title = "Position E2E",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "position-e2e-book",
+            title = "Position E2E",
+            chapters =
                 listOf(
-                    TextPassage(
-                        "The gate stood open at the far end of the field. " +
-                            "Cold light spread across the morning grass and the path. " +
-                            "She counted the fence posts along the track to the barn. " +
-                            "The wind carried the sound of water from the lower meadow. " +
-                            "They found the key beneath the loose stone by the steps. " +
-                            "It took the whole hour to walk the edge of the wood.",
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage(
+                                "The gate stood open at the far end of the field. " +
+                                    "Cold light spread across the morning grass and the path. " +
+                                    "She counted the fence posts along the track to the barn. " +
+                                    "The wind carried the sound of water from the lower meadow. " +
+                                    "They found the key beneath the loose stone by the steps. " +
+                                    "It took the whole hour to walk the edge of the wood.",
+                            ),
+                        ),
+                    ),
+                    Chapter(
+                        1,
+                        "Two",
+                        listOf(
+                            TextPassage("The bridge crossed the narrow stream behind the house."),
+                            TextPassage("Beyond the hill the road turned north toward the gate."),
+                            TextPassage("This is the final sentence of the position test book."),
+                        ),
                     ),
                 ),
-            ),
-            Chapter(
-                1,
-                "Two",
-                listOf(
-                    TextPassage("The bridge crossed the narrow stream behind the house."),
-                    TextPassage("Beyond the hill the road turned north toward the gate."),
-                    TextPassage("This is the final sentence of the position test book."),
-                ),
-            ),
-        ),
-    )
+        )
 
     @Before
-    fun setUp() = runBlocking {
-        database = Room.databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-            .allowMainThreadQueries()
-            .build()
-        store = RoomLibraryStore(database, scope)
-        store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
-    }
+    fun setUp() =
+        runBlocking {
+            database =
+                Room
+                    .databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .allowMainThreadQueries()
+                    .build()
+            store = RoomLibraryStore(database, scope)
+            store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
+        }
 
     @After
     fun tearDown() {

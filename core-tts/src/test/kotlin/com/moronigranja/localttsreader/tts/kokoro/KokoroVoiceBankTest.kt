@@ -1,24 +1,26 @@
 package com.moronigranja.localttsreader.tts.kokoro
 
-import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class KokoroVoiceBankTest {
-
     @TempDir
     lateinit var tempDir: File
 
     /** Writes an .npz exactly the way numpy does: zip members "<name>.npy". */
-    private fun writeNpz(file: File, sizes: List<Pair<String, IntArray>>) {
+    private fun writeNpz(
+        file: File,
+        sizes: List<Pair<String, IntArray>>,
+    ) {
         ZipOutputStream(file.outputStream()).use { zip ->
             for ((name, rows) in sizes) {
                 zip.putNextEntry(ZipEntry("$name.npy"))
@@ -36,8 +38,18 @@ class KokoroVoiceBankTest {
         val dict = "{'descr': '<f4', 'fortran_order': False, 'shape': (${rows.joinToString(", ")}, " + "1, 1), }"
         val headerBytes = (dict + "\n").padEnd(64, ' ').toByteArray(Charsets.US_ASCII)
         // numpy .npy v1: magic + version + 2-byte little-endian header length.
-        val prefix = byteArrayOf(0x93.toByte(), 'N'.code.toByte(), 'U'.code.toByte(), 'M'.code.toByte(), 'P'.code.toByte(), 'Y'.code.toByte(), 1, 0) +
-            byteArrayOf((headerBytes.size and 0xFF).toByte(), ((headerBytes.size shr 8) and 0xFF).toByte())
+        val prefix =
+            byteArrayOf(
+                0x93.toByte(),
+                'N'.code.toByte(),
+                'U'.code.toByte(),
+                'M'.code.toByte(),
+                'P'.code.toByte(),
+                'Y'.code.toByte(),
+                1,
+                0,
+            ) +
+                byteArrayOf((headerBytes.size and 0xFF).toByte(), ((headerBytes.size shr 8) and 0xFF).toByte())
         return prefix + headerBytes + floats
     }
 

@@ -5,7 +5,6 @@ package com.moronigranja.localttsreader.ebook
  * import flow can tell the user "format not supported" instead of crashing.
  */
 object EBookFormats {
-
     fun parserFor(fileName: String): EBookParser? =
         when (fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase()) {
             "epub" -> EpubParser

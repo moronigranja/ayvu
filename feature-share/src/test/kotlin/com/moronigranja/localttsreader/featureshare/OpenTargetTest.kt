@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test
 
 /** S3: the extras contract the share gate writes and MainActivity reads. */
 class OpenTargetTest {
-
     @Test
     fun `parses a full target`() {
         val target = OpenTarget.fromExtras("b1", 3, 5)

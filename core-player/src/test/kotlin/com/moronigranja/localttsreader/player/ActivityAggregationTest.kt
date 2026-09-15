@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
  * boundaries — all over pinned day keys, never the wall clock.
  */
 class ActivityAggregationTest {
-
     // ------------------------------------------------------------------
     // DailyTotals
 

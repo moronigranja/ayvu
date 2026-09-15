@@ -5,4 +5,6 @@ package com.moronigranja.localttsreader.model
  * unit of matching (share-and-identify) and of resume, so it must stay small and
  * stable across re-parses.
  */
-data class TextPassage(val text: String)
+data class TextPassage(
+    val text: String,
+)

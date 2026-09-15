@@ -29,7 +29,6 @@ import com.moronigranja.localttsreader.tts.TtsPack
  * directory (`<dataPath>/tessdata/<lang>.traineddata`) on first use.
  */
 object TrainedDataPacks {
-
     const val ENGINE_ID = "tess-two"
 
     private const val RELEASE = "3.04.00"
@@ -45,14 +44,20 @@ object TrainedDataPacks {
     val all: List<TtsPack> = listOf(eng, spa, fra, deu, por, ita)
 
     /** Engine metadata for the registry/UI ("tess-two", the six installed languages). */
-    val spec: EngineSpec = EngineSpec(
-        id = ENGINE_ID,
-        displayName = "Tesseract OCR (tess-two)",
-        tier = com.moronigranja.localttsreader.tts.EngineTier.PRIMARY,
-        languages = all.map { it.id }.toSet(),
-    )
+    val spec: EngineSpec =
+        EngineSpec(
+            id = ENGINE_ID,
+            displayName = "Tesseract OCR (tess-two)",
+            tier = com.moronigranja.localttsreader.tts.EngineTier.PRIMARY,
+            languages = all.map { it.id }.toSet(),
+        )
 
-    private fun pack(lang: String, displayName: String, sizeBytes: Long, sha256Hex: String) = TtsPack(
+    private fun pack(
+        lang: String,
+        displayName: String,
+        sizeBytes: Long,
+        sha256Hex: String,
+    ) = TtsPack(
         id = lang,
         engineId = ENGINE_ID,
         kind = PackKind.LANGUAGE,

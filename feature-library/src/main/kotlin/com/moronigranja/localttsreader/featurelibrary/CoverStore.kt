@@ -8,9 +8,13 @@ import java.io.File
  * same file is a no-op and never re-writes). TXT/Markdown/MOBI books simply
  * have no file — the row falls back to a placeholder.
  */
-class CoverStore(private val root: File) {
-
-    fun save(bookId: String, bytes: ByteArray) {
+class CoverStore(
+    private val root: File,
+) {
+    fun save(
+        bookId: String,
+        bytes: ByteArray,
+    ) {
         root.mkdirs()
         File(root, bookId).writeBytes(bytes)
     }
@@ -19,6 +23,7 @@ class CoverStore(private val root: File) {
         val file = File(root, bookId)
         return if (file.isFile) file.readBytes() else null
     }
+
     /** Book removal: drop the sidecar cover (decisions #50 pass). */
     fun delete(bookId: String) {
         File(root, bookId).delete()

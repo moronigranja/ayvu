@@ -11,8 +11,6 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
-import java.lang.reflect.Field
-import java.lang.reflect.Method
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -22,6 +20,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLog
+import java.lang.reflect.Field
+import java.lang.reflect.Method
 
 /**
  * Measurement probes (docs/generate-play-goals.md §Measurement): the probes —
@@ -45,12 +45,12 @@ import org.robolectric.shadows.ShadowLog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceProbesTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
 
     private class FakeEngine : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome =
             SynthesisOutcome.Audio(ByteArray(1_000), 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
     }
@@ -63,25 +63,34 @@ class PlaybackServiceProbesTest {
             settings,
         ) {
         override fun engine(): TTSEngine? = FakeEngine()
+
         override val failureReason: String? = null
     }
 
     private class FakeOutput : PassageOutput {
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) = Unit
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) = Unit
+
         override fun stop() = Unit
+
         override val positionSamples: Int = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
     /** A directly-constructed service with base context attached and a fake
      * output (the Hilt-transformed onCreate cannot run under plain
      * Robolectric — same seam as the A57/PublishGuard harnesses). */
-    private fun service(): PlaybackService = PlaybackService().apply {
-        val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
-        attach.isAccessible = true
-        attach.invoke(this, context)
-        this.output = FakeOutput()
-    }
+    private fun service(): PlaybackService =
+        PlaybackService().apply {
+            val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
+            attach.isAccessible = true
+            attach.invoke(this, context)
+            this.output = FakeOutput()
+        }
 
     /** Debug-build simulation: symlinks the app's debuggable runtime flag —
      * the gate the probes check (there is no feature-player BuildConfig). */
@@ -91,14 +100,17 @@ class PlaybackServiceProbesTest {
         flags.setInt(info, info.flags or ApplicationInfo.FLAG_DEBUGGABLE)
     }
 
-    private fun invokeProbe(service: PlaybackService, tag: String, message: String) {
+    private fun invokeProbe(
+        service: PlaybackService,
+        tag: String,
+        message: String,
+    ) {
         val method: Method = PlaybackService::class.java.getDeclaredMethod("probe", String::class.java, String::class.java)
         method.isAccessible = true
         method.invoke(service, tag, message)
     }
 
-    private fun field(name: String): Field =
-        PlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }
+    private fun field(name: String): Field = PlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }
 
     private fun logsFor(tag: String): List<ShadowLog.LogItem> = ShadowLog.getLogsForTag(tag)
 

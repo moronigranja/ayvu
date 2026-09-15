@@ -14,7 +14,6 @@ package com.moronigranja.localttsreader.locate
  * cross-book distractors stay below ~0.05 and reordered text sits near 0.
  */
 object TextMatcher {
-
     const val DEFAULT_NGRAM_SIZE = 4
 
     /**
@@ -38,15 +37,20 @@ object TextMatcher {
     }
 
     /** Convenience: score a raw snippet against a raw passage string (normalizes both). */
-    fun score(snippet: String, passage: String): Double =
-        scoreNormalized(TextNormalizer.normalize(snippet), indexGrams(TextNormalizer.normalize(passage)))
+    fun score(
+        snippet: String,
+        passage: String,
+    ): Double = scoreNormalized(TextNormalizer.normalize(snippet), indexGrams(TextNormalizer.normalize(passage)))
 
     /**
      * Score an already-normalized snippet against precomputed passage grams.
      * Snippets shorter than 4 tokens fall back to token-set recall (weak signal, but
      * the only signal available — the caller's threshold decides whether it's enough).
      */
-    fun scoreNormalized(snippetNormalized: String, passage: PassageGrams): Double {
+    fun scoreNormalized(
+        snippetNormalized: String,
+        passage: PassageGrams,
+    ): Double {
         val snippetTokens = snippetNormalized.split(' ').filter { it.isNotEmpty() }
         if (snippetTokens.isEmpty()) return 0.0
 

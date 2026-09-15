@@ -24,9 +24,9 @@ import com.moronigranja.localttsreader.tts.PackKind
 import com.moronigranja.localttsreader.tts.PackRegistry
 import com.moronigranja.localttsreader.tts.TtsPack
 import com.moronigranja.localttsreader.tts.VoiceCatalog
-import com.moronigranja.localttsreader.tts.sha256Hex
-import com.moronigranja.localttsreader.tts.setup.StorageProbe
 import com.moronigranja.localttsreader.tts.setup.StepKind
+import com.moronigranja.localttsreader.tts.setup.StorageProbe
+import com.moronigranja.localttsreader.tts.sha256Hex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,12 +34,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -119,7 +119,9 @@ class SetupViewModelTest {
             voiceAudition =
                 object : VoiceAudition {
                     override val state: StateFlow<AuditionUiState> = MutableStateFlow(AuditionUiState())
+
                     override fun preview(voice: String) = Unit
+
                     override fun stop() = Unit
                 },
         )
@@ -291,7 +293,9 @@ class SetupViewModelTest {
             // The required pack rows become piper's (model + config + espeak).
             assertEquals(
                 setOf("piper-lessac-medium", "piper-lessac-medium-config", "espeak-ng"),
-                vm.state.value.packs.map { it.packId }.toSet(),
+                vm.state.value.packs
+                    .map { it.packId }
+                    .toSet(),
             )
         }
 
@@ -318,7 +322,11 @@ class SetupViewModelTest {
             File(filesDir, "espeak/libespeak-ng.so").writeBytes(ByteArray(4))
             advanceUntilIdle()
             assertEquals(StepKind.DOWNLOAD_PACKS, vm.state.value.currentStep)
-            assertEquals(true, vm.state.value.packs.all { it.status == com.moronigranja.localttsreader.ui.PlanPackStatus.Ready })
+            assertEquals(
+                true,
+                vm.state.value.packs
+                    .all { it.status == com.moronigranja.localttsreader.ui.PlanPackStatus.Ready },
+            )
 
             vm.wizardNext()
             advanceUntilIdle()

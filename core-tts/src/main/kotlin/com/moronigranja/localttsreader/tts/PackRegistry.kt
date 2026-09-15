@@ -1,12 +1,12 @@
 package com.moronigranja.localttsreader.tts
 
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The pack registry (T1): engine → pack → status, observable. This is the
@@ -30,11 +30,12 @@ class PackRegistry(
     descriptors: List<EngineDescriptor>,
 ) {
     private val descriptors: List<EngineDescriptor> = descriptors.toList()
-    private val allPacks: List<TtsPack> = descriptors.flatMap { it.packs }.also {
-        require(it.map(TtsPack::id).distinct().size == it.size) {
-            "pack ids must be globally unique across engines"
+    private val allPacks: List<TtsPack> =
+        descriptors.flatMap { it.packs }.also {
+            require(it.map(TtsPack::id).distinct().size == it.size) {
+                "pack ids must be globally unique across engines"
+            }
         }
-    }
 
     private val _packs = MutableStateFlow<List<PackState>>(emptyList())
     val packs: StateFlow<List<PackState>> = _packs.asStateFlow()
@@ -60,12 +61,13 @@ class PackRegistry(
         _packs.value = allPacks.map { PackState(it, statusOf(it)) }
     }
 
-    private fun statusOf(pack: TtsPack): PackStatus = when {
-        cache.isVerified(pack) -> PackStatus.Ready
-        inFlight.containsKey(pack.id) -> PackStatus.Downloading(cache.downloadedBytes(pack), pack.sizeBytes)
-        lastFailed.containsKey(pack.id) -> PackStatus.Failed(lastFailed.getValue(pack.id))
-        else -> PackStatus.NotDownloaded
-    }
+    private fun statusOf(pack: TtsPack): PackStatus =
+        when {
+            cache.isVerified(pack) -> PackStatus.Ready
+            inFlight.containsKey(pack.id) -> PackStatus.Downloading(cache.downloadedBytes(pack), pack.sizeBytes)
+            lastFailed.containsKey(pack.id) -> PackStatus.Failed(lastFailed.getValue(pack.id))
+            else -> PackStatus.NotDownloaded
+        }
 
     /**
      * Explicit, user-initiated download of [packId] (resumes a partial,
@@ -77,8 +79,9 @@ class PackRegistry(
         packId: String,
         onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): DownloadOutcome {
-        val pack = allPacks.firstOrNull { it.id == packId }
-            ?: error("unknown pack: $packId")
+        val pack =
+            allPacks.firstOrNull { it.id == packId }
+                ?: error("unknown pack: $packId")
         val deferred = CompletableDeferred<DownloadOutcome>()
         val existing = inFlight.putIfAbsent(packId, deferred)
         if (existing != null) return existing.await() // join the running transfer
@@ -99,12 +102,13 @@ class PackRegistry(
         onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit,
     ): DownloadOutcome {
         update(pack, PackStatus.Downloading(cache.downloadedBytes(pack), pack.sizeBytes))
-        val outcome = withContext(Dispatchers.IO) {
-            downloader.download(pack) { downloaded, total ->
-                onProgress(downloaded, total)
-                update(pack, PackStatus.Downloading(downloaded, total))
+        val outcome =
+            withContext(Dispatchers.IO) {
+                downloader.download(pack) { downloaded, total ->
+                    onProgress(downloaded, total)
+                    update(pack, PackStatus.Downloading(downloaded, total))
+                }
             }
-        }
         when (outcome) {
             is DownloadOutcome.Failed -> lastFailed[pack.id] = outcome.reason
             else -> lastFailed.remove(pack.id)
@@ -119,7 +123,10 @@ class PackRegistry(
         return outcome
     }
 
-    private fun update(pack: TtsPack, status: PackStatus) {
+    private fun update(
+        pack: TtsPack,
+        status: PackStatus,
+    ) {
         _packs.value = _packs.value.map { if (it.pack.id == pack.id) PackState(it.pack, status) else it }
     }
 }

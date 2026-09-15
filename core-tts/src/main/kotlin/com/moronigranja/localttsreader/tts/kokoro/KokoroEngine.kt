@@ -1,5 +1,6 @@
 package com.moronigranja.localttsreader.tts.kokoro
 
+import ai.onnxruntime.OrtSession
 import com.moronigranja.localttsreader.tts.EngineSpec
 import com.moronigranja.localttsreader.tts.SegmentAnchor
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
@@ -7,13 +8,12 @@ import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
 import com.moronigranja.localttsreader.tts.pcm16
-import ai.onnxruntime.OrtSession
-import java.io.File
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Kokoro-82M as a [TTSEngine] — a faithful JVM port of the reference
@@ -47,8 +47,8 @@ class KokoroEngine internal constructor(
     private val voices: KokoroVoiceBank,
     private val tokenizer: KokoroTokenizer,
     private val phonemizer: Phonemizer,
-) : TTSEngine, AutoCloseable {
-
+) : TTSEngine,
+    AutoCloseable {
     override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome =
         withContext(Dispatchers.IO) {
             try {
@@ -100,14 +100,16 @@ class KokoroEngine internal constructor(
         if (request.text.isBlank()) return SynthesisOutcome.Failed("nothing to synthesize")
 
         val voiceName = request.voice ?: DEFAULT_VOICE
-        val language = VOICE_LANGUAGES[voiceName.substringBefore('_')]
-            ?: return SynthesisOutcome.Failed("unknown voice '$voiceName'")
+        val language =
+            VOICE_LANGUAGES[voiceName.substringBefore('_')]
+                ?: return SynthesisOutcome.Failed("unknown voice '$voiceName'")
 
-        val phonemes = try {
-            tokenizer.phonemize(phonemizer, request.text, language)
-        } catch (e: PhonemizeException) {
-            return SynthesisOutcome.Failed(e.message ?: "phonemization failed")
-        }
+        val phonemes =
+            try {
+                tokenizer.phonemize(phonemizer, request.text, language)
+            } catch (e: PhonemizeException) {
+                return SynthesisOutcome.Failed(e.message ?: "phonemization failed")
+            }
         if (phonemes.isEmpty()) return SynthesisOutcome.Failed("nothing to synthesize")
 
         // Newlines are not in the vocabulary, so collapse every whitespace run
@@ -122,35 +124,40 @@ class KokoroEngine internal constructor(
         for ((index, batch) in batches.withIndex()) {
             context.ensureActive()
 
-            val tokens = try {
-                tokenizer.tokenize(batch)
-            } catch (e: IllegalArgumentException) {
-                return SynthesisOutcome.Failed(e.message ?: "text too long")
-            }
+            val tokens =
+                try {
+                    tokenizer.tokenize(batch)
+                } catch (e: IllegalArgumentException) {
+                    return SynthesisOutcome.Failed(e.message ?: "text too long")
+                }
             if (tokens.isEmpty()) continue
 
-            val styleRow = voices.styleFor(voiceName, tokens.size)
-                ?: return SynthesisOutcome.Failed("unknown voice '$voiceName'")
+            val styleRow =
+                voices.styleFor(voiceName, tokens.size)
+                    ?: return SynthesisOutcome.Failed("unknown voice '$voiceName'")
             val result = session.infer(tokens, styleRow, request.speed)
 
             // Drop the leading pad boundary so index i is where phoneme i starts.
             var edges: IntArray? = null
             if (result.duration != null) {
-                edges = KokoroTimings.tokenEdges(result.duration, result.audio.size)
-                    .copyOfRange(1, result.duration.size + 1)
+                edges =
+                    KokoroTimings
+                        .tokenEdges(result.duration, result.audio.size)
+                        .copyOfRange(1, result.duration.size + 1)
             }
 
             // Trim leading/trailing silence of each window: the model pads
             // ~2s at a text start, ~20ms at joins; the pause the punctuation
             // asks for is added back after trimming.
             val (trimmed, head) = AudioTrim.trim(result.audio)
-            val audio: FloatArray = if (edges != null) {
-                val shifted = IntArray(edges.size) { i -> (edges[i] - head.first).coerceIn(0, trimmed.size) }
-                edges = shifted
-                trimmed
-            } else {
-                trimmed
-            }
+            val audio: FloatArray =
+                if (edges != null) {
+                    val shifted = IntArray(edges.size) { i -> (edges[i] - head.first).coerceIn(0, trimmed.size) }
+                    edges = shifted
+                    trimmed
+                } else {
+                    trimmed
+                }
 
             var batchAudio = audio
             if (index < batches.lastIndex) {
@@ -210,17 +217,26 @@ class KokoroEngine internal constructor(
          * pack (VOICES.md families). German and Korean are not served by this
          * pack at all, so the engine spec advertises only what voices exist.
          */
-        val VOICE_LANGUAGES: Map<String, String> = mapOf(
-            "af" to "en-us", "am" to "en-us",
-            "bf" to "en-gb", "bm" to "en-gb",
-            "ef" to "es", "em" to "es",
-            "ff" to "fr-fr",
-            "hf" to "hi", "hm" to "hi",
-            "if" to "it", "im" to "it",
-            "jf" to "ja", "jm" to "ja",
-            "pf" to "pt-br", "pm" to "pt-br",
-            "zf" to "cmn", "zm" to "cmn",
-        )
+        val VOICE_LANGUAGES: Map<String, String> =
+            mapOf(
+                "af" to "en-us",
+                "am" to "en-us",
+                "bf" to "en-gb",
+                "bm" to "en-gb",
+                "ef" to "es",
+                "em" to "es",
+                "ff" to "fr-fr",
+                "hf" to "hi",
+                "hm" to "hi",
+                "if" to "it",
+                "im" to "it",
+                "jf" to "ja",
+                "jm" to "ja",
+                "pf" to "pt-br",
+                "pm" to "pt-br",
+                "zf" to "cmn",
+                "zm" to "cmn",
+            )
 
         /**
          * Opens the engine on ready pack files. The graph's embedded vocab
@@ -270,6 +286,5 @@ class KokoroEngine internal constructor(
             }
             return joined
         }
-
     }
 }

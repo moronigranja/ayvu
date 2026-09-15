@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class PhonemeChunkerTest {
-
     @Test
     fun `empty input splits to nothing`() {
         assertEquals(emptyList<String>(), PhonemeChunker.split(""))

@@ -20,10 +20,16 @@ package com.moronigranja.localttsreader.tts.kokoro
  * call fails — callers map it to a typed failure, never a silent fallback.
  */
 interface Phonemizer {
-    fun phonemize(text: String, language: String): String
+    fun phonemize(
+        text: String,
+        language: String,
+    ): String
 
     /** The voice languages this installation can phonemize, as [language] codes. */
     fun supportedLanguages(): Set<String>
 }
 
-class PhonemizeException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+class PhonemizeException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class NormalizingPhonemizerTest {
-
     @Test
     fun `delegates with the normalized text and language`() {
         val fake = RecordingPhonemizer()
@@ -23,7 +22,10 @@ class NormalizingPhonemizerTest {
         val calls = mutableListOf<Pair<String, String>>()
         private val languages = setOf("en-us", "en-gb")
 
-        override fun phonemize(text: String, language: String): String {
+        override fun phonemize(
+            text: String,
+            language: String,
+        ): String {
             calls += text to language
             return "phonemes($text)"
         }

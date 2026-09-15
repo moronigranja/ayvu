@@ -6,7 +6,6 @@ import androidx.room.Upsert
 
 @Dao
 interface SettingsDao {
-
     @Query("SELECT value FROM settings WHERE key = :key")
     suspend fun get(key: String): String?
 

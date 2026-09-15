@@ -15,11 +15,14 @@ import com.moronigranja.localttsreader.model.Book
  * the 1.0× remainder divided by [speed].
  */
 object BookProgress {
-
     const val DEFAULT_CHARS_PER_SECOND = 15.0
 
     /** [0..1]: completed passages (incl. current) over the book's total. */
-    fun fraction(book: Book, chapterIndex: Int, passageIndex: Int): Float {
+    fun fraction(
+        book: Book,
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): Float {
         val total = book.chapters.sumOf { it.passages.size }
         if (total == 0) return 0f
         var before = 0
@@ -95,8 +98,10 @@ object BookProgress {
     }
 
     /** The book's total estimated speaking time at 1.0× (chars/cps). */
-    fun totalSeconds(book: Book, charsPerSecond: Double = DEFAULT_CHARS_PER_SECOND): Double =
-        book.chapters.sumOf { chapter -> chapter.passages.sumOf { it.text.length } } / charsPerSecond
+    fun totalSeconds(
+        book: Book,
+        charsPerSecond: Double = DEFAULT_CHARS_PER_SECOND,
+    ): Double = book.chapters.sumOf { chapter -> chapter.passages.sumOf { it.text.length } } / charsPerSecond
 
     /**
      * Maps a book-time playhead at 1.0× back to a spine position by walking
@@ -122,8 +127,9 @@ object BookProgress {
         }
         // Exact book end (or empty book): last passage, full duration.
         val lastChapter = book.chapters.lastOrNull() ?: return PlayerPosition(book.id, 0, 0, 0.0)
-        val lastPassage = lastChapter.passages.lastOrNull()
-            ?: return PlayerPosition(book.id, lastChapter.index, 0, 0.0)
+        val lastPassage =
+            lastChapter.passages.lastOrNull()
+                ?: return PlayerPosition(book.id, lastChapter.index, 0, 0.0)
         return PlayerPosition(
             book.id,
             lastChapter.index,

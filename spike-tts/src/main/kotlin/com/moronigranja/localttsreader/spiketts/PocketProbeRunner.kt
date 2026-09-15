@@ -66,20 +66,24 @@ class PocketProbeRunner(
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
 
-    fun run(outDir: File, log: (String) -> Unit): JSONObject {
+    fun run(
+        outDir: File,
+        log: (String) -> Unit,
+    ): JSONObject {
         val dir = File(context.filesDir, "models/pocket/english_2026-04")
         val inputs = JSONObject(File(context.filesDir, "d5_inputs.json").readText())
         val refMeta = File(context.filesDir, "pocket_ref_meta.json")
         val refLatents = File(context.filesDir, "pocket_ref_latents.f32")
         val refAudio = File(context.filesDir, "pocket_ref_audio.f32")
 
-        val results = JSONObject()
-            .put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
-            .put("ort_native", OrtEnvironment.getEnvironment().version)
-            .put(
-                "export",
-                "KevinAHM/pocket-tts-onnx@58a6d00cf13d239b6748cb0769f35c580a8f606c english_2026-04",
-            )
+        val results =
+            JSONObject()
+                .put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
+                .put("ort_native", OrtEnvironment.getEnvironment().version)
+                .put(
+                    "export",
+                    "KevinAHM/pocket-tts-onnx@58a6d00cf13d239b6748cb0769f35c580a8f606c english_2026-04",
+                )
         val legs = JSONArray()
         results.put("legs", legs)
 
@@ -126,7 +130,11 @@ class PocketProbeRunner(
         val legJson = JSONObject().put("threads", threads)
 
         val openMs = JSONObject()
-        fun open(name: String, file: String): OrtSession {
+
+        fun open(
+            name: String,
+            file: String,
+        ): OrtSession {
             val opts = OrtSession.SessionOptions()
             opts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             opts.setIntraOpNumThreads(threads)
@@ -154,43 +162,50 @@ class PocketProbeRunner(
         try {
             // ---- voice encoding leg (fp32 encoder on the staged 24 kHz PCM)
             val pcm = readF32(File(context.filesDir, inputs.getString("voice_pcm")))
-            thermal.start(); power.start()
+            thermal.start()
+            power.start()
             val tEnc = System.currentTimeMillis()
-            enc.run(
-                mapOf("audio" to OnnxTensor.createTensor(env, FloatBuffer.wrap(pcm), longArrayOf(1, 1, pcm.size.toLong()))),
-            ).use { out ->
-                val voice = f32Of(out[0] as OnnxTensor)
-                val encodeMs = System.currentTimeMillis() - tEnc
-                legJson.put("voice_encode_ms", encodeMs).put("voice_frames", voice.size / 1024)
-                log("voice emb: ${voice.size / 1024} frames in $encodeMs ms")
+            enc
+                .run(
+                    mapOf("audio" to OnnxTensor.createTensor(env, FloatBuffer.wrap(pcm), longArrayOf(1, 1, pcm.size.toLong()))),
+                ).use { out ->
+                    val voice = f32Of(out[0] as OnnxTensor)
+                    val encodeMs = System.currentTimeMillis() - tEnc
+                    legJson.put("voice_encode_ms", encodeMs).put("voice_frames", voice.size / 1024)
+                    log("voice emb: ${voice.size / 1024} frames in $encodeMs ms")
 
-                val runs = JSONArray()
-                legJson.put("runs", runs)
-                for (p in 0 until passages.length()) {
-                    val passage = passages.getJSONObject(p)
-                    val res = try {
-                        synthesizePassage(main, dec, flowS, txt, voice, passage, rng, outDir, log)
-                    } catch (e: Throwable) {
-                        log("passage ${passage.optString("id")} FAILED: $e")
-                        Log.e(TAG, "passage failed", e)
-                        JSONObject().put("id", passage.optString("id")).put("error", e.toString())
-                    }
-                    runs.put(res)
-                    if (passage.optString("id") == refId && res.has("latents_file")) {
-                        val parity = attachParity(
-                            res, JSONObject(refMeta.readText()), refLatents, refAudio,
-                            File(res.getString("latents_file")),
-                            File(outDir, "d5_${res.getString("id")}.wav"),
-                        )
-                        res.put("parity", parity)
-                        log(
-                            "parity: eos ${res.optInt("eos_frame")} vs ${parity.optInt("ref_eos")}, " +
-                                "latents maxdiff ${parity.optDouble("latents_max_abs_diff")}, " +
-                                "audio maxdiff ${parity.optDouble("audio_max_abs_diff")}",
-                        )
+                    val runs = JSONArray()
+                    legJson.put("runs", runs)
+                    for (p in 0 until passages.length()) {
+                        val passage = passages.getJSONObject(p)
+                        val res =
+                            try {
+                                synthesizePassage(main, dec, flowS, txt, voice, passage, rng, outDir, log)
+                            } catch (e: Throwable) {
+                                log("passage ${passage.optString("id")} FAILED: $e")
+                                Log.e(TAG, "passage failed", e)
+                                JSONObject().put("id", passage.optString("id")).put("error", e.toString())
+                            }
+                        runs.put(res)
+                        if (passage.optString("id") == refId && res.has("latents_file")) {
+                            val parity =
+                                attachParity(
+                                    res,
+                                    JSONObject(refMeta.readText()),
+                                    refLatents,
+                                    refAudio,
+                                    File(res.getString("latents_file")),
+                                    File(outDir, "d5_${res.getString("id")}.wav"),
+                                )
+                            res.put("parity", parity)
+                            log(
+                                "parity: eos ${res.optInt("eos_frame")} vs ${parity.optInt("ref_eos")}, " +
+                                    "latents maxdiff ${parity.optDouble("latents_max_abs_diff")}, " +
+                                    "audio maxdiff ${parity.optDouble("audio_max_abs_diff")}",
+                            )
+                        }
                     }
                 }
-            }
 
             thermal.stop()
             val mem = Debug.MemoryInfo()
@@ -210,7 +225,11 @@ class PocketProbeRunner(
             )
             return legJson
         } finally {
-            enc.close(); txt.close(); mainS.close(); flowS.close(); decS.close()
+            enc.close()
+            txt.close()
+            mainS.close()
+            flowS.close()
+            decS.close()
         }
     }
 
@@ -232,7 +251,12 @@ class PocketProbeRunner(
         val steps = passage.optInt("lsd_steps", 1)
         val sentences = passage.getJSONArray("sentences")
         val sigma = sqrt(temp).toFloat()
-        val stage = JSONObject().put("cond_ms", 0L).put("main_ms", 0L).put("flow_ms", 0L).put("dec_ms", 0L)
+        val stage =
+            JSONObject()
+                .put("cond_ms", 0L)
+                .put("main_ms", 0L)
+                .put("flow_ms", 0L)
+                .put("dec_ms", 0L)
         val t0 = System.currentTimeMillis()
         var allPcm = FloatArray(0)
         var totalFrames = 0
@@ -286,19 +310,21 @@ class PocketProbeRunner(
                 var s = 0f
                 val dt = 1f / steps
                 for (j in 0 until steps) {
-                    val s0 = s; s += dt
-                    flowS.run(
-                        mapOf(
-                            "c" to OnnxTensor.createTensor(env, FloatBuffer.wrap(frame.cond), longArrayOf(1, 1024)),
-                            "s" to OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(s0)), longArrayOf(1, 1)),
-                            "t" to OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(s)), longArrayOf(1, 1)),
-                            "x" to OnnxTensor.createTensor(env, FloatBuffer.wrap(x), longArrayOf(1, 32)),
-                        ),
-                    ).use { vo ->
-                        val v = vo[0] as OnnxTensor
-                        val vb = v.floatBuffer
-                        for (i in 0 until 32) x[i] += vb.get(i) * dt
-                    }
+                    val s0 = s
+                    s += dt
+                    flowS
+                        .run(
+                            mapOf(
+                                "c" to OnnxTensor.createTensor(env, FloatBuffer.wrap(frame.cond), longArrayOf(1, 1024)),
+                                "s" to OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(s0)), longArrayOf(1, 1)),
+                                "t" to OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(s)), longArrayOf(1, 1)),
+                                "x" to OnnxTensor.createTensor(env, FloatBuffer.wrap(x), longArrayOf(1, 32)),
+                            ),
+                        ).use { vo ->
+                            val v = vo[0] as OnnxTensor
+                            val vb = v.floatBuffer
+                            for (i in 0 until 32) x[i] += vb.get(i) * dt
+                        }
                 }
                 val f1 = System.currentTimeMillis()
                 stage.put("flow_ms", stage.getLong("flow_ms") + f1 - f0)
@@ -332,8 +358,13 @@ class PocketProbeRunner(
         val wall = System.currentTimeMillis() - t0
         val audioS = allPcm.size / SR.toDouble()
         val rtf = wall / 1000.0 / audioS
-        var rms = 0.0; var peak = 0.0
-        for (v in allPcm) { rms += v.toDouble() * v; val a = abs(v).toDouble(); if (a > peak) peak = a }
+        var rms = 0.0
+        var peak = 0.0
+        for (v in allPcm) {
+            rms += v.toDouble() * v
+            val a = abs(v).toDouble()
+            if (a > peak) peak = a
+        }
         rms = sqrt(rms / maxOf(1, allPcm.size))
         log(
             "${passage.getString("id")}: $totalFrames frames, ${"%.2f".format(audioS)}s audio " +
@@ -342,18 +373,19 @@ class PocketProbeRunner(
 
         Wav.write(File(outDir, "d5_${passage.getString("id")}.wav"), allPcm, SR)
 
-        val result = JSONObject()
-            .put("id", passage.getString("id"))
-            .put("temperature", temp)
-            .put("frames", totalFrames)
-            .put("eos_frame", eosFrame)
-            .put("audio_seconds", audioS)
-            .put("wall_ms", wall)
-            .put("rtf", rtf)
-            .put("stages_ms", stage)
-            .put("rms", rms)
-            .put("peak", peak)
-            .put("finite", allPcm.all { it.isFinite() })
+        val result =
+            JSONObject()
+                .put("id", passage.getString("id"))
+                .put("temperature", temp)
+                .put("frames", totalFrames)
+                .put("eos_frame", eosFrame)
+                .put("audio_seconds", audioS)
+                .put("wall_ms", wall)
+                .put("rtf", rtf)
+                .put("stages_ms", stage)
+                .put("rms", rms)
+                .put("peak", peak)
+                .put("finite", allPcm.all { it.isFinite() })
         if (sentences.getJSONObject(0).optBoolean("ref", false)) {
             result.put("latents_file", File(outDir, "d5_ref_latents.f32").absolutePath)
         }
@@ -387,7 +419,10 @@ class PocketProbeRunner(
 
     // ------------------------------------------------------------ helpers
 
-    private fun crossfade(prev: FloatArray, next: FloatArray): FloatArray {
+    private fun crossfade(
+        prev: FloatArray,
+        next: FloatArray,
+    ): FloatArray {
         val x = min(XFADE_SAMPLES, min(prev.size, next.size))
         val out = FloatArray(prev.size + next.size - x)
         System.arraycopy(prev, 0, out, 0, prev.size)
@@ -410,21 +445,31 @@ class PocketProbeRunner(
         return FloatArray(fb.remaining()).also { fb.get(it) }
     }
 
-    private fun writeF32(file: File, data: FloatArray) {
+    private fun writeF32(
+        file: File,
+        data: FloatArray,
+    ) {
         val bb = ByteBuffer.allocate(data.size * 4).order(ByteOrder.LITTLE_ENDIAN)
         val fb = bb.asFloatBuffer()
         fb.put(data)
         file.writeBytes(bb.array())
     }
 
-    private fun maxAbsDiff(a: FloatArray, b: FloatArray): Double {
+    private fun maxAbsDiff(
+        a: FloatArray,
+        b: FloatArray,
+    ): Double {
         if (a.size != b.size || a.isEmpty()) return -1.0
         var m = 0.0
         for (i in a.indices) m = maxOf(m, abs(a[i].toDouble() - b[i].toDouble()))
         return m
     }
 
-    private fun flush(outDir: File, results: JSONObject, log: (String) -> Unit) {
+    private fun flush(
+        outDir: File,
+        results: JSONObject,
+        log: (String) -> Unit,
+    ) {
         try {
             File(outDir, "d5_pocket_results.json").writeText(results.toString(1))
         } catch (e: Throwable) {
@@ -456,18 +501,20 @@ class PocketProbeRunner(
         env: OrtEnvironment,
     ) {
         val count: Long = shape.fold(1L) { a, d -> a * d }
-        val bytes: Int = when (type) {
-            OnnxJavaType.FLOAT -> (count * 4).toInt()
-            OnnxJavaType.INT64 -> (count * 8).toInt()
-            else -> count.toInt()
-        }
+        val bytes: Int =
+            when (type) {
+                OnnxJavaType.FLOAT -> (count * 4).toInt()
+                OnnxJavaType.INT64 -> (count * 8).toInt()
+                else -> count.toInt()
+            }
         val data: ByteBuffer = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder())
-        val tensor: OnnxTensor = when (type) {
-            OnnxJavaType.FLOAT -> OnnxTensor.createTensor(env, data.asFloatBuffer(), shape)
-            OnnxJavaType.INT64 -> OnnxTensor.createTensor(env, data.asLongBuffer(), shape)
-            OnnxJavaType.BOOL -> OnnxTensor.createTensor(env, data, shape, OnnxJavaType.BOOL)
-            else -> error("unsupported state type $type")
-        }
+        val tensor: OnnxTensor =
+            when (type) {
+                OnnxJavaType.FLOAT -> OnnxTensor.createTensor(env, data.asFloatBuffer(), shape)
+                OnnxJavaType.INT64 -> OnnxTensor.createTensor(env, data.asLongBuffer(), shape)
+                OnnxJavaType.BOOL -> OnnxTensor.createTensor(env, data, shape, OnnxJavaType.BOOL)
+                else -> error("unsupported state type $type")
+            }
 
         fun zero() {
             data.clear()
@@ -487,7 +534,10 @@ class PocketProbeRunner(
         }
     }
 
-    private class StatefulGraph(private val env: OrtEnvironment, val session: OrtSession) {
+    private class StatefulGraph(
+        private val env: OrtEnvironment,
+        val session: OrtSession,
+    ) {
         val states: List<StateBuf>
 
         init {
@@ -509,8 +559,10 @@ class PocketProbeRunner(
         private fun emptyF32(shape: LongArray): OnnxTensor =
             OnnxTensor.createTensor(
                 env,
-                ByteBuffer.allocateDirect(shape.fold(1L) { a, b -> a * b }.toInt() * 4)
-                    .order(ByteOrder.nativeOrder()).asFloatBuffer(),
+                ByteBuffer
+                    .allocateDirect(shape.fold(1L) { a, b -> a * b }.toInt() * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer(),
                 shape,
             )
 
@@ -518,8 +570,10 @@ class PocketProbeRunner(
             for (s in states) s.zero()
         }
 
-        fun f32T(data: FloatArray, shape: LongArray): OnnxTensor =
-            OnnxTensor.createTensor(env, FloatBuffer.wrap(data), shape)
+        fun f32T(
+            data: FloatArray,
+            shape: LongArray,
+        ): OnnxTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(data), shape)
 
         fun voiceT(v: FloatArray): OnnxTensor =
             OnnxTensor.createTensor(env, FloatBuffer.wrap(v), longArrayOf(1, (v.size / 1024).toLong(), 1024))
@@ -535,12 +589,17 @@ class PocketProbeRunner(
         fun restoreState() {
             for (s in states) {
                 snap[s.name]?.let {
-                    s.data.rewind(); s.data.put(it); s.data.rewind()
+                    s.data.rewind()
+                    s.data.put(it)
+                    s.data.rewind()
                 }
             }
         }
 
-        class Frame(val cond: FloatArray, val eos: Float)
+        class Frame(
+            val cond: FloatArray,
+            val eos: Float,
+        )
 
         /** One AR frame: sequence [1,1,32] + empty text; returns conditioning + eos logit. */
         fun runFrame(curr: FloatArray): Frame {
@@ -554,10 +613,11 @@ class PocketProbeRunner(
                         val o = out.get("out_" + s.name).orElseThrow() as OnnxTensor
                         s.copyFrom(o)
                     }
-                    val cond = (out.get("conditioning").orElseThrow() as OnnxTensor).let { x ->
-                        val b = x.floatBuffer
-                        FloatArray(b.remaining()).also { b.get(it) }
-                    }
+                    val cond =
+                        (out.get("conditioning").orElseThrow() as OnnxTensor).let { x ->
+                            val b = x.floatBuffer
+                            FloatArray(b.remaining()).also { b.get(it) }
+                        }
                     val eos = (out.get("eos_logit").orElseThrow() as OnnxTensor).floatBuffer.get(0)
                     return Frame(cond, eos)
                 }
@@ -565,7 +625,10 @@ class PocketProbeRunner(
         }
 
         /** One graph run with state feedback; returns the named float output. */
-        fun run(feeds: Map<String, OnnxTensor>, outName: String): FloatArray {
+        fun run(
+            feeds: Map<String, OnnxTensor>,
+            outName: String,
+        ): FloatArray {
             val inputs = HashMap<String, OnnxTensor>(feeds)
             for (s in states) inputs[s.name] = s.tensor
             session.run(inputs).use { out ->

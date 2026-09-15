@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * can assert range behavior and coalescing.
  */
 class FakeTransport : DownloadTransport {
-
     enum class Mode { RANGE_SUPPORTED, IGNORES_RANGE, HTTP_404, HTTP_500 }
 
     var source: ByteArray = ByteArray(0)
@@ -24,7 +23,10 @@ class FakeTransport : DownloadTransport {
 
     val calls = ConcurrentLinkedQueue<Pair<String, Long?>>()
 
-    override suspend fun open(url: String, rangeFrom: Long?): OpenResult {
+    override suspend fun open(
+        url: String,
+        rangeFrom: Long?,
+    ): OpenResult {
         calls += url to rangeFrom
         failOpenWith?.let { throw it }
         if (mode == Mode.HTTP_404) return OpenResult.HttpError(404)
@@ -32,16 +34,18 @@ class FakeTransport : DownloadTransport {
 
         // A range-aware server: full source for a fresh request, the suffix for
         // a range request, empty when the range starts past the end.
-        val servedFrom = if (mode == Mode.IGNORES_RANGE) {
-            null // serves the full source regardless of the requested range
-        } else {
-            rangeFrom
-        }
-        val bytes = when {
-            servedFrom == null -> source
-            servedFrom >= source.size -> ByteArray(0)
-            else -> source.copyOfRange(servedFrom.toInt(), source.size)
-        }
+        val servedFrom =
+            if (mode == Mode.IGNORES_RANGE) {
+                null // serves the full source regardless of the requested range
+            } else {
+                rangeFrom
+            }
+        val bytes =
+            when {
+                servedFrom == null -> source
+                servedFrom >= source.size -> ByteArray(0)
+                else -> source.copyOfRange(servedFrom.toInt(), source.size)
+            }
         var served = bytes
         truncateAt?.let { end ->
             val fromIndex = servedFrom ?: 0L
@@ -50,11 +54,12 @@ class FakeTransport : DownloadTransport {
         }
         // IGNORES_RANGE answers 200 with the whole body; a range-aware server
         // answers 206 to a satisfiable range request.
-        val status = when {
-            mode == Mode.IGNORES_RANGE -> 200
-            rangeFrom != null && rangeFrom > 0 && rangeFrom < source.size -> 206
-            else -> 200
-        }
+        val status =
+            when {
+                mode == Mode.IGNORES_RANGE -> 200
+                rangeFrom != null && rangeFrom > 0 && rangeFrom < source.size -> 206
+                else -> 200
+            }
         return OpenResult.Body(HttpBody(status, served.size.toLong(), ByteArrayInputStream(served)))
     }
 }

@@ -2,10 +2,10 @@ package com.moronigranja.localttsreader.spiketts
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import android.util.Log
 import android.content.Context
 import android.os.Build
 import android.os.Debug
+import android.util.Log
 import com.moronigranja.localttsreader.tts.DefaultEngines
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
@@ -127,9 +127,10 @@ class KokoroBenchmarkRunner(
             // dir (empty otherwise → HTP device create fails; onnxruntime-qnn#715,
             // qualcomm/fastrpc#379).
             val nativeLibDir = checkNotNull(libDir) { "native lib dir not initialized" }
-            val providerOptions = mutableMapOf(
-                "backend_path" to "$nativeLibDir/libQnnHtp.so",
-            )
+            val providerOptions =
+                mutableMapOf(
+                    "backend_path" to "$nativeLibDir/libQnnHtp.so",
+                )
             socModel()?.let { providerOptions["soc_model"] = it }
             providerOptions.putAll(extra)
             options.addExecutionProvider(devices, providerOptions)

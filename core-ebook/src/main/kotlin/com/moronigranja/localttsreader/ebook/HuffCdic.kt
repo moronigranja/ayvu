@@ -13,7 +13,6 @@ import java.io.ByteArrayOutputStream
  *   recursively and memoized.
  */
 internal object Palmdoc {
-
     fun unpack(input: ByteArray): ByteArray {
         val out = ByteArrayOutputStream(input.size * 2)
         var p = 0
@@ -55,7 +54,6 @@ internal object Palmdoc {
 }
 
 internal class HuffCdicDecoder {
-
     private val dict1Codelen = IntArray(256)
     private val dict1Term = BooleanArray(256)
     private val dict1Max = LongArray(256)
@@ -109,7 +107,10 @@ internal class HuffCdicDecoder {
     /** Decompress one text section's byte stream. */
     fun unpack(data: ByteArray): ByteArray = unpack(data, depth = 0)
 
-    private fun unpack(data: ByteArray, depth: Int): ByteArray {
+    private fun unpack(
+        data: ByteArray,
+        depth: Int,
+    ): ByteArray {
         if (depth > 64) throw EBookParseException("corrupt HUFF stream (dictionary recursion too deep)")
         val padded = data + ByteArray(8)
         val out = ByteArrayOutputStream(data.size)
@@ -140,13 +141,14 @@ internal class HuffCdicDecoder {
             val r = ((max - code) ushr (32 - codelen)).toInt()
             if (r !in dictionary.indices) throw EBookParseException("corrupt HUFF stream (index out of range)")
             val (slice, plain) = dictionary[r]
-            val decoded = if (plain) {
-                slice
-            } else {
-                val expanded = unpack(slice, depth + 1)
-                dictionary[r] = expanded to true // memoize
-                expanded
-            }
+            val decoded =
+                if (plain) {
+                    slice
+                } else {
+                    val expanded = unpack(slice, depth + 1)
+                    dictionary[r] = expanded to true // memoize
+                    expanded
+                }
             out.write(decoded)
         }
         return out.toByteArray()

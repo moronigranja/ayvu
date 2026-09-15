@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class KokoroTokenizerTest {
-
     private val vocab = KokoroVocabulary.resource()
 
     @Test
@@ -59,8 +58,14 @@ class KokoroTokenizerTest {
         )
     }
 
-    private class FakePhonemizer(private val result: String) : Phonemizer {
-        override fun phonemize(text: String, language: String): String = result
+    private class FakePhonemizer(
+        private val result: String,
+    ) : Phonemizer {
+        override fun phonemize(
+            text: String,
+            language: String,
+        ): String = result
+
         override fun supportedLanguages(): Set<String> = setOf("en-us")
     }
 }

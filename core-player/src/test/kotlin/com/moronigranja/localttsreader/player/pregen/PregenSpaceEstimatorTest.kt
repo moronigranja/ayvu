@@ -4,25 +4,26 @@ import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.tts.SegmentAnchor
-import java.io.File
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 /** Storage transparency (decisions #44): cached-exact + estimated footprint. */
 class PregenSpaceEstimatorTest {
-
     @TempDir
     lateinit var tmp: File
 
-    private val book = Book(
-        id = "b1",
-        title = "Anna",
-        chapters = listOf(
-            Chapter(0, "One", listOf(TextPassage("a".repeat(600)), TextPassage("b".repeat(300)))),
-            Chapter(1, "Two", listOf(TextPassage("c".repeat(150)))),
-        ),
-    )
+    private val book =
+        Book(
+            id = "b1",
+            title = "Anna",
+            chapters =
+                listOf(
+                    Chapter(0, "One", listOf(TextPassage("a".repeat(600)), TextPassage("b".repeat(300)))),
+                    Chapter(1, "Two", listOf(TextPassage("c".repeat(150)))),
+                ),
+        )
 
     private val voice = "af_heart"
     private val speed = 1.0
@@ -30,8 +31,11 @@ class PregenSpaceEstimatorTest {
 
     private fun cache(maxBytes: Long = Long.MAX_VALUE) = PcmPassageCache(File(tmp, "cache"), maxBytes)
 
-    private fun expectedUncached(chars: Int, cps: Double = 15.0, atSpeed: Double = 1.0): Long =
-        (chars / cps / atSpeed * bytesPerSecond).toLong()
+    private fun expectedUncached(
+        chars: Int,
+        cps: Double = 15.0,
+        atSpeed: Double = 1.0,
+    ): Long = (chars / cps / atSpeed * bytesPerSecond).toLong()
 
     @Test
     fun `empty cache estimates from text at the default speaking rate`() {

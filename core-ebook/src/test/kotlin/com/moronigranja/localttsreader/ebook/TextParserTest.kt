@@ -1,16 +1,15 @@
 package com.moronigranja.localttsreader.ebook
 
-import java.io.ByteArrayInputStream
-import java.nio.charset.StandardCharsets
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
 
 class TextParserTest {
-
     private fun textBytes(text: String): ByteArray = text.toByteArray(StandardCharsets.UTF_8)
 
     // ------------------------------------------------------------------
@@ -200,9 +199,10 @@ class TextParserTest {
 
     @Test
     fun `empty file raises parse error`() {
-        val ex = assertThrows(EBookParseException::class.java) {
-            TextParser.parse(textBytes(""))
-        }
+        val ex =
+            assertThrows(EBookParseException::class.java) {
+                TextParser.parse(textBytes(""))
+            }
         assertTrue(ex.message!!.contains("no readable text"))
     }
 
@@ -212,9 +212,10 @@ class TextParserTest {
 
     @Test
     fun `only headings produce no chapters and raise a parse error`() {
-        val ex = assertThrows(EBookParseException::class.java) {
-            TextParser.parse(textBytes("# Heading\n\n# Another"))
-        }
+        val ex =
+            assertThrows(EBookParseException::class.java) {
+                TextParser.parse(textBytes("# Heading\n\n# Another"))
+            }
         assertTrue(ex.message!!.contains("no readable text"))
     }
 }

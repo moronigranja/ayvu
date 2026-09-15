@@ -84,11 +84,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * The library list + import flow (C5/C6). Pick ebooks via SAF, import them through
- * the Hilt-provided [LibraryViewModel], and see the result — with progress, a
- * failure dialog when anything failed, and a snackbar for clean successes.
- */
+// The library list + import flow (C5/C6). Pick ebooks via SAF, import them through
+// the Hilt-provided [LibraryViewModel], and see the result — with progress, a
+// failure dialog when anything failed, and a snackbar for clean successes.
 
 /** MIME types the SAF picker offers. mobi/azw have no registered MIME type, so
  *  providers report them as `application/octet-stream`; the importer still filters

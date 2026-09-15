@@ -12,7 +12,10 @@ interface PiperSession : AutoCloseable {
      *
      * @throws IllegalStateException when the session is closed.
      */
-    fun infer(phonemeIds: IntArray, scales: FloatArray): FloatArray
+    fun infer(
+        phonemeIds: IntArray,
+        scales: FloatArray,
+    ): FloatArray
 
     override fun close()
 }

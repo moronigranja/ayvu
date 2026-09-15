@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
  * boundaries are exact, not timezone-dependent.
  */
 class ActivityCaptureTest {
-
     private companion object {
         const val MIDNIGHT = 1_000_000_000_000L // epoch ms: the fixed local midnight
         const val DAY_A = "2026-09-13"

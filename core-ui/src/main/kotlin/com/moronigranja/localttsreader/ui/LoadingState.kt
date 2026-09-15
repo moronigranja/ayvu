@@ -15,7 +15,10 @@ import androidx.compose.ui.unit.dp
  * Under reduced motion the animated spinner degrades to a static ring
  * (decisions #98) — the label keeps the state visible. */
 @Composable
-fun LoadingState(label: String, modifier: Modifier = Modifier) {
+fun LoadingState(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -7,19 +7,20 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class CachedBookMapperTest {
-
     @Test
     fun `cached rows rebuild the book in spine order with titles and texts`() {
-        val cached = CachedBook(
-            id = "b1",
-            title = "Anna",
-            passages = listOf(
-                CachedPassage(0, "Happy", 1, "p1"),
-                CachedPassage(0, "Happy", 0, "p0"),
-                CachedPassage(1, null, 0, "q0"),
-                CachedPassage(0, "Happy", 2, "p2"),
-            ),
-        )
+        val cached =
+            CachedBook(
+                id = "b1",
+                title = "Anna",
+                passages =
+                    listOf(
+                        CachedPassage(0, "Happy", 1, "p1"),
+                        CachedPassage(0, "Happy", 0, "p0"),
+                        CachedPassage(1, null, 0, "q0"),
+                        CachedPassage(0, "Happy", 2, "p2"),
+                    ),
+            )
         val book: Book = cached.toBook()
         assertEquals("b1", book.id)
         assertEquals(2, book.chapters.size)

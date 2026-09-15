@@ -6,7 +6,6 @@ import androidx.room.Query
 
 @Dao
 interface BookmarkDao {
-
     @Insert
     suspend fun insert(bookmark: BookmarkEntity): Long
 

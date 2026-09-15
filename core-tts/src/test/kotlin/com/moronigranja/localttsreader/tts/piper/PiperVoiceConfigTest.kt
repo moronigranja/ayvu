@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class PiperVoiceConfigTest {
-
     /**
      * Real en_US-lessac-medium map values, recorded from official piper-tts
      * (`PiperVoice.phonemes_to_ids` on the pinned artifact, decisions #154) —
@@ -53,7 +52,9 @@ class PiperVoiceConfigTest {
     @Test
     fun `multi codepoint id map keys fail typed`() {
         assertThrows(IllegalArgumentException::class.java) {
-            PiperVoiceConfig.parse("""{"audio":{"sample_rate":22050},"inference":{},"espeak":{"voice":"en-us"},"phoneme_id_map":{"ab":[1]}}""")
+            PiperVoiceConfig.parse(
+                """{"audio":{"sample_rate":22050},"inference":{},"espeak":{"voice":"en-us"},"phoneme_id_map":{"ab":[1]}}""",
+            )
         }
     }
 

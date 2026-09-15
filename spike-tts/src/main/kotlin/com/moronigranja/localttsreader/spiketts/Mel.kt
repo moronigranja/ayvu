@@ -218,7 +218,7 @@ internal object Mel {
     }
 
     /** torch.stft(n_fft=16, hop=4, periodic hann, center=True): returns [18, T] flat. */
-fun stft16x4(x: FloatArray): Pair<FloatArray, Int> {
+    fun stft16x4(x: FloatArray): Pair<FloatArray, Int> {
         // np.hanning(17)[:16] == periodic hann of 16
         val win = DoubleArray(16) { 0.5 - 0.5 * cos(2.0 * PI * it / 16.0) }
         val p = reflectPad(DoubleArray(x.size) { x[it].toDouble() }, 8)

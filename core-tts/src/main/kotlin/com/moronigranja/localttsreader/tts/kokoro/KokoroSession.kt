@@ -11,7 +11,6 @@ package com.moronigranja.localttsreader.tts.kokoro
  * the flattened waveform plus frame durations when the graph reports them.
  */
 interface KokoroSession : AutoCloseable {
-
     /** The vocabulary embedded in the graph's metadata, empty when absent. */
     val embeddedVocab: Map<Char, Int>
 
@@ -23,7 +22,11 @@ interface KokoroSession : AutoCloseable {
      *
      * @throws IllegalStateException when the session is closed.
      */
-    fun infer(tokens: IntArray, styleRow: FloatArray, speed: Double): InferResult
+    fun infer(
+        tokens: IntArray,
+        styleRow: FloatArray,
+        speed: Double,
+    ): InferResult
 
     override fun close()
 }

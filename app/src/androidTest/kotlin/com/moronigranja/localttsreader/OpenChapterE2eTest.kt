@@ -5,8 +5,6 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
-import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.LibraryEntry
@@ -15,6 +13,8 @@ import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
+import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,45 +37,49 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class OpenChapterE2eTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var database: LibraryDatabase
     private lateinit var store: RoomLibraryStore
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "open-chapter-e2e-book",
-        title = "Open Chapter E2E",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "open-chapter-e2e-book",
+            title = "Open Chapter E2E",
+            chapters =
                 listOf(
-                    TextPassage("First chapter first passage."),
-                    TextPassage("First chapter last passage."),
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage("First chapter first passage."),
+                            TextPassage("First chapter last passage."),
+                        ),
+                    ),
+                    Chapter(1, "Empty", emptyList()), // BookLayout skips this spine slot
+                    Chapter(
+                        2,
+                        "Two",
+                        listOf(
+                            TextPassage("Second chapter first passage."),
+                            TextPassage("Second chapter last passage."),
+                        ),
+                    ),
                 ),
-            ),
-            Chapter(1, "Empty", emptyList()), // BookLayout skips this spine slot
-            Chapter(
-                2,
-                "Two",
-                listOf(
-                    TextPassage("Second chapter first passage."),
-                    TextPassage("Second chapter last passage."),
-                ),
-            ),
-        ),
-    )
+        )
 
     @Before
-    fun setUp() = runBlocking {
-        database = Room.databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-            .allowMainThreadQueries()
-            .build()
-        store = RoomLibraryStore(database, scope)
-        store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
-    }
+    fun setUp() =
+        runBlocking {
+            database =
+                Room
+                    .databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .allowMainThreadQueries()
+                    .build()
+            store = RoomLibraryStore(database, scope)
+            store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
+        }
 
     @After
     fun tearDown() {
@@ -117,20 +121,25 @@ class OpenChapterE2eTest {
         assertEquals("open ≠ auto-play throughout", PlayerPhase.IDLE, PlaybackStateHolder.state.value.phase)
     }
 
-    private fun open() = context.startForegroundService(
-        Intent(context, PlaybackService::class.java)
-            .setAction(PlaybackService.ACTION_OPEN)
-            .putExtra(PlaybackService.EXTRA_BOOK_ID, book.id),
-    )
+    private fun open() =
+        context.startForegroundService(
+            Intent(context, PlaybackService::class.java)
+                .setAction(PlaybackService.ACTION_OPEN)
+                .putExtra(PlaybackService.EXTRA_BOOK_ID, book.id),
+        )
 
-    private fun openChapter(direction: Int) = context.startForegroundService(
-        Intent(context, PlaybackService::class.java)
-            .setAction(PlaybackService.ACTION_OPEN_CHAPTER)
-            .putExtra(PlaybackService.EXTRA_BOOK_ID, book.id)
-            .putExtra(PlaybackService.EXTRA_DIRECTION, direction),
-    )
+    private fun openChapter(direction: Int) =
+        context.startForegroundService(
+            Intent(context, PlaybackService::class.java)
+                .setAction(PlaybackService.ACTION_OPEN_CHAPTER)
+                .putExtra(PlaybackService.EXTRA_BOOK_ID, book.id)
+                .putExtra(PlaybackService.EXTRA_DIRECTION, direction),
+        )
 
-    private fun awaitState(what: String, cond: (PlaybackUiState) -> Boolean) {
+    private fun awaitState(
+        what: String,
+        cond: (PlaybackUiState) -> Boolean,
+    ) {
         val deadline = System.currentTimeMillis() + 15_000
         while (System.currentTimeMillis() < deadline) {
             if (cond(PlaybackStateHolder.state.value)) return

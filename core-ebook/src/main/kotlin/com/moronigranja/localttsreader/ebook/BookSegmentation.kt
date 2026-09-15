@@ -39,27 +39,52 @@ import com.moronigranja.localttsreader.model.TextPassage
  * file (same content → same kept set → same indexes).
  */
 object BookSegmentation {
-
     const val DEFAULT_MAX_PASSAGE_WORDS = 100
 
-    private val FRONT_MATTER = setOf(
-        "title page", "copyright", "colophon", "table of contents", "contents",
-        "dedication", "epigraph", "cover", "half title",
-    )
-    private val BACK_MATTER = setOf(
-        "about the author", "also by", "also available", "books by",
-        "advertisement", "advertisements", "index",
-    )
-    fun segment(book: Book, maxPassageWords: Int = DEFAULT_MAX_PASSAGE_WORDS): Book {
+    private val FRONT_MATTER =
+        setOf(
+            "title page",
+            "copyright",
+            "colophon",
+            "table of contents",
+            "contents",
+            "dedication",
+            "epigraph",
+            "cover",
+            "half title",
+        )
+    private val BACK_MATTER =
+        setOf(
+            "about the author",
+            "also by",
+            "also available",
+            "books by",
+            "advertisement",
+            "advertisements",
+            "index",
+        )
+
+    fun segment(
+        book: Book,
+        maxPassageWords: Int = DEFAULT_MAX_PASSAGE_WORDS,
+    ): Book {
         if (book.chapters.isEmpty()) return book
         // By containment, not equality: real spines name furniture liberally
         // ("Copyright Notice", "Table of Contents", "Books by the Author").
         val isFrontMatter = { chapter: Chapter ->
-            val key = chapter.title?.trim()?.lowercase().orEmpty()
+            val key =
+                chapter.title
+                    ?.trim()
+                    ?.lowercase()
+                    .orEmpty()
             key.isNotEmpty() && FRONT_MATTER.any { key.contains(it) }
         }
         val isBackMatter = { chapter: Chapter ->
-            val key = chapter.title?.trim()?.lowercase().orEmpty()
+            val key =
+                chapter.title
+                    ?.trim()
+                    ?.lowercase()
+                    .orEmpty()
             key.isNotEmpty() && BACK_MATTER.any { key.contains(it) }
         }
         // Strip a contiguous leading front-matter run and trailing back-matter run.
@@ -69,14 +94,16 @@ object BookSegmentation {
         while (end > start && isBackMatter(book.chapters[end - 1])) end--
         // Passage-level matter strip on the kept chapters (I1), then renumber +
         // split long passages + drop letter-free passages.
-        val kept = stripPassageMatter(book.chapters.subList(start, end))
-            .mapIndexed { index, chapter ->
-                chapter.copy(
-                    index = index,
-                    passages = splitLongPassages(chapter.passages, maxPassageWords)
-                        .filter { it.text.any { c -> c.isLetter() } },
-                )
-            }
+        val kept =
+            stripPassageMatter(book.chapters.subList(start, end))
+                .mapIndexed { index, chapter ->
+                    chapter.copy(
+                        index = index,
+                        passages =
+                            splitLongPassages(chapter.passages, maxPassageWords)
+                                .filter { it.text.any { c -> c.isLetter() } },
+                    )
+                }
         // Safety net: never strip an entire book.
         if (kept.isEmpty()) return book
         val base = book.copy(chapters = kept)
@@ -93,7 +120,11 @@ object BookSegmentation {
      */
     private fun stripPassageMatter(chapters: List<Chapter>): List<Chapter> {
         if (chapters.isEmpty()) return chapters
-        fun isMatterForPassage(p: TextPassage, keys: Set<String>): Boolean {
+
+        fun isMatterForPassage(
+            p: TextPassage,
+            keys: Set<String>,
+        ): Boolean {
             val key = p.text.trim().lowercase()
             return key.isNotEmpty() && keys.any { key.contains(it) }
         }
@@ -128,9 +159,10 @@ object BookSegmentation {
     private fun splitChaptersByHeading(book: Book): Book {
         if (book.chapters.size != 1) return book
         val single = book.chapters.single()
-        val headingIdx = single.passages.mapIndexedNotNull { i, p ->
-            headingKind(p.text.trim())?.let { i to it }
-        }
+        val headingIdx =
+            single.passages.mapIndexedNotNull { i, p ->
+                headingKind(p.text.trim())?.let { i to it }
+            }
         // Minimal evidence: at least two headings for ANY split; and headings must be
         // a single uniform kind (mixing kinds → do not split).
         if (headingIdx.size < 2) return book
@@ -144,11 +176,12 @@ object BookSegmentation {
         positions.indices.forEach { k ->
             val start = positions[k]
             val end = if (k + 1 < positions.size) positions[k + 1] else single.passages.size
-            chapters += Chapter(
-                index = 0,
-                title = single.passages[start].text.trim(),
-                passages = single.passages.subList(start + 1, end),
-            )
+            chapters +=
+                Chapter(
+                    index = 0,
+                    title = single.passages[start].text.trim(),
+                    passages = single.passages.subList(start + 1, end),
+                )
         }
         // A book of only headings must not divide into empty chapters.
         if (chapters.all { it.passages.isEmpty() }) return book
@@ -162,21 +195,29 @@ object BookSegmentation {
      * kind C (numeric "N. Cap" lines, Latin only). CJK/Hindi have no letter case, so
      * kinds B/C do not apply to them — [HEADING_A]'s CJK/Devanagari forms are their detector.
      */
-    private fun headingKind(text: String): Char? = when {
-        HEADING_A.matches(text) -> 'A'
-        KIND_B.matches(text) -> 'B'
-        KIND_C.matches(text) -> 'C'
-        else -> null
-    }
+    private fun headingKind(text: String): Char? =
+        when {
+            HEADING_A.matches(text) -> 'A'
+            KIND_B.matches(text) -> 'B'
+            KIND_C.matches(text) -> 'C'
+            else -> null
+        }
 
     /** Split over-long passages at sentence boundaries; paragraph grain otherwise untouched. */
-    fun splitLongPassages(passages: List<TextPassage>, maxPassageWords: Int): List<TextPassage> {
+    fun splitLongPassages(
+        passages: List<TextPassage>,
+        maxPassageWords: Int,
+    ): List<TextPassage> {
         if (maxPassageWords <= 0) return passages
         return passages.flatMap { passage ->
             if (wordCount(passage.text) <= maxPassageWords) {
                 listOf(passage)
             } else {
-                val sentences = passage.text.split(SENTENCE_SPLIT).map { it.trim() }.filter { it.isNotEmpty() }
+                val sentences =
+                    passage.text
+                        .split(SENTENCE_SPLIT)
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
                 if (sentences.size <= 1) {
                     listOf(passage) // no usable boundaries: keep whole rather than mid-sentence cuts
                 } else {
@@ -201,8 +242,7 @@ object BookSegmentation {
         }
     }
 
-    fun wordCount(text: String): Int =
-        text.split(WHITESPACE).count { it.isNotBlank() }
+    fun wordCount(text: String): Int = text.split(WHITESPACE).count { it.isNotBlank() }
 
     /**
      * Kind A heading — multilingual chapter/part keywords across the nine Kokoro voice
@@ -210,19 +250,22 @@ object BookSegmentation {
      * The Devanagari keywords intentionally carry NO \b: Java's \b is ASCII-only, so
      * `अध्याय\b` would never match a Devanagari word boundary.
      */
-    private val HEADING_A = Regex(
-        "^(?:chapter\\b|ch\\.?\\b|chap\\.?\\b|part\\b|parte\\b|partie\\b|livre\\b|livro\\b|" +
-            "libro\\b|cap[ií]tulo\\b|capitulo\\b|capitolo\\b|chapitre\\b|" +
-            "sección\\b|seccion\\b|seção\\b|secao\\b|sezione\\b|segment\\b|" +
-            "अध्याय|प्रकरण|भाग|" +
-            "第\\s*(?:[0-9０-９]+|[一二三四五六七八九十百千〇]+)\\s*[章巻話節节部篇部])" +
-            "\\s*" +
-            "(?:[:\\.\\-–]?\\s*(?:[0-9０-９]{1,4}|[ivxlcdm]+|[一二三四五六七八九十百千〇]+|[०-९]+))?" +
-            ".*$",
-        RegexOption.IGNORE_CASE,
-    )
+    private val HEADING_A =
+        Regex(
+            "^(?:chapter\\b|ch\\.?\\b|chap\\.?\\b|part\\b|parte\\b|partie\\b|livre\\b|livro\\b|" +
+                "libro\\b|cap[ií]tulo\\b|capitulo\\b|capitolo\\b|chapitre\\b|" +
+                "sección\\b|seccion\\b|seção\\b|secao\\b|sezione\\b|segment\\b|" +
+                "अध्याय|प्रकरण|भाग|" +
+                "第\\s*(?:[0-9０-９]+|[一二三四五六七八九十百千〇]+)\\s*[章巻話節节部篇部])" +
+                "\\s*" +
+                "(?:[:\\.\\-–]?\\s*(?:[0-9０-９]{1,4}|[ivxlcdm]+|[一二三四五六七八九十百千〇]+|[०-९]+))?" +
+                ".*$",
+            RegexOption.IGNORE_CASE,
+        )
+
     /** Kind B — all-caps Latin runs that can read as headings (e.g. "THE MILL"). */
     private val KIND_B = Regex("""^[A-Z0-9 ]{2,120}$""")
+
     /** Kind C — Latin "N. Capitalised" numeric heading lines. */
     private val KIND_C = Regex("""^\d{1,3}[.)]\s+[A-Z].*""")
 

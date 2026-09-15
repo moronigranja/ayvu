@@ -1,19 +1,20 @@
 package com.moronigranja.localttsreader.tts.kokoro
 
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.sin
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.sin
 
 class AudioTrimTest {
+    private fun tone(
+        frequency: Double = 440.0,
+        samples: Int = 24_000,
+        amplitude: Float = 0.5f,
+    ): FloatArray = FloatArray(samples) { (amplitude * sin(2 * PI * frequency * it / 24000.0)).toFloat() }
 
-    private fun tone(frequency: Double = 440.0, samples: Int = 24_000, amplitude: Float = 0.5f): FloatArray =
-        FloatArray(samples) { (amplitude * sin(2 * PI * frequency * it / 24000.0)).toFloat() }
-
-    private fun quiet(samples: Int): FloatArray =
-        FloatArray(samples) { (1e-6f * sin(2 * PI * 50 * it / 24000.0)).toFloat() }
+    private fun quiet(samples: Int): FloatArray = FloatArray(samples) { (1e-6f * sin(2 * PI * 50 * it / 24000.0)).toFloat() }
 
     @Test
     fun `uniform signal is not trimmed - librosa reference semantics`() {

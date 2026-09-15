@@ -3,8 +3,8 @@ package com.moronigranja.localttsreader.featureplayer.playback
 import android.app.ActivityManager
 import android.app.Notification
 import android.content.Context
-import android.content.Intent
 import android.content.ContextWrapper
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.room.Room
@@ -34,8 +34,6 @@ import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
-import java.io.File
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -44,6 +42,8 @@ import org.json.JSONObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * D1 acceptance scaffold (roadmap "Instant ±30-second seek horizon", decisions
@@ -91,14 +91,15 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class D1SeekHorizonBenchmarkTest {
-
     /** The D1 horizon this scaffold pre-waits for (decisions #155). */
     private val horizonSeconds = 30.0
 
     /** The production passage bulwark the queue must never exceed. */
     private val passageCeiling = 60
 
-    private class CountingEngine(private val rt: CountingRuntime) : TTSEngine {
+    private class CountingEngine(
+        private val rt: CountingRuntime,
+    ) : TTSEngine {
         @Volatile private var inner: TTSEngine? = null
 
         fun attach(engine: TTSEngine): TTSEngine {
@@ -132,12 +133,18 @@ class D1SeekHorizonBenchmarkTest {
     private class TimingOutput : PassageOutput {
         val playAt = CopyOnWriteArrayList<Long>()
 
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) {
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) {
             playAt += System.currentTimeMillis()
         }
 
         override fun stop() = Unit
+
         override val positionSamples: Int get() = 0
+
         override fun setVolume(multiplier: Float) = Unit
     }
 
@@ -167,59 +174,71 @@ class D1SeekHorizonBenchmarkTest {
         val strict = args.getString("strict") != "0"
         args.getString("stage")?.let { stage(it) }
 
-        val database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        val database =
+            Room
+                .inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         val scope = CoroutineScope(Dispatchers.IO)
-        val book = Book(
-            id = "d1-seek-horizon-book",
-            title = "D1 Seek Horizon",
-            chapters = listOf(
-                Chapter(
-                    0,
-                    "One",
-                    (1..60).map { i ->
-                        TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
-                    },
-                ),
-            ),
-        )
+        val book =
+            Book(
+                id = "d1-seek-horizon-book",
+                title = "D1 Seek Horizon",
+                chapters =
+                    listOf(
+                        Chapter(
+                            0,
+                            "One",
+                            (1..60).map { i ->
+                                TextPassage("Passage number $i with enough words to span almost sixty characters of speech text.")
+                            },
+                        ),
+                    ),
+            )
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(book, importedAtEpochMillis = 1L)) }
 
         val settings = AppSettings(SettingsStore(database.settingsDao()))
         val runtime = CountingRuntime(context, settings)
         val output = TimingOutput()
-        val service = PlaybackService().apply {
-            val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
-            attach.isAccessible = true
-            attach.invoke(this, context)
-            // A manually-attached service has no framework foreground binding
-            // (no ActivityThread binder) — foreground enter/exit become no-ops.
-            this.foregroundOps = object : PlaybackService.ForegroundOps {
-                override fun enter(notification: Notification) = Unit
-                override fun exit() = Unit
+        val service =
+            PlaybackService().apply {
+                val attach = ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
+                attach.isAccessible = true
+                attach.invoke(this, context)
+                // A manually-attached service has no framework foreground binding
+                // (no ActivityThread binder) — foreground enter/exit become no-ops.
+                this.foregroundOps =
+                    object : PlaybackService.ForegroundOps {
+                        override fun enter(notification: Notification) = Unit
+
+                        override fun exit() = Unit
+                    }
+                val audioManager = PlaybackService::class.java.getDeclaredField("audioManager")
+                audioManager.isAccessible = true
+                audioManager.set(this, context.getSystemService(Context.AUDIO_SERVICE))
+                val session = PlaybackService::class.java.getDeclaredField("session")
+                session.isAccessible = true
+                session.set(
+                    this,
+                    android.support.v4.media.session
+                        .MediaSessionCompat(this, "local-tts-reader"),
+                )
+                this.store = InMemoryPlayerStore()
+                this.output = output
+                this.libraryStore = RoomLibraryStore(database, scope)
+                this.settings = settings
+                this.runtime = runtime
+                this.pregenCache = PregenCache(context)
+                this.selector =
+                    EngineSelector(
+                        runtime,
+                        PiperRuntime(context, settings),
+                        object : dagger.Lazy<TTSEngine> {
+                            override fun get(): TTSEngine = error("system tts unused in the D1 scaffold")
+                        },
+                        settings,
+                    )
             }
-            val audioManager = PlaybackService::class.java.getDeclaredField("audioManager")
-            audioManager.isAccessible = true
-            audioManager.set(this, context.getSystemService(Context.AUDIO_SERVICE))
-            val session = PlaybackService::class.java.getDeclaredField("session")
-            session.isAccessible = true
-            session.set(this, android.support.v4.media.session.MediaSessionCompat(this, "local-tts-reader"))
-            this.store = InMemoryPlayerStore()
-            this.output = output
-            this.libraryStore = RoomLibraryStore(database, scope)
-            this.settings = settings
-            this.runtime = runtime
-            this.pregenCache = PregenCache(context)
-            this.selector = EngineSelector(
-                runtime,
-                PiperRuntime(context, settings),
-                object : dagger.Lazy<TTSEngine> {
-                    override fun get(): TTSEngine = error("system tts unused in the D1 scaffold")
-                },
-                settings,
-            )
-        }
         PlaybackStateHolder.reset()
         try {
             val openedAt = System.currentTimeMillis()
@@ -230,8 +249,7 @@ class D1SeekHorizonBenchmarkTest {
             val machine = service.machine!!
             val voice = settings.state.value.voice
 
-            fun aheadSeconds(): Double =
-                queue.aheadSeconds(machine.state.value.position ?: PlayerPosition(book.id, 0, 0))
+            fun aheadSeconds(): Double = queue.aheadSeconds(machine.state.value.position ?: PlayerPosition(book.id, 0, 0))
 
             // Cold first play: let openBook's front-load fill build the horizon
             // (the engine opens during it), then start the loop at the opening.
@@ -279,7 +297,9 @@ class D1SeekHorizonBenchmarkTest {
                 val targetText = book.passageText(target.chapterIndex, target.passageIndex) ?: ""
                 val key = PregenKey(book.id, target.chapterIndex, target.passageIndex, voice, 1.0)
                 val lastAudio =
-                    PlaybackService::class.java.getDeclaredField("lastAudio").apply { isAccessible = true }
+                    PlaybackService::class.java
+                        .getDeclaredField("lastAudio")
+                        .apply { isAccessible = true }
                         .get(service) as Pair<PregenKey, *>?
                 val predicted =
                     when {
@@ -299,20 +319,22 @@ class D1SeekHorizonBenchmarkTest {
                 val pssKb =
                     (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
                         .getProcessMemoryInfo(intArrayOf(android.os.Process.myPid()))
-                        .firstOrNull()?.totalPss ?: -1
+                        .firstOrNull()
+                        ?.totalPss ?: -1
 
-                val row = JSONObject()
-                    .put("seek", i)
-                    .put("action", action)
-                    .put("delta", d)
-                    .put("target", "${target.chapterIndex}/${target.passageIndex}")
-                    .put("predicted", predicted)
-                    .put("syncSynth", synced)
-                    .put("latencyMs", latencyMs)
-                    .put("preWaitMs", preWaitMs)
-                    .put("queueSize", queue.size)
-                    .put("aheadSeconds", aheadSeconds())
-                    .put("pssKb", pssKb)
+                val row =
+                    JSONObject()
+                        .put("seek", i)
+                        .put("action", action)
+                        .put("delta", d)
+                        .put("target", "${target.chapterIndex}/${target.passageIndex}")
+                        .put("predicted", predicted)
+                        .put("syncSynth", synced)
+                        .put("latencyMs", latencyMs)
+                        .put("preWaitMs", preWaitMs)
+                        .put("queueSize", queue.size)
+                        .put("aheadSeconds", aheadSeconds())
+                        .put("pssKb", pssKb)
                 rows.put(row)
                 Log.d(
                     TAG,
@@ -322,17 +344,18 @@ class D1SeekHorizonBenchmarkTest {
                 )
             }
 
-            val summary = JSONObject()
-                .put("device", Build.MODEL)
-                .put("fingerprint", Build.FINGERPRINT)
-                .put("horizonSeconds", horizonSeconds)
-                .put("seeks", seeks)
-                .put("delta", delta)
-                .put("coldFirstPlayMs", coldFirstPlayMs)
-                .put("coldSynthCalls", coldSynthCalls)
-                .put("choreographerSkips", choreographerSkips)
-                .put("syncSynthSeeks", syncSynthSeeks)
-                .put("rows", rows)
+            val summary =
+                JSONObject()
+                    .put("device", Build.MODEL)
+                    .put("fingerprint", Build.FINGERPRINT)
+                    .put("horizonSeconds", horizonSeconds)
+                    .put("seeks", seeks)
+                    .put("delta", delta)
+                    .put("coldFirstPlayMs", coldFirstPlayMs)
+                    .put("coldSynthCalls", coldSynthCalls)
+                    .put("choreographerSkips", choreographerSkips)
+                    .put("syncSynthSeeks", syncSynthSeeks)
+                    .put("rows", rows)
             val out = File(context.getExternalFilesDir(null), "d1_seek_results.json")
             out.writeText(summary.toString(2))
             Log.d(
@@ -368,6 +391,7 @@ class D1SeekHorizonBenchmarkTest {
             process.destroy()
             text.lineSequence().count { it.contains("Choreographer") && it.contains("Skipped") }
         }.getOrDefault(-1)
+
     private fun await(
         label: String,
         timeoutMs: Long,

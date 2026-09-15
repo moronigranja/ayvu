@@ -30,7 +30,6 @@ class ShareSnippetResolver(
     private val ocrLanguages: () -> List<String>,
     private val maxOcrLongSide: Int = ScreenshotDownscaler.DEFAULT_MAX_LONG_SIDE,
 ) {
-
     suspend fun resolve(input: ShareInput): ShareResolution {
         if (input is ShareInput.Image && ocr == null) {
             return ShareResolution.NotFound(
@@ -40,19 +39,25 @@ class ShareSnippetResolver(
         }
         awaitIndexReady()
 
-        val text = when (input) {
-            is ShareInput.Text -> input.text
-            is ShareInput.Image -> extractText(input.image)
-                ?: return ShareResolution.NotFound(
-                    reason = ShareResolution.Reason.NO_READABLE_TEXT,
-                    snippet = "",
-                )
-        }
+        val text =
+            when (input) {
+                is ShareInput.Text -> input.text
+                is ShareInput.Image ->
+                    extractText(input.image)
+                        ?: return ShareResolution.NotFound(
+                            reason = ShareResolution.Reason.NO_READABLE_TEXT,
+                            snippet = "",
+                        )
+            }
         val normalized = text.trim()
         if (normalized.isEmpty()) {
             return ShareResolution.NotFound(
-                reason = if (input is ShareInput.Text) ShareResolution.Reason.BLANK
-                else ShareResolution.Reason.NO_READABLE_TEXT,
+                reason =
+                    if (input is ShareInput.Text) {
+                        ShareResolution.Reason.BLANK
+                    } else {
+                        ShareResolution.Reason.NO_READABLE_TEXT
+                    },
                 snippet = normalized,
             )
         }
@@ -71,13 +76,14 @@ class ShareSnippetResolver(
         } else {
             ShareResolution.NotFound(
                 reason = ShareResolution.Reason.NO_MATCH,
-                closest = candidate?.let {
-                    ShareResolution.Closest(
-                        bookTitle = it.bookTitle,
-                        chapterTitle = it.chapterTitle,
-                        confidence = it.confidence,
-                    )
-                },
+                closest =
+                    candidate?.let {
+                        ShareResolution.Closest(
+                            bookTitle = it.bookTitle,
+                            chapterTitle = it.chapterTitle,
+                            confidence = it.confidence,
+                        )
+                    },
                 snippet = normalized,
             )
         }
@@ -98,7 +104,8 @@ class ShareSnippetResolver(
         val downscaled = ScreenshotDownscaler.downscale(image, maxOcrLongSide)
         val languages = ocrLanguages().ifEmpty { listOf(DEFAULT_OCR_LANGUAGE) }
         return runCatching { engine.recognize(downscaled, languages) }
-            .getOrNull()?.text
+            .getOrNull()
+            ?.text
             ?.takeIf { it.isNotBlank() }
     }
 

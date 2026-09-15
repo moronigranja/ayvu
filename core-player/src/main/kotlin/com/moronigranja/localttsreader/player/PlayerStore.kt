@@ -12,7 +12,6 @@ package com.moronigranja.localttsreader.player
  * (roadmap T4 carry-over note 3).
  */
 interface PlayerStore {
-
     /** The book's resume row, or null when never played. */
     suspend fun readProgress(bookId: String): PlayerProgress?
 
@@ -22,7 +21,10 @@ interface PlayerStore {
      * newest first). A null [ringPush] means "plain position write" — natural
      * forward advance never pollutes the undo ring.
      */
-    suspend fun commitProgress(progress: PlayerProgress, ringPush: PlayerPosition?)
+    suspend fun commitProgress(
+        progress: PlayerProgress,
+        ringPush: PlayerPosition?,
+    )
 
     /** The book's ring entries, newest first. */
     suspend fun readRing(bookId: String): List<PlayerPosition>

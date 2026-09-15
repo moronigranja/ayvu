@@ -13,7 +13,6 @@ import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.TtsPack
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -25,6 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
 
 /**
  * QW3 host tests (playa's harness shape): the engine-failure retry seam in
@@ -39,12 +39,12 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class KokoroRuntimeRetryTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
 
     private class FakeEngine : TTSEngine {
         override val spec = EngineSpec("fake", "Fake", EngineTier.PRIMARY, setOf("en"))
         override val packs: List<TtsPack> = emptyList()
+
         override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome =
             SynthesisOutcome.Audio(ByteArray(100), 24_000, 1, null)
     }
@@ -59,6 +59,7 @@ class KokoroRuntimeRetryTest {
         ) {
         val engine = FakeEngine()
         var opens = 0
+
         override fun openEngine(): TTSEngine {
             opens++
             return engine
@@ -74,6 +75,7 @@ class KokoroRuntimeRetryTest {
             settings,
         ) {
         var opens = 0
+
         override fun openEngine(): TTSEngine {
             opens++
             throw IllegalStateException("corrupt model: session open failed")
@@ -82,14 +84,19 @@ class KokoroRuntimeRetryTest {
 
     private class FakeSettingsDao : SettingsDao {
         val rows = mutableMapOf<String, String>()
+
         override suspend fun get(key: String): String? = rows[key]
+
         override suspend fun put(setting: SettingEntity) {
             rows[setting.key] = setting.value
         }
+
         override suspend fun all(): List<SettingEntity> = rows.map { (key, value) -> SettingEntity(key, value) }
+
         override suspend fun putAll(settings: List<SettingEntity>) {
             settings.forEach { rows[it.key] = it.value }
         }
+
         override suspend fun delete(key: String) {
             rows.remove(key)
         }

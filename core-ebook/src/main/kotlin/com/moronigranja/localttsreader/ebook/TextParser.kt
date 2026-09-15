@@ -22,7 +22,6 @@ import java.nio.charset.StandardCharsets
  * import flow surfaces as a typed failure instead of silently mangling the text.
  */
 object TextParser : EBookParser {
-
     private val UTF8_BOM = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
     private val UTF16LE_BOM = byteArrayOf(0xFF.toByte(), 0xFE.toByte())
     private val UTF16BE_BOM = byteArrayOf(0xFE.toByte(), 0xFF.toByte())
@@ -37,16 +36,20 @@ object TextParser : EBookParser {
 
     override fun parse(source: EBookSource): Book {
         val bytes = source.readCapped()
-        val fallback = source.fileName
-            .substringBeforeLast('.')
-            .substringAfterLast('/')
-            .ifBlank { "Untitled" }
+        val fallback =
+            source.fileName
+                .substringBeforeLast('.')
+                .substringAfterLast('/')
+                .ifBlank { "Untitled" }
         return parse(bytes, fallback)
     }
 
     /** Parse raw text bytes; [fallbackTitle] is the file-derived title (and the title of
      *  any text that precedes the first heading). */
-    fun parse(bytes: ByteArray, fallbackTitle: String = "Untitled"): Book {
+    fun parse(
+        bytes: ByteArray,
+        fallbackTitle: String = "Untitled",
+    ): Book {
         val chapters = buildChapters(decode(bytes), fallbackTitle)
         if (chapters.isEmpty()) throw EBookParseException("no readable text in file")
         return Book(id = Bytes.sha256Hex(bytes), title = fallbackTitle, chapters = chapters)
@@ -67,9 +70,14 @@ object TextParser : EBookParser {
             else -> decodeStrict(bytes, 0, StandardCharsets.UTF_8)
         }
 
-    private fun decodeStrict(bytes: ByteArray, offset: Int, charset: Charset): String =
+    private fun decodeStrict(
+        bytes: ByteArray,
+        offset: Int,
+        charset: Charset,
+    ): String =
         try {
-            charset.newDecoder()
+            charset
+                .newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT)
                 .decode(ByteBuffer.wrap(bytes, offset, bytes.size - offset))
@@ -82,7 +90,10 @@ object TextParser : EBookParser {
     // Structure
     // ------------------------------------------------------------------
 
-    private fun buildChapters(text: String, fallbackTitle: String): List<Chapter> {
+    private fun buildChapters(
+        text: String,
+        fallbackTitle: String,
+    ): List<Chapter> {
         val chapters = mutableListOf<Chapter>()
         val passages = mutableListOf<TextPassage>()
         var paragraph = StringBuilder()

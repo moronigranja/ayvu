@@ -25,8 +25,9 @@ import java.nio.file.StandardCopyOption
  * the target → write the marker. A crash between rename and marker is
  * recovered by the one-time hash on the next attempt.
  */
-class PackCache(private val root: File) {
-
+class PackCache(
+    private val root: File,
+) {
     fun directory(engineId: String): File = File(root, "packs/$engineId")
 
     fun targetFile(pack: TtsPack): File = File(directory(pack.engineId), pack.id)
@@ -53,7 +54,10 @@ class PackCache(private val root: File) {
     fun isVerified(pack: TtsPack): Boolean = markerFile(pack).isFile && isComplete(pack)
 
     /** Streaming SHA-256 of [file] equal to the descriptor's expected hex. */
-    fun matchesDescriptor(file: File, pack: TtsPack): Boolean = sha256Hex(file) == pack.sha256Hex.lowercase()
+    fun matchesDescriptor(
+        file: File,
+        pack: TtsPack,
+    ): Boolean = sha256Hex(file) == pack.sha256Hex.lowercase()
 
     /** Hashes the existing full-size artifact and writes the marker when it matches. */
     fun verifyAndMark(pack: TtsPack): Boolean {

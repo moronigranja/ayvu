@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface ActivitySecondsDao {
-
     @Query(
         """
         INSERT INTO activity_seconds (dayKey, bookId, kind, seconds)

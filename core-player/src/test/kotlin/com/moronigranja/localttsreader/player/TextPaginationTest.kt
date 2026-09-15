@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test
  * first-page title reservation, page/line mapping.
  */
 class TextPaginationTest {
-
     @Test
     fun `lines per page floors to whole lines`() {
         assertEquals(10, TextPagination.linesPerPage(300, 30))

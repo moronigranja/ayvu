@@ -2,12 +2,10 @@ package com.moronigranja.localttsreader.player
 
 import java.time.LocalDate
 
-/**
- * Phase H aggregation (roadmap; post-v1-plan Slice A): pure math over
- * per-day activity rows — the TODAY card's read/listen minutes, the 7-day
- * mini bar, and the consecutive-days streak. Sandbox-testable: midnight and
- * gap boundaries are pinned by injected day keys, never the wall clock.
- */
+// Phase H aggregation (roadmap; post-v1-plan Slice A): pure math over
+// per-day activity rows — the TODAY card's read/listen minutes, the 7-day
+// mini bar, and the consecutive-days streak. Sandbox-testable: midnight and
+// gap boundaries are pinned by injected day keys, never the wall clock.
 
 /** The activity table's pure view (kind-paired seconds for one book-day). */
 data class ActivityRow(

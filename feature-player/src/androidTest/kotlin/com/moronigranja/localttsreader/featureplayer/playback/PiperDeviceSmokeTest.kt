@@ -6,16 +6,16 @@ import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.runBlocking
 import com.moronigranja.localttsreader.tts.DefaultEngines
 import com.moronigranja.localttsreader.tts.PackCache
-import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
+import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.kokoro.EspeakPhonemizer
 import com.moronigranja.localttsreader.tts.kokoro.NormalizingPhonemizer
 import com.moronigranja.localttsreader.tts.piper.PiperEngine
 import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoices
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,7 +32,6 @@ import kotlin.math.sqrt
  */
 @RunWith(AndroidJUnit4::class)
 class PiperDeviceSmokeTest {
-
     companion object {
         const val TAG = "PiperSmoke"
     }
@@ -73,73 +72,93 @@ class PiperDeviceSmokeTest {
         assertTrue("espeak bundle not staged", espeakLib.isFile && espeakData.isDirectory)
 
         val openMs = System.currentTimeMillis()
-        PiperEngine.open(
-            spec = DefaultEngines.piper,
-            packs = PiperPacks.all,
-            voice = PiperVoices.LESSAC,
-            modelFile = model,
-            configFile = config,
-            phonemizer = NormalizingPhonemizer(
-                EspeakPhonemizer(libraryPath = espeakLib.absolutePath, dataPath = espeakData.absolutePath),
-            ),
-            sessionFactory = { it.setIntraOpNumThreads(4) },
-        ).use { engine ->
-            val openTook = System.currentTimeMillis() - openMs
-            val text =
-                "It is a truth universally acknowledged, that a single man in " +
-                    "possession of a good fortune, must be in want of a wife."
-            val t0 = System.currentTimeMillis()
-            val outcome = runBlocking { engine.synthesize(SynthesisRequest(text, voice = PiperVoices.LESSAC)) }
-            val wall = System.currentTimeMillis() - t0
+        PiperEngine
+            .open(
+                spec = DefaultEngines.piper,
+                packs = PiperPacks.all,
+                voice = PiperVoices.LESSAC,
+                modelFile = model,
+                configFile = config,
+                phonemizer =
+                    NormalizingPhonemizer(
+                        EspeakPhonemizer(libraryPath = espeakLib.absolutePath, dataPath = espeakData.absolutePath),
+                    ),
+                sessionFactory = { it.setIntraOpNumThreads(4) },
+            ).use { engine ->
+                val openTook = System.currentTimeMillis() - openMs
+                val text =
+                    "It is a truth universally acknowledged, that a single man in " +
+                        "possession of a good fortune, must be in want of a wife."
+                val t0 = System.currentTimeMillis()
+                val outcome = runBlocking { engine.synthesize(SynthesisRequest(text, voice = PiperVoices.LESSAC)) }
+                val wall = System.currentTimeMillis() - t0
 
-            val audio = outcome as? SynthesisOutcome.Audio
-            assertTrue("synthesis failed: $outcome", audio != null)
-            // Pcm16 is core-tts-internal; decode the little-endian s16 mono here.
-            val samples = FloatArray(audio!!.pcm.size / 2) { i ->
-                ((audio.pcm[2 * i].toInt() and 0xFF) or (audio.pcm[2 * i + 1].toInt() shl 8)) / 32768f
+                val audio = outcome as? SynthesisOutcome.Audio
+                assertTrue("synthesis failed: $outcome", audio != null)
+                // Pcm16 is core-tts-internal; decode the little-endian s16 mono here.
+                val samples =
+                    FloatArray(audio!!.pcm.size / 2) { i ->
+                        ((audio.pcm[2 * i].toInt() and 0xFF) or (audio.pcm[2 * i + 1].toInt() shl 8)) / 32768f
+                    }
+                val sampleRate = audio.sampleRateHz
+                var rms = 0.0
+                for (s in samples) rms += s.toDouble() * s
+                rms = sqrt(rms / samples.size)
+                val audioS = samples.size / sampleRate.toDouble()
+                val rtf = wall / 1000.0 / audioS
+
+                val mem = Debug.MemoryInfo()
+                Debug.getMemoryInfo(mem)
+                val result =
+                    JSONObject()
+                        .put("device", Build.MODEL)
+                        .put("voice", PiperVoices.LESSAC)
+                        .put("open_ms", openTook)
+                        .put("wall_ms", wall)
+                        .put("audio_seconds", audioS)
+                        .put("rtf", rtf)
+                        .put("rms", rms)
+                        .put("sample_rate", sampleRate)
+                        .put("segments", audio.segments?.size ?: -1)
+                        .put("total_pss_kb", mem.totalPss)
+                        .put("vm_hwm_kb", readVmHwm())
+                File(outDir, "d4_piper_smoke.json").writeText(result.toString(1))
+                writeWav(File(outDir, "d4_piper_engine_smoke.wav"), samples, sampleRate)
+                Log.d(
+                    TAG,
+                    "piper smoke: ${"%.2f".format(audioS)}s audio in $wall ms " +
+                        "(RTF ${"%.3f".format(rtf)}), rms=${"%.4f".format(rms)}",
+                )
+                assertTrue("audio too short: $audioS s", audioS > 3.0)
             }
-            val sampleRate = audio.sampleRateHz
-            var rms = 0.0
-            for (s in samples) rms += s.toDouble() * s
-            rms = sqrt(rms / samples.size)
-            val audioS = samples.size / sampleRate.toDouble()
-            val rtf = wall / 1000.0 / audioS
-
-            val mem = Debug.MemoryInfo()
-            Debug.getMemoryInfo(mem)
-            val result = JSONObject()
-                .put("device", Build.MODEL)
-                .put("voice", PiperVoices.LESSAC)
-                .put("open_ms", openTook)
-                .put("wall_ms", wall)
-                .put("audio_seconds", audioS)
-                .put("rtf", rtf)
-                .put("rms", rms)
-                .put("sample_rate", sampleRate)
-                .put("segments", audio.segments?.size ?: -1)
-                .put("total_pss_kb", mem.totalPss)
-                .put("vm_hwm_kb", readVmHwm())
-            File(outDir, "d4_piper_smoke.json").writeText(result.toString(1))
-            writeWav(File(outDir, "d4_piper_engine_smoke.wav"), samples, sampleRate)
-            Log.d(
-                TAG,
-                "piper smoke: ${"%.2f".format(audioS)}s audio in $wall ms " +
-                    "(RTF ${"%.3f".format(rtf)}), rms=${"%.4f".format(rms)}",
-            )
-            assertTrue("audio too short: $audioS s", audioS > 3.0)
-        }
     }
 
-    private fun writeWav(file: File, samples: FloatArray, sampleRate: Int) {
+    private fun writeWav(
+        file: File,
+        samples: FloatArray,
+        sampleRate: Int,
+    ) {
         val dataSize = samples.size * 2
-        val out = java.nio.ByteBuffer.allocate(44 + dataSize).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val out =
+            java.nio.ByteBuffer
+                .allocate(44 + dataSize)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN)
         out.put("RIFF".toByteArray()).putInt(36 + dataSize).put("WAVE".toByteArray())
-        out.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
-        out.putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
+        out
+            .put("fmt ".toByteArray())
+            .putInt(16)
+            .putShort(1)
+            .putShort(1)
+        out
+            .putInt(sampleRate)
+            .putInt(sampleRate * 2)
+            .putShort(2)
+            .putShort(16)
         out.put("data".toByteArray()).putInt(dataSize)
         for (s in samples) out.putShort((s.coerceIn(-1f, 1f) * 32767).toInt().toShort())
         file.writeBytes(out.array())
     }
+
     private fun readVmHwm(): Long =
         try {
             File("/proc/self/status")

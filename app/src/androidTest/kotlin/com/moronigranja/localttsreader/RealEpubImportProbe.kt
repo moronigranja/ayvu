@@ -7,12 +7,12 @@ import com.moronigranja.localttsreader.ebook.EBookSource
 import com.moronigranja.localttsreader.ebook.EpubParser
 import com.moronigranja.localttsreader.ebook.ImportOutcome
 import com.moronigranja.localttsreader.locate.TextIndex
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * S-debug device repro: a real-world EPUB (Gutenberg Pride and Prejudice,
@@ -27,7 +27,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class RealEpubImportProbe {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
@@ -36,15 +35,17 @@ class RealEpubImportProbe {
         assertTrue("stage build.md's pp.epub first: $file", file.isFile)
 
         // Direct parse first: surfaces the cause chain if anything fails.
-        val book = try {
-            EpubParser.parse(file.readBytes())
-        } catch (e: Throwable) {
-            val chain = generateSequence(e) { it.cause }
-                .map { "${it::class.java.simpleName}: ${it.message ?: ""}" }
-                .joinToString(" <- ")
-            fail("EpubParser.parse failed: $chain")
-            null
-        }!!
+        val book =
+            try {
+                EpubParser.parse(file.readBytes())
+            } catch (e: Throwable) {
+                val chain =
+                    generateSequence(e) { it.cause }
+                        .map { "${it::class.java.simpleName}: ${it.message ?: ""}" }
+                        .joinToString(" <- ")
+                fail("EpubParser.parse failed: $chain")
+                null
+            }!!
         assertEquals("Pride and Prejudice", book.title)
         assertTrue("chapters parsed", book.chapters.size >= 5)
         assertTrue("passages parsed", book.chapters.sumOf { it.passages.size } > 500)
@@ -69,9 +70,10 @@ class RealEpubImportProbe {
         assertEquals(listOf("Robert A. Glover"), book.authors)
         assertTrue("chapters parsed ≥ 2, was ${book.chapters.size}", book.chapters.size >= 2)
 
-        val outcome = BookImporter().import(
-            EBookSource(fileName = "nmmng.epub") { file.inputStream() },
-        )
+        val outcome =
+            BookImporter().import(
+                EBookSource(fileName = "nmmng.epub") { file.inputStream() },
+            )
         assertTrue("expected Added, was $outcome", outcome is ImportOutcome.Added)
     }
 }

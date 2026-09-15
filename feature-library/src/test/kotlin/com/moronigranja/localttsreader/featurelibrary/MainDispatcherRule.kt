@@ -20,8 +20,8 @@ import org.junit.jupiter.api.extension.ExtensionContext
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule(
     val testDispatcher: TestDispatcher = UnconfinedTestDispatcher(),
-) : BeforeEachCallback, AfterEachCallback {
-
+) : BeforeEachCallback,
+    AfterEachCallback {
     override fun beforeEach(context: ExtensionContext) {
         Dispatchers.setMain(testDispatcher)
     }

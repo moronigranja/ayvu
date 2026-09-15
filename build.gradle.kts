@@ -15,8 +15,7 @@ dependencies {
 
 val ktlintCheck by tasks.registering(JavaExec::class) {
     group = "verification"
-    description = "Run ktlint over all module Kotlin sources; baseline-gated (only NEW violations fail)."
-    val baseline = rootProject.layout.projectDirectory.file(".ktlint-baseline.xml")
+    description = "Run ktlint over all module Kotlin sources; any violation fails (no baseline)."
     inputs.files(fileTree(rootProject.projectDir) { include("**/src/**/*.kt"); exclude("**/build/**") })
     workingDir = rootProject.projectDir
     classpath = ktlint
@@ -27,7 +26,27 @@ val ktlintCheck by tasks.registering(JavaExec::class) {
     )
     args(
         "--relative",
-        "--baseline=${baseline.asFile.absolutePath}",
+        "**/src/**/*.kt",
+        "!**/build/**/*.kt",
+    )
+}
+
+// The formatter twin of ktlintCheck: same pinned CLI, same source set, writes in
+// place. One bulk run cleared the 2,937-entry baseline (2026-09-15 cleanup);
+// keep using this for mechanical formatting so no baseline needs to come back.
+val ktlintFormat by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Format every module's Kotlin sources in place with the pinned ktlint CLI."
+    workingDir = rootProject.projectDir
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    jvmArgs(
+        "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+        "--add-opens", "java.base/java.util=ALL-UNNAMED",
+    )
+    args(
+        "--relative",
+        "--format",
         "**/src/**/*.kt",
         "!**/build/**/*.kt",
     )

@@ -13,7 +13,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class AyvuThemeTest {
-
     @Test
     fun lightThemePrimaryIsBrandTeal() {
         assertEquals(Color(0xFF0B5F72), AyvuLightColors.primary)

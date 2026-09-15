@@ -10,7 +10,10 @@ import androidx.compose.ui.Modifier
 
 /** Centered placeholder for an empty list/screen. */
 @Composable
-fun EmptyState(title: String, modifier: Modifier = Modifier) {
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(title, style = MaterialTheme.typography.bodyLarge)
     }

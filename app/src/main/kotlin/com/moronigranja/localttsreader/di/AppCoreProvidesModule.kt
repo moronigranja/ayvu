@@ -11,11 +11,11 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import javax.inject.Singleton
 
 /**
  * A6 composition root: the app-wide import core providers (formerly
@@ -27,7 +27,6 @@ import kotlinx.coroutines.SupervisorJob
 @Module
 @InstallIn(SingletonComponent::class)
 object AppCoreProvidesModule {
-
     @Provides
     @Singleton
     fun provideTextIndex(): TextIndex = TextIndex()
@@ -58,8 +57,9 @@ object AppCoreProvidesModule {
     /** Process-lifetime scope — launch-time index rebuild, long-lived stores. */
     @Provides
     @Singleton
-    fun provideAppScope(@IoDispatcher io: CoroutineDispatcher): CoroutineScope =
-        CoroutineScope(SupervisorJob() + io)
+    fun provideAppScope(
+        @IoDispatcher io: CoroutineDispatcher,
+    ): CoroutineScope = CoroutineScope(SupervisorJob() + io)
 
     @Provides
     @IoDispatcher

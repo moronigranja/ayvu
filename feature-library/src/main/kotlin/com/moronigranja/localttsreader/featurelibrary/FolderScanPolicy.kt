@@ -19,7 +19,6 @@ import com.moronigranja.localttsreader.ebook.EBookFormats
  *   drop-box folder cannot feed an unbounded batch.
  */
 object FolderScanPolicy {
-
     /** Nested folder levels below the granted root that get scanned (root = depth 0). */
     const val MAX_DEPTH = 1
 
@@ -39,7 +38,10 @@ object FolderScanPolicy {
         var skipped = 0
         var truncated = false
 
-        fun walk(node: ScanNode<T>, depth: Int) {
+        fun walk(
+            node: ScanNode<T>,
+            depth: Int,
+        ) {
             if (truncated || depth > MAX_DEPTH) return
             for (child in node.children()) {
                 if (files.size >= MAX_FILES) {
@@ -77,7 +79,10 @@ class ScanNode<T>(
 }
 
 /** One kept file: its display name plus the adapter's opaque handle. */
-data class ScanFile<T>(val name: String, val payload: T)
+data class ScanFile<T>(
+    val name: String,
+    val payload: T,
+)
 
 /** The outcome of one folder scan. */
 data class FolderScanResult<T>(

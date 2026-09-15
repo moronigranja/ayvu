@@ -9,9 +9,14 @@ import kotlinx.coroutines.flow.StateFlow
  */
 sealed interface AuditionStage {
     data object Idle : AuditionStage
+
     data object Generating : AuditionStage
+
     data object Playing : AuditionStage
-    data class Failed(val reason: String) : AuditionStage
+
+    data class Failed(
+        val reason: String,
+    ) : AuditionStage
 }
 
 data class AuditionUiState(

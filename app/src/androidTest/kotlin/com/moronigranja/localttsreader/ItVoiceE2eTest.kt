@@ -5,7 +5,6 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.LibraryEntry
@@ -16,6 +15,7 @@ import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.SettingEntity
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,46 +36,50 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ItVoiceE2eTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var database: LibraryDatabase
     private lateinit var store: RoomLibraryStore
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "it-e2e-book",
-        title = "Libro in Italiano",
-        chapters = listOf(
-            Chapter(
-                0,
-                "Il Primo Capitolo",
+    private val book =
+        Book(
+            id = "it-e2e-book",
+            title = "Libro in Italiano",
+            chapters =
                 listOf(
-                    TextPassage(
-                        "Trentatré trentini entrarono a Trento, tutti e trenta trotterellando. " +
-                            "Il fiume scorre veloce tra le pietre del vecchio ponte. " +
-                            "La casa aveva una grande finestra sulla valle. " +
-                            "Ogni mattina il pescatore tornava prima del tramonto. " +
-                            "I bambini giocavano nel giardino della scuola durante la mattina. " +
-                            "Il vento forte scuoteva le foglie degli alberi alti.",
+                    Chapter(
+                        0,
+                        "Il Primo Capitolo",
+                        listOf(
+                            TextPassage(
+                                "Trentatré trentini entrarono a Trento, tutti e trenta trotterellando. " +
+                                    "Il fiume scorre veloce tra le pietre del vecchio ponte. " +
+                                    "La casa aveva una grande finestra sulla valle. " +
+                                    "Ogni mattina il pescatore tornava prima del tramonto. " +
+                                    "I bambini giocavano nel giardino della scuola durante la mattina. " +
+                                    "Il vento forte scuoteva le foglie degli alberi alti.",
+                            ),
+                        ),
                     ),
+                    Chapter(1, "La Fine", listOf(TextPassage("Questa è l'ultima frase del libro di prova."))),
                 ),
-            ),
-            Chapter(1, "La Fine", listOf(TextPassage("Questa è l'ultima frase del libro di prova."))),
-        ),
-    )
+        )
 
     @Before
-    fun setUp() = runBlocking {
-        database = Room.databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-            .allowMainThreadQueries()
-            .build()
-        store = RoomLibraryStore(database, scope)
-        store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
-        database.settingsDao().put(
-            SettingEntity(SettingsStore.KEY_VOICE, "if_sara"),
-        )
-    }
+    fun setUp() =
+        runBlocking {
+            database =
+                Room
+                    .databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .allowMainThreadQueries()
+                    .build()
+            store = RoomLibraryStore(database, scope)
+            store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
+            database.settingsDao().put(
+                SettingEntity(SettingsStore.KEY_VOICE, "if_sara"),
+            )
+        }
 
     @After
     fun tearDown() {

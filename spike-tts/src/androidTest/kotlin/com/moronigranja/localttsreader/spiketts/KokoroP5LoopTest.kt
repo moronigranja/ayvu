@@ -29,9 +29,10 @@ class KokoroP5LoopTest {
         val leg = args.getString("leg") ?: "cpu"
         val minutes = args.getString("minutes")?.toLongOrNull() ?: 12L
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val ok = KokoroStageRunner(context).runSustained(leg, minutes * 60_000L) { line: String ->
-            Log.d("KokoroSpike", line)
-        }
+        val ok =
+            KokoroStageRunner(context).runSustained(leg, minutes * 60_000L) { line: String ->
+                Log.d("KokoroSpike", line)
+            }
         assertTrue("p5 $leg loop failed", ok)
     }
 }

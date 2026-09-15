@@ -28,8 +28,8 @@ class PcmPassageCache(
     private val root: File,
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
 ) {
-
     private val lock = Object()
+
     // accessOrder=true: re-put/read moves the key to the end; first = LRU.
     private val recency = object : LinkedHashMap<PregenKey, Long>(16, 0.75f, true) {}
     private var now = 0L
@@ -78,12 +78,16 @@ class PcmPassageCache(
         }
         // Oldest first: insertion order of an access-ordered map is the
         // eviction order, so the head is the least-recently-used entry.
-        aged.sortedWith(compareBy({ it.second }, { it.first.toString() }))
+        aged
+            .sortedWith(compareBy({ it.second }, { it.first.toString() }))
             .forEach { (key, _) -> recency[key] = ++now }
         if (totalBytesLocked() > maxBytes) evictLocked()
     }
 
-    fun put(key: PregenKey, audio: PregenAudio) = synchronized(lock) {
+    fun put(
+        key: PregenKey,
+        audio: PregenAudio,
+    ) = synchronized(lock) {
         val pcmFile = pcmFile(key)
         pcmFile.parentFile?.mkdirs()
         val tmp = File(pcmFile.parentFile, pcmFile.name + ".tmp")
@@ -98,16 +102,18 @@ class PcmPassageCache(
         evictLocked()
     }
 
-    fun get(key: PregenKey): PregenAudio? = synchronized(lock) {
-        val pcmFile = pcmFile(key)
-        if (!pcmFile.isFile) return null
-        val metaFile = File(pcmFile.parentFile, pcmFile.nameWithoutExtension + ".meta")
-        val meta = metaFile.takeIf { it.isFile }?.readText()?.trim() ?: return null
-        val parsed = parseMeta(meta) ?: return null
-        now++
-        recency[key] = now
-        PregenAudio(pcmFile.readBytes(), parsed.first, parsed.second)
-    }
+    fun get(key: PregenKey): PregenAudio? =
+        synchronized(lock) {
+            val pcmFile = pcmFile(key)
+            if (!pcmFile.isFile) return null
+            val metaFile = File(pcmFile.parentFile, pcmFile.nameWithoutExtension + ".meta")
+            val meta = metaFile.takeIf { it.isFile }?.readText()?.trim() ?: return null
+            val parsed = parseMeta(meta) ?: return null
+            now++
+            recency[key] = now
+            PregenAudio(pcmFile.readBytes(), parsed.first, parsed.second)
+        }
+
     /** Existence check without reading the PCM — the pregen planner's skip-check. */
     fun contains(key: PregenKey): Boolean = synchronized(lock) { pcmFile(key).isFile }
 
@@ -115,19 +121,22 @@ class PcmPassageCache(
     fun bytesRemaining(): Long = synchronized(lock) { (maxBytes - totalBytesLocked()).coerceAtLeast(0) }
 
     /** Exact on-disk bytes for one passage (the .pcm file), or null when not cached. */
-    fun sizeOf(key: PregenKey): Long? = synchronized(lock) {
-        val file = pcmFile(key)
-        if (file.isFile) file.length() else null
-    }
+    fun sizeOf(key: PregenKey): Long? =
+        synchronized(lock) {
+            val file = pcmFile(key)
+            if (file.isFile) file.length() else null
+        }
 
     /** Bytes on disk per book — pcm + sidecar files under each `bookId` subtree (decisions #44). */
-    fun usageByBook(): Map<String, Long> = synchronized(lock) {
-        root.listFiles()
-            ?.filter { it.isDirectory }
-            ?.associate { dir -> dir.name to dir.walkBottomUp().filter { it.isFile }.sumOf { it.length() } }
-            ?.filterValues { it > 0L }
-            ?: emptyMap()
-    }
+    fun usageByBook(): Map<String, Long> =
+        synchronized(lock) {
+            root
+                .listFiles()
+                ?.filter { it.isDirectory }
+                ?.associate { dir -> dir.name to dir.walkBottomUp().filter { it.isFile }.sumOf { it.length() } }
+                ?.filterValues { it > 0L }
+                ?: emptyMap()
+        }
 
     /**
      * Spine keys currently on disk for one book under one voice+speed. The
@@ -135,7 +144,11 @@ class PcmPassageCache(
      * maintained by put/get/evict) — no disk walk. Legacy v1 keys parse as the
      * default engine, so they are included naturally.
      */
-    fun generatedKeys(bookId: String, voice: String, speed: Double): Set<PregenKey> =
+    fun generatedKeys(
+        bookId: String,
+        voice: String,
+        speed: Double,
+    ): Set<PregenKey> =
         synchronized(lock) {
             recency.keys.filterTo(mutableSetOf()) {
                 it.bookId == bookId && it.engine == PregenKey.DEFAULT_ENGINE &&
@@ -143,18 +156,20 @@ class PcmPassageCache(
             }
         }
 
-    fun delete(key: PregenKey) = synchronized(lock) {
-        val pcmFile = pcmFile(key)
-        pcmFile.delete()
-        File(pcmFile.parentFile, pcmFile.nameWithoutExtension + ".meta").delete()
-        recency.remove(key)
-        pruneEmptyDirs(root, pcmFile.parentFile)
-    }
+    fun delete(key: PregenKey) =
+        synchronized(lock) {
+            val pcmFile = pcmFile(key)
+            pcmFile.delete()
+            File(pcmFile.parentFile, pcmFile.nameWithoutExtension + ".meta").delete()
+            recency.remove(key)
+            pruneEmptyDirs(root, pcmFile.parentFile)
+        }
 
-    fun deleteBook(bookId: String) = synchronized(lock) {
-        File(root, bookId).deleteRecursively()
-        recency.keys.removeAll { it.bookId == bookId }
-    }
+    fun deleteBook(bookId: String) =
+        synchronized(lock) {
+            File(root, bookId).deleteRecursively()
+            recency.keys.removeAll { it.bookId == bookId }
+        }
 
     fun totalBytes(): Long = synchronized(lock) { root.walkBottomUp().filter { it.isFile }.sumOf { it.length() } }
 
@@ -171,8 +186,7 @@ class PcmPassageCache(
         }
     }
 
-    private fun totalBytesLocked(): Long =
-        root.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+    private fun totalBytesLocked(): Long = root.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
 
     private fun pcmFile(key: PregenKey): File {
         val slug = key.toString()
@@ -197,24 +211,30 @@ class PcmPassageCache(
         return v2
     }
 
-    private fun meta(audio: PregenAudio): String = buildString {
-        append(audio.sampleRateHz)
-        audio.segments?.forEach { append('\n').append(it.startSeconds).append(';').append(it.endSeconds) }
-    }
+    private fun meta(audio: PregenAudio): String =
+        buildString {
+            append(audio.sampleRateHz)
+            audio.segments?.forEach { append('\n').append(it.startSeconds).append(';').append(it.endSeconds) }
+        }
 
     private fun parseMeta(meta: String): Pair<Int, List<com.moronigranja.localttsreader.tts.SegmentAnchor>>? {
         val lines = meta.lines().filter { it.isNotBlank() }
         val sampleRate = lines.firstOrNull()?.toIntOrNull() ?: return null
-        val segments = lines.drop(1).mapNotNull { line ->
-            val (start, end) = line.split(';').takeIf { it.size == 2 } ?: return@mapNotNull null
-            val s = start.toDoubleOrNull() ?: return@mapNotNull null
-            val e = end.toDoubleOrNull() ?: return@mapNotNull null
-            com.moronigranja.localttsreader.tts.SegmentAnchor(s, e)
-        }
+        val segments =
+            lines.drop(1).mapNotNull { line ->
+                val (start, end) = line.split(';').takeIf { it.size == 2 } ?: return@mapNotNull null
+                val s = start.toDoubleOrNull() ?: return@mapNotNull null
+                val e = end.toDoubleOrNull() ?: return@mapNotNull null
+                com.moronigranja.localttsreader.tts
+                    .SegmentAnchor(s, e)
+            }
         return sampleRate to segments
     }
 
-    private fun pruneEmptyDirs(root: File, start: File) {
+    private fun pruneEmptyDirs(
+        root: File,
+        start: File,
+    ) {
         var dir = start
         while (dir != root && dir.isDirectory && dir.listFiles().orEmpty().isEmpty()) {
             dir.delete()

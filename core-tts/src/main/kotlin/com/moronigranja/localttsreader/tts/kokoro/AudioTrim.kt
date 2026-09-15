@@ -12,7 +12,6 @@ import kotlin.math.sqrt
  * a fully silent signal trims to an empty range `[0, 0)` (librosa semantics).
  */
 object AudioTrim {
-
     fun trim(
         y: FloatArray,
         topDb: Float = 60f,

@@ -31,7 +31,10 @@ object SetupEnginePacks {
         listOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
 
     /** The pack ids the [engineId] engine must have Ready to synthesize. */
-    fun requiredIds(engineId: String, voice: String): List<String> =
+    fun requiredIds(
+        engineId: String,
+        voice: String,
+    ): List<String> =
         when (engineId) {
             DefaultEngines.piper.id ->
                 PiperPacks

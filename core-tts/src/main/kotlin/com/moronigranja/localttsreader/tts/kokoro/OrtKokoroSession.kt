@@ -1,7 +1,7 @@
 package com.moronigranja.localttsreader.tts.kokoro
 
-import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OnnxJavaType
+import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo

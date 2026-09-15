@@ -1,0 +1,17 @@
+# Root .editorconfig — ktlint (1.7.2, pinned in gradle/libs.versions.toml) reads
+# this file; the repo has no nested ones. Everything else is the ktlint_official
+# default, which is what the 2026-09-15 bulk reformat produced.
+root = true
+
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+# Compose composable functions are PascalCase by contract (PlayerCard,
+# VoiceSelector, ConfirmDialog, …). Without this the standard function-naming
+# rule flags all 51 of them, which is why they sat in the ktlint baseline.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# JNA binds these interface methods to C symbols by name (espeak_Initialize,
+# espeak_SetVoiceByName, espeak_TextToPhonemes, …): the spelling IS the ABI,
+# so the standard function-naming rule cannot apply to that file.
+[**/EspeakPhonemizer.kt]
+ktlint_standard_function-naming = disabled

@@ -17,7 +17,6 @@ import java.util.zip.ZipInputStream
  * (feature-player) and the settings surface without a feature edge.
  */
 object EspeakStager {
-
     fun bundleDir(filesDir: File): File = File(filesDir, "espeak")
 
     fun libFile(filesDir: File): File = File(bundleDir(filesDir), "libespeak-ng.so")
@@ -32,7 +31,11 @@ object EspeakStager {
     }
 
     /** Extracts the verified zip pack into [bundleDir] (idempotent; replaces an old bundle). */
-    fun stage(filesDir: File, cache: PackCache, pack: TtsPack): Boolean {
+    fun stage(
+        filesDir: File,
+        cache: PackCache,
+        pack: TtsPack,
+    ): Boolean {
         if (isStaged(filesDir)) return true
         val source = cache.targetFile(pack)
         if (!source.isFile || !cache.isVerified(pack)) return false

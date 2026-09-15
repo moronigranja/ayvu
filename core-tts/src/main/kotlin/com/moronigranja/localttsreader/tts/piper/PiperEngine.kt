@@ -10,12 +10,12 @@ import com.moronigranja.localttsreader.tts.kokoro.NormalizingPhonemizer
 import com.moronigranja.localttsreader.tts.kokoro.PhonemizeException
 import com.moronigranja.localttsreader.tts.kokoro.Phonemizer
 import com.moronigranja.localttsreader.tts.pcm16
-import java.io.File
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Piper (rhasspy/piper-voices VITS) as a [TTSEngine] — the D4 small-tier
@@ -54,8 +54,8 @@ class PiperEngine internal constructor(
     private val config: PiperVoiceConfig,
     private val session: PiperSession,
     private val phonemizer: Phonemizer,
-) : TTSEngine, AutoCloseable {
-
+) : TTSEngine,
+    AutoCloseable {
     override suspend fun synthesize(request: SynthesisRequest): SynthesisOutcome =
         withContext(Dispatchers.IO) {
             try {

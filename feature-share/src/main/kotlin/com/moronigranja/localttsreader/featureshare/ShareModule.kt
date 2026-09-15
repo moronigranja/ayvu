@@ -18,7 +18,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object ShareModule {
-
     @Provides
     @Singleton
     fun provideShareSnippetResolver(
@@ -26,11 +25,12 @@ object ShareModule {
         rebuildGate: IndexRebuilder,
         settings: AppSettings,
         ocr: OcrEngine?,
-    ): ShareSnippetResolver = ShareSnippetResolver(
-        index = index,
-        rebuildGate = rebuildGate,
-        threshold = { settings.state.value.threshold }, // cached mirror, no DB on the query path
-        ocr = ocr,
-        ocrLanguages = { settings.state.value.ocrLanguages },
-    )
+    ): ShareSnippetResolver =
+        ShareSnippetResolver(
+            index = index,
+            rebuildGate = rebuildGate,
+            threshold = { settings.state.value.threshold }, // cached mirror, no DB on the query path
+            ocr = ocr,
+            ocrLanguages = { settings.state.value.ocrLanguages },
+        )
 }

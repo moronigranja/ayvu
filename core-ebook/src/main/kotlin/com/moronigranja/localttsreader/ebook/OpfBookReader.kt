@@ -21,28 +21,35 @@ import javax.xml.parsers.ParserConfigurationException
  * formats, so fixes apply everywhere.
  */
 internal object OpfBookReader {
-
     /** EPUB: locate content.opf through META-INF/container.xml. */
     fun findOpfPath(entries: Map<String, ByteArray>): String {
-        val containerBytes = entries.lookup("META-INF/container.xml")
-            ?: throw EBookParseException("META-INF/container.xml is missing")
+        val containerBytes =
+            entries.lookup("META-INF/container.xml")
+                ?: throw EBookParseException("META-INF/container.xml is missing")
         // The container is a fixed, tiny schema — extract full-path without an
         // XML/DOM parse. Host Xerces and Android's Expat-backed DOM disagree on
         // doctype/single-quote/BOM handling, and a broken container.xml must
         // not depend on which parser the platform supplies (S-debug, 2026-08-26).
-        val fullPath = extractFullPath(String(containerBytes, Charsets.UTF_8))
-            ?: throw EBookParseException("container.xml has no rootfile full-path")
+        val fullPath =
+            extractFullPath(String(containerBytes, Charsets.UTF_8))
+                ?: throw EBookParseException("container.xml has no rootfile full-path")
         return ZipEntries.normalizePath(fullPath)
     }
 
-private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
-    /** The rootfile element's full-path attribute, single- or double-quoted. */
-    internal fun extractFullPath(containerXml: String): String? =
-        FULL_PATH_RE.find(containerXml)?.groupValues?.get(1)
+    private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
 
-    fun parseBook(id: String, entries: Map<String, ByteArray>, opfPath: String, fallbackTitle: String): Book {
-        val opfBytes = entries.lookup(opfPath)
-            ?: throw EBookParseException("OPF not found in container: $opfPath")
+    /** The rootfile element's full-path attribute, single- or double-quoted. */
+    internal fun extractFullPath(containerXml: String): String? = FULL_PATH_RE.find(containerXml)?.groupValues?.get(1)
+
+    fun parseBook(
+        id: String,
+        entries: Map<String, ByteArray>,
+        opfPath: String,
+        fallbackTitle: String,
+    ): Book {
+        val opfBytes =
+            entries.lookup(opfPath)
+                ?: throw EBookParseException("OPF not found in container: $opfPath")
         val opf = parseOpf(opfBytes, opfPath)
         if (opf.spineHrefs.isEmpty()) throw EBookParseException("spine is empty")
 
@@ -65,12 +72,16 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
             chapters = chapters,
         )
     }
+
     /**
      * Standard EPUB cover artwork: EPUB2 `<meta name="cover" content="…"/>`
      * (resolving the manifest item), else EPUB3 `properties="cover-image"`.
      * Null when absent or not an image item — never a parse failure.
      */
-    internal fun coverImage(entries: Map<String, ByteArray>, opfPath: String): ByteArray? {
+    internal fun coverImage(
+        entries: Map<String, ByteArray>,
+        opfPath: String,
+    ): ByteArray? {
         val opfBytes = entries.lookup(opfPath) ?: return null
         val doc = runCatching { parseXml(opfBytes, "content.opf") }.getOrNull() ?: return null
         val opfDir = opfPath.substringBeforeLast('/', "")
@@ -102,7 +113,10 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
         val navHref: String?,
     )
 
-    private fun parseOpf(bytes: ByteArray, opfPath: String): Opf {
+    private fun parseOpf(
+        bytes: ByteArray,
+        opfPath: String,
+    ): Opf {
         val doc = parseXml(bytes, "content.opf")
         val opfDir = opfPath.substringBeforeLast('/', "")
 
@@ -130,7 +144,10 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
     // TOC (EPUB2 NCX + EPUB3 nav), chapter titles
     // ------------------------------------------------------------------
 
-    private fun loadTocTitles(entries: Map<String, ByteArray>, opf: Opf): Map<String, String> {
+    private fun loadTocTitles(
+        entries: Map<String, ByteArray>,
+        opf: Opf,
+    ): Map<String, String> {
         val titles = linkedMapOf<String, String>()
 
         opf.ncxHref?.let { href ->
@@ -139,9 +156,19 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
                     val dir = href.substringBeforeLast('/', "")
                     for (point in doc.elementsByLocalName("navPoint")) {
                         // <navPoint><navLabel><text>…</text></navLabel><content src="…"/></navPoint>
-                        val src = point.descendantsByLocalName("content").firstOrNull()
-                            ?.getAttribute("src")?.substringBefore('#')?.trim()
-                        val label = point.descendantsByLocalName("text").firstOrNull()?.textContent?.trim()
+                        val src =
+                            point
+                                .descendantsByLocalName("content")
+                                .firstOrNull()
+                                ?.getAttribute("src")
+                                ?.substringBefore('#')
+                                ?.trim()
+                        val label =
+                            point
+                                .descendantsByLocalName("text")
+                                .firstOrNull()
+                                ?.textContent
+                                ?.trim()
                         if (!src.isNullOrEmpty() && !label.isNullOrEmpty()) {
                             titles[resolvePath(dir, src)] = label
                         }
@@ -154,8 +181,9 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
             entries.lookup(href)?.let { bytes ->
                 runCatching { parseXml(bytes, "nav") }.getOrNull()?.let { doc ->
                     val dir = href.substringBeforeLast('/', "")
-                    val tocNav = doc.elementsByLocalName("nav").firstOrNull { it.attributeTokens("type").contains("toc") }
-                        ?: doc.elementsByLocalName("nav").firstOrNull()
+                    val tocNav =
+                        doc.elementsByLocalName("nav").firstOrNull { it.attributeTokens("type").contains("toc") }
+                            ?: doc.elementsByLocalName("nav").firstOrNull()
                     if (tocNav != null) {
                         for (link in tocNav.descendantsByLocalName("a")) {
                             val target = link.getAttribute("href").substringBefore('#').trim()
@@ -200,9 +228,15 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
     // XML (XXE-hardened) + entities
     // ------------------------------------------------------------------
 
-    fun parseXmlPublic(bytes: ByteArray, what: String): Document = parseXml(bytes, what)
+    fun parseXmlPublic(
+        bytes: ByteArray,
+        what: String,
+    ): Document = parseXml(bytes, what)
 
-    private fun parseXml(bytes: ByteArray, what: String): Document {
+    private fun parseXml(
+        bytes: ByteArray,
+        what: String,
+    ): Document {
         // Real-world pre-processing before the DOM parse (S-debug, 2026-08-26):
         // - a DOCTYPE is STRIPPED: host Xerces and Android's Expat disagree on
         //   doctype/feature handling, and removal also guarantees external DTDs
@@ -222,12 +256,11 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
         }
     }
 
-    private const val singleQuote = '\''
-    private const val doubleQuote = '"'
+    private const val SINGLE_QUOTE = '\''
+    private const val DOUBLE_QUOTE = '"'
     private val XML_DECL_RE = Regex("""<\?xml[^>]*\?>""", RegexOption.IGNORE_CASE)
 
-    private fun normalizeDeclaration(s: String): String =
-        XML_DECL_RE.replace(s) { it.value.replace(singleQuote, doubleQuote) }
+    private fun normalizeDeclaration(s: String): String = XML_DECL_RE.replace(s) { it.value.replace(SINGLE_QUOTE, DOUBLE_QUOTE) }
 
     /**
      * Removes a preamble `<!DOCTYPE …>` (internal subset included), case-
@@ -277,13 +310,22 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
     }
 
     /** Index just past the doctype's closing `>` (bracket-aware), or -1. */
-    private fun doctypeEnd(s: String, start: Int): Int {
+    private fun doctypeEnd(
+        s: String,
+        start: Int,
+    ): Int {
         var depth = 0
         var i = start + 2
         while (i < s.length) {
             when (s[i]) {
                 '[' -> depth++
-                ']' -> if (depth > 0) depth-- else { i += 2; return i } // ']>'
+                ']' ->
+                    if (depth > 0) {
+                        depth--
+                    } else {
+                        i += 2
+                        return i
+                    } // ']>'
                 '>' -> if (depth == 0) return i + 1
             }
             i++
@@ -323,31 +365,64 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
         }
     }
 
-    private val NAMED_ENTITIES = mapOf(
-        "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'",
-        "nbsp" to "\u00A0", "copy" to "\u00A9", "reg" to "\u00AE", "trade" to "\u2122",
-        "mdash" to "\u2014", "ndash" to "\u2013", "hellip" to "\u2026",
-        "lsquo" to "\u2018", "rsquo" to "\u2019", "ldquo" to "\u201C", "rdquo" to "\u201D",
-        "bull" to "\u2022", "middot" to "\u00B7", "deg" to "\u00B0",
-        "agrave" to "\u00E0", "eacute" to "\u00E9", "egrave" to "\u00E8", "iacute" to "\u00ED",
-        "oacute" to "\u00F3", "uacute" to "\u00FA", "auml" to "\u00E4", "ouml" to "\u00F6",
-        "uuml" to "\u00FC", "ccedil" to "\u00E7", "ntilde" to "\u00F1", "szlig" to "\u00DF",
-        "laquo" to "\u00AB", "raquo" to "\u00BB", "times" to "\u00D7", "divide" to "\u00F7",
-        "para" to "\u00B6", "sect" to "\u00A7", "dagger" to "\u2020", "Dagger" to "\u2021",
-        "permil" to "\u2030", "prime" to "\u2032", "Prime" to "\u2033",
-    )
+    private val NAMED_ENTITIES =
+        mapOf(
+            "amp" to "&",
+            "lt" to "<",
+            "gt" to ">",
+            "quot" to "\"",
+            "apos" to "'",
+            "nbsp" to "\u00A0",
+            "copy" to "\u00A9",
+            "reg" to "\u00AE",
+            "trade" to "\u2122",
+            "mdash" to "\u2014",
+            "ndash" to "\u2013",
+            "hellip" to "\u2026",
+            "lsquo" to "\u2018",
+            "rsquo" to "\u2019",
+            "ldquo" to "\u201C",
+            "rdquo" to "\u201D",
+            "bull" to "\u2022",
+            "middot" to "\u00B7",
+            "deg" to "\u00B0",
+            "agrave" to "\u00E0",
+            "eacute" to "\u00E9",
+            "egrave" to "\u00E8",
+            "iacute" to "\u00ED",
+            "oacute" to "\u00F3",
+            "uacute" to "\u00FA",
+            "auml" to "\u00E4",
+            "ouml" to "\u00F6",
+            "uuml" to "\u00FC",
+            "ccedil" to "\u00E7",
+            "ntilde" to "\u00F1",
+            "szlig" to "\u00DF",
+            "laquo" to "\u00AB",
+            "raquo" to "\u00BB",
+            "times" to "\u00D7",
+            "divide" to "\u00F7",
+            "para" to "\u00B6",
+            "sect" to "\u00A7",
+            "dagger" to "\u2020",
+            "Dagger" to "\u2021",
+            "permil" to "\u2030",
+            "prime" to "\u2032",
+            "Prime" to "\u2033",
+        )
 
     private val ENTITY_RE = Regex("&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z][a-zA-Z0-9]*);")
 
     /** Shared by OPF/NCX XHTML parsing and MobiParser's MOBI7 NCX index labels. */
-    internal fun decodeEntities(s: String): String = ENTITY_RE.replace(s) { match ->
-        val body = match.groupValues[1]
-        when {
-            body.startsWith("#x") -> body.substring(2).toIntOrNull(16)?.let(::codepointString)
-            body.startsWith("#") -> body.substring(1).toIntOrNull(10)?.let(::codepointString)
-            else -> NAMED_ENTITIES[body]
-        } ?: match.value
-    }
+    internal fun decodeEntities(s: String): String =
+        ENTITY_RE.replace(s) { match ->
+            val body = match.groupValues[1]
+            when {
+                body.startsWith("#x") -> body.substring(2).toIntOrNull(16)?.let(::codepointString)
+                body.startsWith("#") -> body.substring(1).toIntOrNull(10)?.let(::codepointString)
+                else -> NAMED_ENTITIES[body]
+            } ?: match.value
+        }
 
     /** The five entities XML itself defines; the parser resolves these. */
     private val XML_ENTITIES = setOf("amp", "lt", "gt", "quot", "apos")
@@ -385,8 +460,7 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
         return sb.toString()
     }
 
-    private fun codepointString(codepoint: Int): String? =
-        if (codepoint in 0x1..0x10FFFF) String(Character.toChars(codepoint)) else null
+    private fun codepointString(codepoint: Int): String? = if (codepoint in 0x1..0x10FFFF) String(Character.toChars(codepoint)) else null
 
     // ------------------------------------------------------------------
     // DOM helpers + path utils + regexes
@@ -394,6 +468,7 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
 
     private fun Document.elementsByLocalName(name: String): List<Element> {
         val out = mutableListOf<Element>()
+
         fun walk(root: Element) {
             for (i in 0 until root.childNodes.length) {
                 val node = root.childNodes.item(i)
@@ -409,6 +484,7 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
 
     private fun Element.descendantsByLocalName(name: String): List<Element> {
         val out = mutableListOf<Element>()
+
         fun walk(node: org.w3c.dom.Node) {
             for (i in 0 until node.childNodes.length) {
                 val child = node.childNodes.item(i)
@@ -428,23 +504,29 @@ private val FULL_PATH_RE = Regex("""full-path\s*=\s*["']([^"']+)["']""")
         for (i in 0 until attributes.length) {
             val attribute = attributes.item(i)
             if (attribute?.nodeName?.substringAfterLast(':') == attributeLocalName) {
-                return attribute.nodeValue.split(' ').filter { it.isNotEmpty() }.toSet()
+                return attribute.nodeValue
+                    .split(' ')
+                    .filter { it.isNotEmpty() }
+                    .toSet()
             }
         }
         return emptySet()
     }
 
-    private fun resolvePath(baseDir: String, href: String): String =
-        ZipEntries.normalizePath(if (href.startsWith('/')) href else "$baseDir/$href")
+    private fun resolvePath(
+        baseDir: String,
+        href: String,
+    ): String = ZipEntries.normalizePath(if (href.startsWith('/')) href else "$baseDir/$href")
 
     /** Private-use char unlikely in real text; scrubbed by CONTROL_CHARS if the source had it. */
     private const val BOUNDARY = "\u0001"
 
     private val SKIP_BLOCKS = Regex("(?is)<(head|script|style)[\\s\\S]*?</\\1>")
-    private val BLOCK_BOUNDARY = Regex(
-        "(?i)<(p|div|li|blockquote|section|article|h[1-6]|tr)[^>]*>|" +
-            "</(p|div|li|blockquote|section|article|h[1-6]|tr|br)>|<br\\s*/?>",
-    )
+    private val BLOCK_BOUNDARY =
+        Regex(
+            "(?i)<(p|div|li|blockquote|section|article|h[1-6]|tr)[^>]*>|" +
+                "</(p|div|li|blockquote|section|article|h[1-6]|tr|br)>|<br\\s*/?>",
+        )
     private val TAG_RE = Regex("<[^>]+>")
     private val CONTROL_CHARS = Regex("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]")
     private val HEADING_RE = Regex("(?i)<h[1-6][^>]*>([\\s\\S]*?)</h[1-6]>")

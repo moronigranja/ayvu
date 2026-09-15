@@ -13,12 +13,14 @@ package com.moronigranja.localttsreader.ebook
  *
  * DRM-encrypted files are rejected up front (deDRM is out-of-app; see docs).
  */
-internal class MobiContainer(bytes: ByteArray) {
-
+internal class MobiContainer(
+    bytes: ByteArray,
+) {
     val records: List<ByteArray>
     val compression: Int
     val textRecords: Int
     val encryption: Int
+
     /** Sequential name from the 78-byte PDB header (book title for plain PalmDOC). */
     val palmName: String
 
@@ -27,14 +29,15 @@ internal class MobiContainer(bytes: ByteArray) {
         val numRecords = Bytes.u16(bytes, 76)
         if (numRecords == 0) throw EBookParseException("Palm database has no records")
         val offsets = IntArray(numRecords) { Bytes.u32(bytes, 78 + 8 * it).toInt() }
-        records = List(numRecords) { i ->
-            val start = offsets[i]
-            val end = if (i + 1 < numRecords) offsets[i + 1] else bytes.size
-            if (start < 0 || end < start || end > bytes.size) {
-                throw EBookParseException("corrupt Palm database record table")
+        records =
+            List(numRecords) { i ->
+                val start = offsets[i]
+                val end = if (i + 1 < numRecords) offsets[i + 1] else bytes.size
+                if (start < 0 || end < start || end > bytes.size) {
+                    throw EBookParseException("corrupt Palm database record table")
+                }
+                bytes.copyOfRange(start, end)
             }
-            bytes.copyOfRange(start, end)
-        }
         val palm = records.first()
         if (palm.size < 16) throw EBookParseException("PalmDOC header record too short")
         compression = Bytes.u16(palm, 0)

@@ -6,11 +6,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.moronigranja.localttsreader.ebook.EBookSource
 
-/**
- * SAF adapters: turn picked [Uri]s into the domain's [EBookSource]s and make
- * read access persistable where the provider allows it. Unsupported extensions
- * or unreadable streams are surfaced by the importer as typed failures.
- */
+// SAF adapters: turn picked [Uri]s into the domain's [EBookSource]s and make
+// read access persistable where the provider allows it. Unsupported extensions
+// or unreadable streams are surfaced by the importer as typed failures.
 
 /** Resolves [uris] to [EBookSource]s with display names and lazy content streams. */
 fun Context.toEBookSources(uris: List<Uri>): List<EBookSource> =
@@ -33,13 +31,14 @@ fun Context.toEBookSources(result: FolderScanResult<Uri>): List<EBookSource> =
         }
     }
 
-private fun Context.displayName(uri: Uri): String? = try {
-    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-        if (cursor.moveToFirst()) cursor.getString(0) else null
+private fun Context.displayName(uri: Uri): String? =
+    try {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    } catch (e: Exception) {
+        null
     }
-} catch (e: Exception) {
-    null
-}
 
 /**
  * Requests a persistable read grant for [uri] so re-reading it (e.g. after a

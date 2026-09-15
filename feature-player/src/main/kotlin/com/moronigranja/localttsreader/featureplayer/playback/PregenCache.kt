@@ -14,8 +14,10 @@ import javax.inject.Singleton
  * layout, so a book's pre-gen'ed audio is one `bookId` subtree.
  */
 @Singleton
-class PregenCache @Inject constructor(
-    @ApplicationContext context: Context,
-) {
-    val cache: PcmPassageCache = PcmPassageCache(File(context.filesDir, "pregen"))
-}
+class PregenCache
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+    ) {
+        val cache: PcmPassageCache = PcmPassageCache(File(context.filesDir, "pregen"))
+    }

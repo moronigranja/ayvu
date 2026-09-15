@@ -1,49 +1,56 @@
 package com.moronigranja.localttsreader.ebook
 
+import com.moronigranja.localttsreader.ebook.EBookFormats
+import com.moronigranja.localttsreader.ebook.EBookSource
 import com.moronigranja.localttsreader.ebook.EpubFixture.CONTAINER
 import com.moronigranja.localttsreader.ebook.EpubFixture.chapterHtml
 import com.moronigranja.localttsreader.ebook.EpubFixture.ncx
 import com.moronigranja.localttsreader.ebook.EpubFixture.opf
 import com.moronigranja.localttsreader.ebook.EpubFixture.zip
-import com.moronigranja.localttsreader.ebook.EBookFormats
-import com.moronigranja.localttsreader.ebook.EBookSource
 import com.moronigranja.localttsreader.ebook.TextParser
-import java.io.ByteArrayInputStream
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
 
 class BookImporterTest {
-
     // ------------------------------------------------------------------
     // Fixture books
     // ------------------------------------------------------------------
 
-    private fun epubBook(title: String, chapterTitle: String, body: String): ByteArray = zip(
-        "META-INF/container.xml" to CONTAINER,
-        "OEBPS/content.opf" to opf(
-            title = title,
-            spine = listOf("f0" to "title.xhtml", "c1" to "chap1.xhtml"),
-            ncxHref = "toc.ncx",
-        ),
-        "OEBPS/toc.ncx" to ncx(
-            listOf("title.xhtml" to "Title Page", "chap1.xhtml" to chapterTitle),
-        ),
-        "OEBPS/title.xhtml" to chapterHtml(null, listOf("A Novel by Someone")),
-        "OEBPS/chap1.xhtml" to chapterHtml(null, listOf(body)),
-    )
+    private fun epubBook(
+        title: String,
+        chapterTitle: String,
+        body: String,
+    ): ByteArray =
+        zip(
+            "META-INF/container.xml" to CONTAINER,
+            "OEBPS/content.opf" to
+                opf(
+                    title = title,
+                    spine = listOf("f0" to "title.xhtml", "c1" to "chap1.xhtml"),
+                    ncxHref = "toc.ncx",
+                ),
+            "OEBPS/toc.ncx" to
+                ncx(
+                    listOf("title.xhtml" to "Title Page", "chap1.xhtml" to chapterTitle),
+                ),
+            "OEBPS/title.xhtml" to chapterHtml(null, listOf("A Novel by Someone")),
+            "OEBPS/chap1.xhtml" to chapterHtml(null, listOf(body)),
+        )
 
-    private fun source(name: String, bytes: ByteArray): EBookSource =
-        EBookSource(name) { ByteArrayInputStream(bytes) }
+    private fun source(
+        name: String,
+        bytes: ByteArray,
+    ): EBookSource = EBookSource(name) { ByteArrayInputStream(bytes) }
 
-    private fun importer() =
-        BookImporter(now = { 1_700_000_000_000L })
+    private fun importer() = BookImporter(now = { 1_700_000_000_000L })
 
     private fun textBytes(text: String): ByteArray = text.toByteArray(StandardCharsets.UTF_8)
 
@@ -120,8 +127,17 @@ class BookImporterTest {
         val outcome = importer().import(source("book.txt", bytes))
         val added = assertInstanceOf(ImportOutcome.Added::class.java, outcome)
         assertEquals(1, added.entry.book.chapters.size)
-        assertEquals(2, added.entry.book.chapters[0].passages.size)
-        assertEquals("Hello world.", added.entry.book.chapters[0].passages[0].text)
+        assertEquals(
+            2,
+            added.entry.book.chapters[0]
+                .passages.size,
+        )
+        assertEquals(
+            "Hello world.",
+            added.entry.book.chapters[0]
+                .passages[0]
+                .text,
+        )
     }
 
     @Test
@@ -131,8 +147,16 @@ class BookImporterTest {
         val outcome = importer().import(source("book.md", bytes))
         val added = assertInstanceOf(ImportOutcome.Added::class.java, outcome)
         assertEquals(2, added.entry.book.chapters.size)
-        assertEquals("Chapter 1", added.entry.book.chapters[0].title)
-        assertEquals("Chapter 2", added.entry.book.chapters[1].title)
+        assertEquals(
+            "Chapter 1",
+            added.entry.book.chapters[0]
+                .title,
+        )
+        assertEquals(
+            "Chapter 2",
+            added.entry.book.chapters[1]
+                .title,
+        )
     }
 
     @Test

@@ -17,11 +17,12 @@ class RoomPlayerStore(
     private val database: LibraryDatabase,
     private val ringCapacity: Int = RING_CAPACITY,
 ) : PlayerStore {
+    override suspend fun readProgress(bookId: String): PlayerProgress? = database.progressDao().get(bookId)?.toPlayerProgress()
 
-    override suspend fun readProgress(bookId: String): PlayerProgress? =
-        database.progressDao().get(bookId)?.toPlayerProgress()
-
-    override suspend fun commitProgress(progress: PlayerProgress, ringPush: PlayerPosition?) {
+    override suspend fun commitProgress(
+        progress: PlayerProgress,
+        ringPush: PlayerPosition?,
+    ) {
         database.withTransaction {
             database.progressDao().upsert(progress.toEntity())
             ringPush?.let { pushed ->
@@ -31,14 +32,14 @@ class RoomPlayerStore(
         }
     }
 
-    override suspend fun readRing(bookId: String): List<PlayerPosition> =
-        database.historyDao().all(bookId).map { it.toPlayerPosition() }
+    override suspend fun readRing(bookId: String): List<PlayerPosition> = database.historyDao().all(bookId).map { it.toPlayerPosition() }
 
-    override suspend fun popRing(bookId: String): PlayerPosition? = database.withTransaction {
-        val top = database.historyDao().newest(bookId) ?: return@withTransaction null
-        database.historyDao().delete(top.id)
-        top.toPlayerPosition()
-    }
+    override suspend fun popRing(bookId: String): PlayerPosition? =
+        database.withTransaction {
+            val top = database.historyDao().newest(bookId) ?: return@withTransaction null
+            database.historyDao().delete(top.id)
+            top.toPlayerPosition()
+        }
 
     override suspend fun addBookmark(bookmark: Bookmark): Bookmark {
         val id = database.bookmarkDao().insert(bookmark.toEntity())
@@ -47,61 +48,66 @@ class RoomPlayerStore(
 
     override suspend fun removeBookmark(bookmarkId: Long) = database.bookmarkDao().delete(bookmarkId)
 
-    override suspend fun bookmarks(bookId: String): List<Bookmark> =
-        database.bookmarkDao().all(bookId).map { it.toBookmark() }
+    override suspend fun bookmarks(bookId: String): List<Bookmark> = database.bookmarkDao().all(bookId).map { it.toBookmark() }
 
-    private fun PlayerProgress.toEntity() = ProgressEntity(
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-        speed = speed,
-        updatedAtEpochMillis = updatedAtEpochMillis,
-    )
+    private fun PlayerProgress.toEntity() =
+        ProgressEntity(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+            speed = speed,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
 
-    private fun ProgressEntity.toPlayerProgress() = PlayerProgress(
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-        speed = speed,
-        updatedAtEpochMillis = updatedAtEpochMillis,
-    )
+    private fun ProgressEntity.toPlayerProgress() =
+        PlayerProgress(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+            speed = speed,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
 
-    private fun PlayerPosition.toEntity() = PositionHistoryEntity(
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-        createdAtEpochMillis = System.currentTimeMillis(),
-    )
+    private fun PlayerPosition.toEntity() =
+        PositionHistoryEntity(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+            createdAtEpochMillis = System.currentTimeMillis(),
+        )
 
-    private fun PositionHistoryEntity.toPlayerPosition() = PlayerPosition(
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-    )
+    private fun PositionHistoryEntity.toPlayerPosition() =
+        PlayerPosition(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+        )
 
-    private fun Bookmark.toEntity() = BookmarkEntity(
-        id = id,
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-        label = label,
-        createdAtEpochMillis = createdAtEpochMillis,
-    )
+    private fun Bookmark.toEntity() =
+        BookmarkEntity(
+            id = id,
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+            label = label,
+            createdAtEpochMillis = createdAtEpochMillis,
+        )
 
-    private fun BookmarkEntity.toBookmark() = Bookmark(
-        id = id,
-        bookId = bookId,
-        chapterIndex = chapterIndex,
-        passageIndex = passageIndex,
-        offsetSeconds = offsetSeconds,
-        label = label,
-        createdAtEpochMillis = createdAtEpochMillis,
-    )
+    private fun BookmarkEntity.toBookmark() =
+        Bookmark(
+            id = id,
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            offsetSeconds = offsetSeconds,
+            label = label,
+            createdAtEpochMillis = createdAtEpochMillis,
+        )
 
     companion object {
         /** The per-book undo-ring cap (decisions #29) — shared with the backup

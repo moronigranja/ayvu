@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PassageDao {
-
     /** Replaces a book's full cached parse (content hash ⇒ identical rows). */
     @Upsert
     suspend fun upsertAll(passages: List<PassageEntity>)

@@ -17,17 +17,17 @@ import org.junit.jupiter.api.TestInstance
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EspeakPhonemizerTest {
-
     private lateinit var phonemizer: EspeakPhonemizer
 
     @BeforeAll
     fun setUp() {
-        phonemizer = try {
-            EspeakPhonemizer.load()
-        } catch (e: Throwable) {
-            assumeTrue(false, "espeak-ng not available: ${e.message}")
-            throw e
-        }
+        phonemizer =
+            try {
+                EspeakPhonemizer.load()
+            } catch (e: Throwable) {
+                assumeTrue(false, "espeak-ng not available: ${e.message}")
+                throw e
+            }
         assumeTrue("en-us" in phonemizer.supportedLanguages(), "espeak-ng voices missing")
     }
 
@@ -112,14 +112,15 @@ class EspeakPhonemizerTest {
 
     @Test
     fun `concurrent phonemization is serialized and correct`() {
-        val threads = List(8) { t ->
-            Thread {
-                repeat(10) {
-                    val got = phonemizer.phonemize("Hello, world!", "en-us")
-                    assertEquals("həlˈoʊ, wˈɜːld! ", got)
-                }
-            }.also { it.start() }
-        }
+        val threads =
+            List(8) { t ->
+                Thread {
+                    repeat(10) {
+                        val got = phonemizer.phonemize("Hello, world!", "en-us")
+                        assertEquals("həlˈoʊ, wˈɜːld! ", got)
+                    }
+                }.also { it.start() }
+            }
         threads.forEach { it.join() }
     }
 }

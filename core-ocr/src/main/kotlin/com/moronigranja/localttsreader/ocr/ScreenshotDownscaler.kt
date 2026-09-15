@@ -8,10 +8,12 @@ package com.moronigranja.localttsreader.ocr
  * output buffer, per-channel ARGB interpolation with edge clamping.
  */
 object ScreenshotDownscaler {
-
     const val DEFAULT_MAX_LONG_SIDE = 1600
 
-    fun downscale(image: OcrImage, maxLongSide: Int = DEFAULT_MAX_LONG_SIDE): OcrImage {
+    fun downscale(
+        image: OcrImage,
+        maxLongSide: Int = DEFAULT_MAX_LONG_SIDE,
+    ): OcrImage {
         require(maxLongSide > 0) { "maxLongSide must be positive, was $maxLongSide" }
         val longSide = maxOf(image.width, image.height)
         if (longSide <= maxLongSide) return image
@@ -48,13 +50,21 @@ object ScreenshotDownscaler {
         return OcrImage(outWidth, outHeight, out)
     }
 
-    private fun floorClamp(v: Double, size: Int): Int = when {
-        v <= 0.0 -> 0
-        v >= size - 1.0 -> size - 1
-        else -> v.toInt()
-    }
+    private fun floorClamp(
+        v: Double,
+        size: Int,
+    ): Int =
+        when {
+            v <= 0.0 -> 0
+            v >= size - 1.0 -> size - 1
+            else -> v.toInt()
+        }
 
-    private fun lerp(a: Int, b: Int, w: Double): Int {
+    private fun lerp(
+        a: Int,
+        b: Int,
+        w: Double,
+    ): Int {
         val inv = 1.0 - w
         val r = (red(a) * inv + red(b) * w).toInt().coerceIn(0, 255)
         val g = (green(a) * inv + green(b) * w).toInt().coerceIn(0, 255)
@@ -64,7 +74,10 @@ object ScreenshotDownscaler {
     }
 
     private fun red(p: Int) = (p shr 16) and 0xFF
+
     private fun green(p: Int) = (p shr 8) and 0xFF
+
     private fun blue(p: Int) = p and 0xFF
+
     private fun alpha(p: Int) = (p shr 24) and 0xFF
 }

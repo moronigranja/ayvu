@@ -6,7 +6,11 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** When a phoneme is spoken, in seconds from the start of the audio. */
-data class Timing(val phoneme: Char, val start: Double, val end: Double)
+data class Timing(
+    val phoneme: Char,
+    val start: Double,
+    val end: Double,
+)
 
 /**
  * Timing bookkeeping from the model's per-token `duration` output, ported from
@@ -14,12 +18,14 @@ data class Timing(val phoneme: Char, val start: Double, val end: Double)
  * consulted when the graph reports durations (the pinned v1.1 export does).
  */
 object KokoroTimings {
-
     /**
      * Sample offset of every token boundary, the leading pad (BOS) included.
      * [duration] is the model's frame count per token.
      */
-    fun tokenEdges(duration: IntArray, samples: Int): IntArray {
+    fun tokenEdges(
+        duration: IntArray,
+        samples: Int,
+    ): IntArray {
         val total = duration.fold(0L) { sum, frames -> sum + frames }
         if (total <= 0) return IntArray(duration.size + 1)
         val edges = IntArray(duration.size + 1)
@@ -32,31 +38,42 @@ object KokoroTimings {
     }
 
     /** Pairs each [phonemes] char with the audio span it occupies. */
-    fun timings(phonemes: String, edges: IntArray, sampleRate: Int): List<Timing> {
+    fun timings(
+        phonemes: String,
+        edges: IntArray,
+        sampleRate: Int,
+    ): List<Timing> {
         val result = ArrayList<Timing>(phonemes.length)
         for (i in phonemes.indices) {
             if (i + 1 >= edges.size) break
-            result += Timing(
-                phonemes[i],
-                edges[i].toDouble() / sampleRate,
-                edges[i + 1].toDouble() / sampleRate,
-            )
+            result +=
+                Timing(
+                    phonemes[i],
+                    edges[i].toDouble() / sampleRate,
+                    edges[i + 1].toDouble() / sampleRate,
+                )
         }
         return result
     }
 
     /** The pause the text asks for after [phoneme]. */
-    fun wantedAfter(phoneme: Char, sentence: Double, clause: Double): Double = when (phoneme) {
-        in SENTENCE_MARKS -> sentence
-        in CLAUSE_MARKS -> clause
-        else -> 0.0
-    }
+    fun wantedAfter(
+        phoneme: Char,
+        sentence: Double,
+        clause: Double,
+    ): Double =
+        when (phoneme) {
+            in SENTENCE_MARKS -> sentence
+            in CLAUSE_MARKS -> clause
+            else -> 0.0
+        }
 
     // A frame this far below the loudest frame counts as part of a pause.
     // Measuring against the loudest sample instead reads speech as near
     // silence and pads gaps that were already long enough.
     private const val QUIET_DB = -40.0
     private const val FRAME = 0.01
+
     // The model usually renders the gap a mark causes just before the mark's
     // own timing ends, sometimes just after, so the pause is looked for on
     // both sides.
@@ -73,7 +90,10 @@ object KokoroTimings {
      * sentence's first phoneme's start, the last to [totalSeconds]. Gap-free
      * by construction; a phoneme stream without sentence marks is one span.
      */
-    fun sentenceSegments(timings: List<Timing>, totalSeconds: Double): List<SegmentAnchor> {
+    fun sentenceSegments(
+        timings: List<Timing>,
+        totalSeconds: Double,
+    ): List<SegmentAnchor> {
         if (timings.isEmpty()) return emptyList()
         val starts = ArrayList<Double>()
         starts += timings.first().start
@@ -147,7 +167,10 @@ object KokoroTimings {
         return joined to moved
     }
 
-    private fun quietFrames(audio: FloatArray, frame: Int): BooleanArray {
+    private fun quietFrames(
+        audio: FloatArray,
+        frame: Int,
+    ): BooleanArray {
         val usable = audio.size / frame * frame
         val frames = audio.size / frame
         val loudness = FloatArray(frames)
@@ -171,7 +194,11 @@ object KokoroTimings {
         return BooleanArray(frames) { loudness[it] <= threshold }
     }
 
-    private fun runAround(quiet: BooleanArray, at: Int, reach: Int): IntRange {
+    private fun runAround(
+        quiet: BooleanArray,
+        at: Int,
+        reach: Int,
+    ): IntRange {
         // The quiet run touching frame `at`, preferring frames closest to it
         // (stable tie-break: the smaller index wins, matching Python's sort).
         var inside = -1

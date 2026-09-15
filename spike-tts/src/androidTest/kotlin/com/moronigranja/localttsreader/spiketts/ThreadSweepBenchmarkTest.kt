@@ -37,7 +37,8 @@ class ThreadSweepBenchmarkTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val args = InstrumentationRegistry.getArguments()
         val threads =
-            args.getString("threads")
+            args
+                .getString("threads")
                 ?.split(',')
                 ?.mapNotNull { it.trim().toIntOrNull() }
                 ?.filter { it in 1..32 }

@@ -18,10 +18,11 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppShareModule {
-
     @Provides
     @Singleton
-    fun provideShareOpenHandler(@ApplicationContext context: Context): ShareOpenHandler =
+    fun provideShareOpenHandler(
+        @ApplicationContext context: Context,
+    ): ShareOpenHandler =
         ShareOpenHandler { target ->
             context.startActivity(
                 Intent(context, MainActivity::class.java).apply {

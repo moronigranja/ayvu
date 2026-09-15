@@ -11,49 +11,76 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TextIndexTest {
-
     // ------------------------------------------------------------------
     // Fixtures: two books, several passages (public-domain excerpts).
     // ------------------------------------------------------------------
 
-    private val mobyDick = Book(
-        id = "b1",
-        title = "Moby-Dick",
-        chapters = listOf(
-            Chapter(0, null, listOf(
-                TextPassage("Call me Ishmael. Some years ago—never mind how long precisely—having little or " +
-                    "no money in my purse,"),
-                TextPassage("I thought I would sail about a little and see the watery part of the world."),
-            )),
-        ),
-    )
+    private val mobyDick =
+        Book(
+            id = "b1",
+            title = "Moby-Dick",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        null,
+                        listOf(
+                            TextPassage(
+                                "Call me Ishmael. Some years ago—never mind how long precisely—having little or " +
+                                    "no money in my purse,",
+                            ),
+                            TextPassage("I thought I would sail about a little and see the watery part of the world."),
+                        ),
+                    ),
+                ),
+        )
 
-    private val prideAndPrejudice = Book(
-        id = "b2",
-        title = "Pride and Prejudice",
-        chapters = listOf(
-            Chapter(0, "Chapter 1", listOf(
-                TextPassage("It is a truth universally acknowledged, that a single man in possession of a " +
-                    "good fortune, must be in want of a wife."),
-            )),
-            Chapter(1, "Chapter 1", listOf(
-                TextPassage("However little known the feelings or views of such a man may be on his first " +
-                    "entering a neighbourhood,"),
-                TextPassage("this truth is so well fixed in the minds of the surrounding families, that he " +
-                    "is considered as the rightful property of some one or other of their daughters."),
-            )),
-        ),
-    )
+    private val prideAndPrejudice =
+        Book(
+            id = "b2",
+            title = "Pride and Prejudice",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "Chapter 1",
+                        listOf(
+                            TextPassage(
+                                "It is a truth universally acknowledged, that a single man in possession of a " +
+                                    "good fortune, must be in want of a wife.",
+                            ),
+                        ),
+                    ),
+                    Chapter(
+                        1,
+                        "Chapter 1",
+                        listOf(
+                            TextPassage(
+                                "However little known the feelings or views of such a man may be on his first " +
+                                    "entering a neighbourhood,",
+                            ),
+                            TextPassage(
+                                "this truth is so well fixed in the minds of the surrounding families, that he " +
+                                    "is considered as the rightful property of some one or other of their daughters.",
+                            ),
+                        ),
+                    ),
+                ),
+        )
 
     private val papPassage1 = prideAndPrejudice.chapters[1].passages[0].text
 
-    private fun defaultIndex(): TextIndex = TextIndex().apply {
-        add(mobyDick)
-        add(prideAndPrejudice)
-    }
+    private fun defaultIndex(): TextIndex =
+        TextIndex().apply {
+            add(mobyDick)
+            add(prideAndPrejudice)
+        }
 
-    private fun assertEqualsClose(expected: Double, actual: Double, message: String? = null) =
-        assertEquals(expected, actual, 1e-9, message)
+    private fun assertEqualsClose(
+        expected: Double,
+        actual: Double,
+        message: String? = null,
+    ) = assertEquals(expected, actual, 1e-9, message)
 
     // ------------------------------------------------------------------
     // TextNormalizer
@@ -230,7 +257,11 @@ class TextIndexTest {
         val shared = "The quick brown fox jumps over the lazy dog while counting stars at dawn"
         val first = Book("A", "First", chapters = listOf(Chapter(0, null, listOf(TextPassage(shared)))))
         val second = Book("B", "Second", chapters = listOf(Chapter(0, null, listOf(TextPassage(shared)))))
-        val index = TextIndex().apply { add(first); add(second) }
+        val index =
+            TextIndex().apply {
+                add(first)
+                add(second)
+            }
         val result = index.query(shared, minConfidence = 0.6)
         assertNotNull(result)
         result!!
@@ -248,13 +279,19 @@ class TextIndexTest {
     @Test
     fun `re-adding the same book id replaces its content`() {
         val index = defaultIndex()
-        val replacement = prideAndPrejudice.copy(
-            chapters = listOf(
-                Chapter(0, null, listOf(
-                    TextPassage("The mystery of the green lighthouse unfolded slowly across the dunes"),
-                )),
-            ),
-        )
+        val replacement =
+            prideAndPrejudice.copy(
+                chapters =
+                    listOf(
+                        Chapter(
+                            0,
+                            null,
+                            listOf(
+                                TextPassage("The mystery of the green lighthouse unfolded slowly across the dunes"),
+                            ),
+                        ),
+                    ),
+            )
         index.add(replacement)
         assertNull(index.query("However little known the feelings", minConfidence = 0.6))
         assertNotNull(index.query("the green lighthouse unfolded slowly across the dunes", minConfidence = 0.6))
@@ -273,8 +310,9 @@ class TextIndexTest {
     fun `multi-passage copy still identifies the right book`() {
         // A selection spanning two passages: no single passage reaches 1.0, but the
         // book that contains both gets the highest recall overall.
-        val spanning = "However little known the feelings or views of such a man may be on his " +
-            "first entering a neighbourhood this truth is so well fixed in the minds"
+        val spanning =
+            "However little known the feelings or views of such a man may be on his " +
+                "first entering a neighbourhood this truth is so well fixed in the minds"
         val index = defaultIndex().apply { remove("b1") } // isolate: only b2 could win anyway
         val result = index.query(spanning, minConfidence = 0.6) ?: return // below-threshold acceptable
         assertEquals("b2", result.bookId)

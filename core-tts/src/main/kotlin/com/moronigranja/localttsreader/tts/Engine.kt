@@ -124,5 +124,7 @@ sealed interface SynthesisOutcome {
     /** A required pack is not downloaded; the caller should surface the download action. */
     data object Unavailable : SynthesisOutcome
 
-    data class Failed(val reason: String) : SynthesisOutcome
+    data class Failed(
+        val reason: String,
+    ) : SynthesisOutcome
 }

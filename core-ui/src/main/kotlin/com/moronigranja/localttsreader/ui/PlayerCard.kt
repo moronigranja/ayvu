@@ -77,12 +77,13 @@ fun PlayerCard(
     var cover by remember(state.bookId) { mutableStateOf(decodeCover(context, state.bookId)) }
     val loading = state.phase == PlayerPhase.LOADING
     val playing = state.phase == PlayerPhase.PLAYING || loading
-    val subtitle = when {
-        loading -> "Generating…"
-        state.authors.isNotEmpty() ->
-            state.authors.joinToString(", ") + " · Ch " + (state.chapterIndex + 1) + " · P " + (state.passageIndex + 1)
-        else -> "Ch " + (state.chapterIndex + 1) + " · P " + (state.passageIndex + 1)
-    }
+    val subtitle =
+        when {
+            loading -> "Generating…"
+            state.authors.isNotEmpty() ->
+                state.authors.joinToString(", ") + " · Ch " + (state.chapterIndex + 1) + " · P " + (state.passageIndex + 1)
+            else -> "Ch " + (state.chapterIndex + 1) + " · P " + (state.passageIndex + 1)
+        }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -90,9 +91,10 @@ fun PlayerCard(
         elevation = CardDefaults.cardElevation(defaultElevation = AyvuElevation.Card),
     ) {
         Row(
-            modifier = Modifier
-                .padding(AyvuSpacing.SM)
-                .then(if (onOpen != null) Modifier.clickable(onClick = onOpen!!) else Modifier),
+            modifier =
+                Modifier
+                    .padding(AyvuSpacing.SM)
+                    .then(if (onOpen != null) Modifier.clickable(onClick = onOpen!!) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BookCover(
@@ -121,11 +123,12 @@ fun PlayerCard(
                         text = "Device voice",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        modifier =
+                            Modifier
+                                .padding(top = 2.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
                 Spacer(Modifier.height(AyvuSpacing.XS))
@@ -159,9 +162,10 @@ fun PlayerCard(
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(AyvuSpacing.SM),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(AyvuSpacing.SM),
             horizontalArrangement = Arrangement.spacedBy(AyvuSpacing.SM, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -172,11 +176,12 @@ fun PlayerCard(
                 modifier = Modifier.height(48.dp),
             )
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable { if (playing) commands.pause() else commands.resume() },
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable { if (playing) commands.pause() else commands.resume() },
                 contentAlignment = Alignment.Center,
             ) {
                 if (loading) {
@@ -216,7 +221,10 @@ fun PlayerCard(
 }
 
 /** The book's cover from the sidecar store (`files/covers/<bookId>`), or null. */
-private fun decodeCover(context: Context, bookId: String?): androidx.compose.ui.graphics.ImageBitmap? {
+private fun decodeCover(
+    context: Context,
+    bookId: String?,
+): androidx.compose.ui.graphics.ImageBitmap? {
     if (bookId == null) return null
     val file = File(context.filesDir, "covers/$bookId")
     if (!file.isFile) return null

@@ -18,8 +18,9 @@ import kotlinx.coroutines.Deferred
  *   content hash = identical parse, so re-adding is a harmless overwrite);
  * - every indexed id absent from the cache is dropped.
  */
-class IndexRebuilder(private val index: TextIndex) {
-
+class IndexRebuilder(
+    private val index: TextIndex,
+) {
     private val ready = CompletableDeferred<Unit>()
 
     /**
@@ -42,19 +43,21 @@ class IndexRebuilder(private val index: TextIndex) {
     }
 
     /** Reconstructs the canonical [Book] from the flat cache rows. */
-    private fun CachedBook.toBook(): Book = Book(
-        id = id,
-        title = title,
-        authors = authors,
-        chapters = passages
-            .groupBy { it.chapterIndex }
-            .toSortedMap()
-            .map { (chapterIndex, rows) ->
-                Chapter(
-                    index = chapterIndex,
-                    title = rows.first().chapterTitle,
-                    passages = rows.sortedBy { it.passageIndex }.map { TextPassage(it.text) },
-                )
-            },
-    )
+    private fun CachedBook.toBook(): Book =
+        Book(
+            id = id,
+            title = title,
+            authors = authors,
+            chapters =
+                passages
+                    .groupBy { it.chapterIndex }
+                    .toSortedMap()
+                    .map { (chapterIndex, rows) ->
+                        Chapter(
+                            index = chapterIndex,
+                            title = rows.first().chapterTitle,
+                            passages = rows.sortedBy { it.passageIndex }.map { TextPassage(it.text) },
+                        )
+                    },
+        )
 }

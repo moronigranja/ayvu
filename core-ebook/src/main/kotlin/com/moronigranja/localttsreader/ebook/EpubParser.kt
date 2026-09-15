@@ -9,7 +9,6 @@ import com.moronigranja.localttsreader.model.Book
  * containers raise [EBookParseException]; XML is XXE-hardened (see [OpfBookReader]).
  */
 object EpubParser : EBookParser {
-
     override fun parse(source: EBookSource): Book {
         val bytes = source.readCapped()
         val base = source.fileName.substringBeforeLast('.').substringAfterLast('/')
@@ -17,11 +16,15 @@ object EpubParser : EBookParser {
     }
 
     /** Parse raw container bytes. [fallbackTitle] is used when the OPF declares none. */
-    fun parse(bytes: ByteArray, fallbackTitle: String = "Untitled"): Book {
+    fun parse(
+        bytes: ByteArray,
+        fallbackTitle: String = "Untitled",
+    ): Book {
         val entries = ZipEntries.readAll(bytes)
         val opfPath = OpfBookReader.findOpfPath(entries)
         return OpfBookReader.parseBook(Bytes.sha256Hex(bytes), entries, opfPath, fallbackTitle)
     }
+
     /** Cover image bytes, or null when the container has no standard cover. */
     override fun coverOf(bytes: ByteArray): ByteArray? {
         val entries = ZipEntries.readAll(bytes)

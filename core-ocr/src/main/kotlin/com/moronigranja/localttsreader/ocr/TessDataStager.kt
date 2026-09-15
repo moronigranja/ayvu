@@ -19,20 +19,28 @@ import java.io.File
  * the tess-two implementation without a feature-to-feature edge.
  */
 object TessDataStager {
-
     /** The base passed to the engine: contains `tessdata/<lang>.traineddata`. */
     fun tesseractDataPath(filesDir: File): File = File(filesDir, "tesseract")
 
-    private fun stagedFile(filesDir: File, pack: TtsPack): File =
-        File(File(tesseractDataPath(filesDir), "tessdata"), "${pack.id}.traineddata")
+    private fun stagedFile(
+        filesDir: File,
+        pack: TtsPack,
+    ): File = File(File(tesseractDataPath(filesDir), "tessdata"), "${pack.id}.traineddata")
 
-    fun isStaged(filesDir: File, pack: TtsPack): Boolean {
+    fun isStaged(
+        filesDir: File,
+        pack: TtsPack,
+    ): Boolean {
         val target = stagedFile(filesDir, pack)
         return target.isFile && target.length() == pack.sizeBytes
     }
 
     /** Copies the verified pack artifact into the tess-two data path (idempotent). */
-    fun stage(filesDir: File, cache: PackCache, pack: TtsPack): Boolean {
+    fun stage(
+        filesDir: File,
+        cache: PackCache,
+        pack: TtsPack,
+    ): Boolean {
         if (isStaged(filesDir, pack)) return true
         val source = cache.targetFile(pack)
         if (!source.isFile || !cache.isVerified(pack)) return false
@@ -50,7 +58,10 @@ object TessDataStager {
     }
 
     /** Removes the staged copy for [pack] (language de-selection). */
-    fun unstage(filesDir: File, pack: TtsPack) {
+    fun unstage(
+        filesDir: File,
+        pack: TtsPack,
+    ) {
         stagedFile(filesDir, pack).delete()
     }
 }

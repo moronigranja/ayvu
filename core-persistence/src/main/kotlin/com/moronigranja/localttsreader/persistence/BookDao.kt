@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
-
     /** Library rows in import order — the list UI's source. */
     @Query("SELECT * FROM books ORDER BY importedAtEpochMillis")
     fun observeAll(): Flow<List<BookEntity>>

@@ -29,10 +29,16 @@ import androidx.room.RoomDatabase
 )
 abstract class LibraryDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
+
     abstract fun passageDao(): PassageDao
+
     abstract fun progressDao(): ProgressDao
+
     abstract fun settingsDao(): SettingsDao
+
     abstract fun bookmarkDao(): BookmarkDao
+
     abstract fun historyDao(): PositionHistoryDao
+
     abstract fun activityDao(): ActivitySecondsDao
 }

@@ -5,13 +5,13 @@ import com.moronigranja.localttsreader.tts.PackCache
 import com.moronigranja.localttsreader.tts.SegmentAnchor
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.system.measureTimeMillis
-import kotlinx.coroutines.runBlocking
 
 /**
  * Spike A (decisions #31): sentence-grain synthesis vs one paragraph blob.
@@ -29,43 +29,54 @@ import kotlinx.coroutines.runBlocking
  * Usage: ./gradlew :core-tts:kokoroGrainSpike [-PkokoroCache=<dir>]
  */
 fun main(args: Array<String>) {
-    val cacheRoot = args.getOrNull(0)
-        ?: File(System.getProperty("user.home"), ".cache/local-tts-reader/packs").absolutePath
+    val cacheRoot =
+        args.getOrNull(0)
+            ?: File(System.getProperty("user.home"), ".cache/local-tts-reader/packs").absolutePath
     val cache = PackCache(File(cacheRoot))
 
-    val engine = KokoroEngine.open(
-        spec = DefaultEngines.kokoro,
-        packs = KokoroPacks.all,
-        modelFile = cache.targetFile(KokoroPacks.model),
-        voicesFile = cache.targetFile(KokoroPacks.voices),
-    )
+    val engine =
+        KokoroEngine.open(
+            spec = DefaultEngines.kokoro,
+            packs = KokoroPacks.all,
+            modelFile = cache.targetFile(KokoroPacks.model),
+            voicesFile = cache.targetFile(KokoroPacks.voices),
+        )
     val phonemizer = EspeakPhonemizer.load()
     val tokenizer = KokoroTokenizer(KokoroVocabulary.resource())
 
-    data class Passage(val language: String, val voice: String, val sentences: List<String>) {
+    data class Passage(
+        val language: String,
+        val voice: String,
+        val sentences: List<String>,
+    ) {
         val blob: String get() = sentences.joinToString(" ")
     }
 
-    val passages = listOf(
-        Passage(
-            "en-us", "af_heart", listOf(
-                "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
-                "However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered as the rightful property of some one or other of their daughters.",
-                "My dear Bennet, said his lady to him one day, have you heard that Netherfield Park is let at last?",
-                "Bennet replied that he had not.",
-                "But it is, returned she, for Long has just been here, and she told me all about it.",
-                "The day passed in the usual business of the neighbourhood, and the evening brought the whole party together again.",
+    val passages =
+        listOf(
+            Passage(
+                "en-us",
+                "af_heart",
+                listOf(
+                    "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
+                    "However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered as the rightful property of some one or other of their daughters.",
+                    "My dear Bennet, said his lady to him one day, have you heard that Netherfield Park is let at last?",
+                    "Bennet replied that he had not.",
+                    "But it is, returned she, for Long has just been here, and she told me all about it.",
+                    "The day passed in the usual business of the neighbourhood, and the evening brought the whole party together again.",
+                ),
             ),
-        ),
-        Passage(
-            "pt-br", "pf_dora", listOf(
-                "Uma noite destas, vindo da cidade para o Engenho Novo, encontrei no trem da Central um rapaz aqui do bairro, que eu conheço de vista e de chapéu.",
-                "Cumprimentou-me, sentou-se ao pé de mim, falou da lua e dos ministros, e acabou recitando-me versos.",
-                "A viagem era curta, e os versos pode ser que não fossem inteiramente maus.",
-                "Sucedeu, porém, que eu cansasse deles, e o rapaz falava com tal entusiasmo, que eu fiquei aborrecido.",
+            Passage(
+                "pt-br",
+                "pf_dora",
+                listOf(
+                    "Uma noite destas, vindo da cidade para o Engenho Novo, encontrei no trem da Central um rapaz aqui do bairro, que eu conheço de vista e de chapéu.",
+                    "Cumprimentou-me, sentou-se ao pé de mim, falou da lua e dos ministros, e acabou recitando-me versos.",
+                    "A viagem era curta, e os versos pode ser que não fossem inteiramente maus.",
+                    "Sucedeu, porém, que eu cansasse deles, e o rapaz falava com tal entusiasmo, que eu fiquei aborrecido.",
+                ),
             ),
-        ),
-    )
+        )
 
     // Device corpus: raw phonemes (pre-vocab-filter) per passage blob, for
     // the spike-tts Kokoro benchmark on a phone without espeak-ng. The device
@@ -98,21 +109,31 @@ fun main(args: Array<String>) {
         val drift = joinedDur - blobDur
         println(
             "duration: blob=%.2fs joined=%.2fs drift=%+.2fs (%+.1f%%)".format(
-                blobDur, joinedDur, drift, 100.0 * drift / blobDur,
+                blobDur,
+                joinedDur,
+                drift,
+                100.0 * drift / blobDur,
             ),
         )
         val joinedRtf = sentences.sumOf { it.milliseconds } / 1000.0 / joinedDur
-        println("rtf: blob=%.3f joined=%.3f (+%.1f%%)".format(
-            blob.rtf, joinedRtf, 100.0 * (joinedRtf - blob.rtf) / blob.rtf,
-        ))
+        println(
+            "rtf: blob=%.3f joined=%.3f (+%.1f%%)".format(
+                blob.rtf,
+                joinedRtf,
+                100.0 * (joinedRtf - blob.rtf) / blob.rtf,
+            ),
+        )
 
         for ((index, sentence) in sentences.withIndex()) {
             println(
                 "  s${index + 1}: %-3d words %5d samples (%6.2fs) %6d ms rtf=%.3f leading=%.0fms trailing=%.0fms".format(
                     passage.sentences[index].split(Regex("\\s+")).size,
-                    sentence.samples, sentence.samples / SAMPLE_RATE,
-                    sentence.milliseconds, sentence.rtf,
-                    sentence.leadingQuiet() * 1000.0, sentence.trailingQuiet() * 1000.0,
+                    sentence.samples,
+                    sentence.samples / SAMPLE_RATE,
+                    sentence.milliseconds,
+                    sentence.rtf,
+                    sentence.leadingQuiet() * 1000.0,
+                    sentence.trailingQuiet() * 1000.0,
                 ),
             )
         }
@@ -136,11 +157,14 @@ fun main(args: Array<String>) {
             // An interior boundary is the next sentence's first phoneme, which
             // sits at the END of the pause run the mark caused — compare
             // against run ends, not starts.
-            val quietEnds = quietRuns(blob.audio).filter { it.seconds() >= 0.150 }
-                .map { it.endSample / SAMPLE_RATE }
-            val drifts = segments.dropLast(1).map { boundary ->
-                quietEnds.minOf { kotlin.math.abs(it - boundary.endSeconds) }
-            }
+            val quietEnds =
+                quietRuns(blob.audio)
+                    .filter { it.seconds() >= 0.150 }
+                    .map { it.endSample / SAMPLE_RATE }
+            val drifts =
+                segments.dropLast(1).map { boundary ->
+                    quietEnds.minOf { kotlin.math.abs(it - boundary.endSeconds) }
+                }
             println(
                 "anchors: ${segments.size} spans, boundary-pause drift max=%.0f ms".format(
                     (drifts.maxOrNull() ?: 0.0) * 1000.0,
@@ -157,11 +181,13 @@ fun main(args: Array<String>) {
                 val stand = sentences[i].samples / SAMPLE_RATE
                 val inBlob = if (i < blobBoundaries.size) blob.sentenceSpan(i, blobBoundaries) else null
                 val delta = inBlob?.let { (stand - it) * 1000.0 }
-                print("s${i + 1} stand=%.0f blob=%s (Δ%+d)  ".format(
-                    stand * 1000.0,
-                    inBlob?.let { "%.0f".format(it * 1000.0) } ?: "n/a",
-                    delta?.toInt() ?: 0,
-                ))
+                print(
+                    "s${i + 1} stand=%.0f blob=%s (Δ%+d)  ".format(
+                        stand * 1000.0,
+                        inBlob?.let { "%.0f".format(it * 1000.0) } ?: "n/a",
+                        delta?.toInt() ?: 0,
+                    ),
+                )
             }
             println()
         } else {
@@ -181,29 +207,40 @@ private data class Synthesized(
 ) {
     val rtf: Double get() = milliseconds / 1000.0 / (samples / SAMPLE_RATE)
 
-    fun leadingQuiet(): Double = quietRuns(audio).firstOrNull()?.let {
-        if (it.startSample == 0) it.seconds() else 0.0
-    } ?: 0.0
+    fun leadingQuiet(): Double =
+        quietRuns(audio).firstOrNull()?.let {
+            if (it.startSample == 0) it.seconds() else 0.0
+        } ?: 0.0
 
-    fun trailingQuiet(): Double = quietRuns(audio).lastOrNull()?.let {
-        if (it.endSample == audio.size) it.seconds() else 0.0
-    } ?: 0.0
+    fun trailingQuiet(): Double =
+        quietRuns(audio).lastOrNull()?.let {
+            if (it.endSample == audio.size) it.seconds() else 0.0
+        } ?: 0.0
 
     /** Quiet runs >= 200 ms, as pause lengths in seconds, in order. */
     fun boundaryPauses(): List<Double> = quietRuns(audio).filter { it.seconds() >= 0.200 }.map { it.seconds() }
 }
 
-private data class QuietRun(val startSample: Int, val endSample: Int) {
+private data class QuietRun(
+    val startSample: Int,
+    val endSample: Int,
+) {
     fun seconds(): Double = (endSample - startSample) / SAMPLE_RATE
 }
 
-private fun synthesize(engine: KokoroEngine, text: String, voice: String): Synthesized {
+private fun synthesize(
+    engine: KokoroEngine,
+    text: String,
+    voice: String,
+): Synthesized {
     var outcome: SynthesisOutcome? = null
-    val millis = measureTimeMillis {
-        outcome = runBlocking { engine.synthesize(SynthesisRequest(text, voice)) }
-    }
-    val audio = outcome as? SynthesisOutcome.Audio
-        ?: error("synthesis failed for '$text': $outcome")
+    val millis =
+        measureTimeMillis {
+            outcome = runBlocking { engine.synthesize(SynthesisRequest(text, voice)) }
+        }
+    val audio =
+        outcome as? SynthesisOutcome.Audio
+            ?: error("synthesis failed for '$text': $outcome")
     val samples = FloatArray(audio.pcm.size / 2)
     val buffer = ByteBuffer.wrap(audio.pcm).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
     for (i in samples.indices) samples[i] = buffer.get() / 32768.0f
@@ -221,21 +258,40 @@ private fun joinedBoundaries(sentences: List<Synthesized>): List<Double> {
  * Duration of sentence [index] inside the blob, measured between the centers
  * of the surrounding boundary pauses ([boundaries] in seconds from the start).
  */
-private fun Synthesized.sentenceSpan(index: Int, boundaries: List<Double>): Double {
+private fun Synthesized.sentenceSpan(
+    index: Int,
+    boundaries: List<Double>,
+): Double {
     val start = if (index == 0) boundaries.first() / 2.0 else (boundaries[index - 1] + boundaries[index]) / 2.0
-    val end = if (index == boundaries.size) boundaries.last() + (samples / SAMPLE_RATE - boundaries.last()) / 2.0 else start + (boundaries[index] - boundaries[index - 1]) / 2.0
+    val end =
+        if (index ==
+            boundaries.size
+        ) {
+            boundaries.last() + (samples / SAMPLE_RATE - boundaries.last()) / 2.0
+        } else {
+            start +
+                (boundaries[index] - boundaries[index - 1]) / 2.0
+        }
     return end - start
 }
 
-private fun writeWav(file: File, audio: FloatArray, sampleRate: Int) {
+private fun writeWav(
+    file: File,
+    audio: FloatArray,
+    sampleRate: Int,
+) {
     val header = java.io.ByteArrayOutputStream()
-    fun writeLe(value: Int, bytes: Int) {
+
+    fun writeLe(
+        value: Int,
+        bytes: Int,
+    ) {
         for (i in 0 until bytes) header.write((value shr (8 * i)) and 0xFF)
     }
     writeLe(0x46464952, 4) // RIFF
     writeLe(36 + audio.size * 2, 4)
     writeLe(0x45564157, 4) // WAVE
-    writeLe(0x20746d66, 4) // fmt 
+    writeLe(0x20746d66, 4) // fmt
     writeLe(16, 4)
     writeLe(1, 2)
     writeLe(1, 2)
@@ -247,7 +303,10 @@ private fun writeWav(file: File, audio: FloatArray, sampleRate: Int) {
     writeLe(audio.size * 2, 4)
     val out = java.io.ByteArrayOutputStream(audio.size * 2 + 44)
     out.write(header.toByteArray())
-    val le = java.nio.ByteBuffer.allocate(audio.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    val le =
+        java.nio.ByteBuffer
+            .allocate(audio.size * 2)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
     for (sample in audio) le.putShort((sample * 32767.0).toInt().coerceIn(-32768, 32767).toShort())
     out.write(le.array())
     file.writeBytes(out.toByteArray())

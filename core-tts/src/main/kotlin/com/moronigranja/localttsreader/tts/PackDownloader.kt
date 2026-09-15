@@ -1,12 +1,12 @@
 package com.moronigranja.localttsreader.tts
 
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 
 /**
  * The download manager (T1): one pack at a time, explicit, resumable, verified,
@@ -36,7 +36,6 @@ class PackDownloader(
     private val transport: DownloadTransport,
     private val bufferSize: Int = 64 * 1024,
 ) {
-
     /**
      * Ensures [pack] is downloaded, verified and cached. Reports progress
      * through [onProgress] `(downloadedBytes, totalBytes)`.
@@ -72,21 +71,25 @@ class PackDownloader(
         // Path 4: resume or start from scratch.
         val part = cache.partialFile(pack)
         var from = if (part.isFile) part.length() else 0L
-      if (from > pack.sizeBytes) { // oversized garbage partial — restart clean
-          part.delete()
-          from = 0L
-      }
-        val body = when (val opened = try {
-            transport.open(pack.url, from.takeIf { from > 0L })
-        } catch (e: IOException) {
-            // The transport may abort a blocked open on cancellation; surface
-            // cancellation instead of a misleading I/O failure.
-            currentCoroutineContext().ensureActive()
-            return DownloadOutcome.Failed(DownloadFailureReason.IoError(e.message ?: "network error"))
-        }) {
-            is OpenResult.HttpError -> return DownloadOutcome.Failed(DownloadFailureReason.HttpStatus(opened.status))
-            is OpenResult.Body -> opened.body
+        if (from > pack.sizeBytes) { // oversized garbage partial — restart clean
+            part.delete()
+            from = 0L
         }
+        val body =
+            when (
+                val opened =
+                    try {
+                        transport.open(pack.url, from.takeIf { from > 0L })
+                    } catch (e: IOException) {
+                        // The transport may abort a blocked open on cancellation; surface
+                        // cancellation instead of a misleading I/O failure.
+                        currentCoroutineContext().ensureActive()
+                        return DownloadOutcome.Failed(DownloadFailureReason.IoError(e.message ?: "network error"))
+                    }
+            ) {
+                is OpenResult.HttpError -> return DownloadOutcome.Failed(DownloadFailureReason.HttpStatus(opened.status))
+                is OpenResult.Body -> opened.body
+            }
 
         body.use {
             when (body.statusCode) {
@@ -97,11 +100,12 @@ class PackDownloader(
             part.parentFile?.mkdirs()
 
             val resume = body.statusCode == 206 && from > 0L
-            val options = if (resume) {
-                arrayOf(StandardOpenOption.WRITE, StandardOpenOption.CREATE)
-            } else {
-                arrayOf(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-            }
+            val options =
+                if (resume) {
+                    arrayOf(StandardOpenOption.WRITE, StandardOpenOption.CREATE)
+                } else {
+                    arrayOf(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+                }
             val channel = FileChannel.open(part.toPath(), *options)
             var downloaded = from
             val buffer = ByteArray(bufferSize)
@@ -109,14 +113,15 @@ class PackDownloader(
                 if (resume) channel.position(from)
                 while (true) {
                     currentCoroutineContext().ensureActive()
-                    val n = try {
-                        body.bytes.read(buffer)
-                    } catch (e: IOException) {
-                        // A transport abort lands here on cancellation; surface the
-                        // cancellation instead of a misleading I/O failure.
-                        currentCoroutineContext().ensureActive()
-                        return DownloadOutcome.Failed(DownloadFailureReason.IoError(e.message ?: "read failed"))
-                    }
+                    val n =
+                        try {
+                            body.bytes.read(buffer)
+                        } catch (e: IOException) {
+                            // A transport abort lands here on cancellation; surface the
+                            // cancellation instead of a misleading I/O failure.
+                            currentCoroutineContext().ensureActive()
+                            return DownloadOutcome.Failed(DownloadFailureReason.IoError(e.message ?: "read failed"))
+                        }
                     if (n < 0) break
                     channel.write(ByteBuffer.wrap(buffer, 0, n))
                     downloaded += n
@@ -147,12 +152,24 @@ sealed interface DownloadOutcome {
     /** Was already verified on disk; no network was used. */
     data object AlreadyCached : DownloadOutcome
 
-    data class Failed(val reason: DownloadFailureReason) : DownloadOutcome
+    data class Failed(
+        val reason: DownloadFailureReason,
+    ) : DownloadOutcome
 }
 
 sealed interface DownloadFailureReason {
-    data class HttpStatus(val status: Int) : DownloadFailureReason
-    data class IoError(val message: String) : DownloadFailureReason
+    data class HttpStatus(
+        val status: Int,
+    ) : DownloadFailureReason
+
+    data class IoError(
+        val message: String,
+    ) : DownloadFailureReason
+
     data object CorruptContent : DownloadFailureReason
-    data class Incomplete(val downloadedBytes: Long, val expectedBytes: Long) : DownloadFailureReason
+
+    data class Incomplete(
+        val downloadedBytes: Long,
+        val expectedBytes: Long,
+    ) : DownloadFailureReason
 }

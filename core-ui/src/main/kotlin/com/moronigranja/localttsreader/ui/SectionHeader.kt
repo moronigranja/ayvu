@@ -7,7 +7,10 @@ import androidx.compose.ui.Modifier
 
 /** Brand section label; padding belongs to the call site via [modifier]. */
 @Composable
-fun SectionHeader(title: String, modifier: Modifier = Modifier) {
+fun SectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,

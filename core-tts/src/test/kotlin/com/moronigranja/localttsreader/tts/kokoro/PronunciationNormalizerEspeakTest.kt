@@ -14,17 +14,17 @@ import org.junit.jupiter.api.TestInstance
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PronunciationNormalizerEspeakTest {
-
     private lateinit var phonemizer: EspeakPhonemizer
 
     @BeforeAll
     fun setUp() {
-        phonemizer = try {
-            EspeakPhonemizer.load()
-        } catch (e: Throwable) {
-            assumeTrue(false, "espeak-ng not available: ${e.message}")
-            throw e
-        }
+        phonemizer =
+            try {
+                EspeakPhonemizer.load()
+            } catch (e: Throwable) {
+                assumeTrue(false, "espeak-ng not available: ${e.message}")
+                throw e
+            }
         assumeTrue("en-us" in phonemizer.supportedLanguages(), "espeak-ng voices missing")
     }
 

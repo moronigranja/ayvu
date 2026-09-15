@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 
 /** S1: the traineddata descriptors are fully pinned and registry-shaped. */
 class TrainedDataPacksTest {
-
     @Test
     fun `six languages, each a complete pinned descriptor`() {
         assertEquals(listOf("eng", "spa", "fra", "deu", "por", "ita"), TrainedDataPacks.all.map { it.id })

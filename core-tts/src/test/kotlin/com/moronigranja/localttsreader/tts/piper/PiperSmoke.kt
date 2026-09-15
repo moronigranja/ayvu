@@ -11,12 +11,12 @@ import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import com.moronigranja.localttsreader.tts.kokoro.EspeakPhonemizer
 import com.moronigranja.localttsreader.tts.kokoro.NormalizingPhonemizer
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.system.measureTimeMillis
-import kotlinx.coroutines.runBlocking
 
 /**
  * D4 smoke: the real [PiperEngine] end-to-end on the JVM — the pinned lessac
@@ -38,7 +38,10 @@ fun main(args: Array<String>) {
     val packs = PiperPacks.forVoice(voice)
     runBlocking {
         for (pack in packs) {
-            val status = registry.packs.value.first { it.pack.id == pack.id }.status
+            val status =
+                registry.packs.value
+                    .first { it.pack.id == pack.id }
+                    .status
             if (status == PackStatus.Ready) {
                 println("pack ${pack.id}: already verified on disk")
             } else {
@@ -123,7 +126,10 @@ private fun writeWav(
         out.setLength(0)
         out.write(
             byteArrayOf(
-                'R'.code.toByte(), 'I'.code.toByte(), 'F'.code.toByte(), 'F'.code.toByte(),
+                'R'.code.toByte(),
+                'I'.code.toByte(),
+                'F'.code.toByte(),
+                'F'.code.toByte(),
             ) +
                 leInt(total - 8) +
                 byteArrayOf('W'.code.toByte(), 'A'.code.toByte(), 'V'.code.toByte(), 'E'.code.toByte()) +

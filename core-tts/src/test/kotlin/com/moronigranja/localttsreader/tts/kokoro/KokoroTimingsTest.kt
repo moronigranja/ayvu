@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class KokoroTimingsTest {
-
     @Test
     fun `token edges scale durations onto the sample count`() {
         val edges = KokoroTimings.tokenEdges(intArrayOf(10, 20, 10), samples = 400)
@@ -71,7 +70,11 @@ class KokoroTimingsTest {
         val insertedSamples = out.size - audio.size
         assertTrue(insertedSamples in 2000..4200, "topped up to ~0.25s minus existing ~0.1s, got $insertedSamples")
         assertEquals(1, moved.size)
-        assertEquals(0.6, moved[0].end, "reference semantics: timings are shifted only after the spliced silence, so the mark itself keeps its position")
+        assertEquals(
+            0.6,
+            moved[0].end,
+            "reference semantics: timings are shifted only after the spliced silence, so the mark itself keeps its position",
+        )
     }
 
     private fun tone(seconds: Float): FloatArray = FloatArray((seconds * 24_000).toInt()) { 0.4f }

@@ -1,30 +1,30 @@
 package com.moronigranja.localttsreader.tts
 
-import java.io.File
-import kotlin.random.Random
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import kotlin.random.Random
 
 class PackCacheTest {
-
     @TempDir
     lateinit var root: File
 
     private lateinit var cache: PackCache
     private val source = Random(1).nextBytes(10_000)
-    private val pack = TtsPack(
-        id = "test-model",
-        engineId = "test",
-        kind = PackKind.MODEL,
-        displayName = "Test model",
-        url = "https://example.test/packs/test-model.onnx",
-        sha256Hex = sha256Hex(source),
-        sizeBytes = source.size.toLong(),
-    )
+    private val pack =
+        TtsPack(
+            id = "test-model",
+            engineId = "test",
+            kind = PackKind.MODEL,
+            displayName = "Test model",
+            url = "https://example.test/packs/test-model.onnx",
+            sha256Hex = sha256Hex(source),
+            sizeBytes = source.size.toLong(),
+        )
 
     @BeforeEach
     fun setUp() {

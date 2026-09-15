@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
  * denominator anymore (it painted sub-pixel segments on long books, B4
  * finding in #95). Clamped to [0, 1]. */
 class PlaybackUiStateTest {
-
     @Test
     fun `default state has zero generated fraction`() {
         assertEquals(0f, PlaybackUiState().generatedAheadFraction, 0f)

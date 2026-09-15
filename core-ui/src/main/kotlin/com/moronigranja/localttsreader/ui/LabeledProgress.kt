@@ -15,7 +15,11 @@ import androidx.compose.ui.Modifier
  * label in `labelSmall`/`onSurfaceVariant`.
  */
 @Composable
-fun LabeledProgress(progress: Float, label: String, modifier: Modifier = Modifier) {
+fun LabeledProgress(
+    progress: Float,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(AyvuSpacing.XS)) {
         LinearProgressIndicator(
             progress = { progress.coerceIn(0f, 1f) },

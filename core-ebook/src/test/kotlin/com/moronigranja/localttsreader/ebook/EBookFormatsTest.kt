@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 
 class EBookFormatsTest {
-
     @Test
     fun `detects epub case-insensitively`() {
         assertSame(EpubParser, EBookFormats.parserFor("book.epub"))

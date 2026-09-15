@@ -7,7 +7,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
-import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -15,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.TimeUnit
 
 /**
  * QW5d: app start must neutralize an overnight periodic job left behind by a
@@ -29,7 +29,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PregenManagerCancelTest {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private lateinit var manager: PregenManager
 
@@ -49,26 +48,32 @@ class PregenManagerCancelTest {
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<PregenWorker>(24, TimeUnit.HOURS)
                 .setConstraints(
-                    Constraints.Builder()
+                    Constraints
+                        .Builder()
                         .setRequiresCharging(true)
                         .setRequiresBatteryNotLow(true)
                         .build(),
-                )
-                .build(),
+                ).build(),
         )
     }
 
     @Test
     fun `startup cancel neutralizes a leftover overnight job`() {
         enqueueLeftoverOvernightJob()
-        val enqueued = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME).get()
+        val enqueued =
+            WorkManager
+                .getInstance(context)
+                .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME)
+                .get()
         assertTrue("leftover overnight job exists before the cancel", enqueued.isNotEmpty())
 
         manager.cancelOvernight() // the app startup path
 
-        val after = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME).get()
+        val after =
+            WorkManager
+                .getInstance(context)
+                .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME)
+                .get()
         assertTrue("the leftover overnight job is cancelled", after.isNotEmpty())
         assertTrue(
             "no leftover work may survive startup",
@@ -80,8 +85,11 @@ class PregenManagerCancelTest {
     fun `startup cancel with no leftover is a harmless no-op`() {
         manager.cancelOvernight() // fresh install: nothing enqueued
 
-        val after = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME).get()
+        val after =
+            WorkManager
+                .getInstance(context)
+                .getWorkInfosForUniqueWork(PregenWorker.OVERNIGHT_NAME)
+                .get()
         assertTrue("nothing to cancel on a fresh install", after.isEmpty())
     }
 }

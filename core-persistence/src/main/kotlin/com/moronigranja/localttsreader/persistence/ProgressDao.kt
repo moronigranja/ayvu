@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProgressDao {
-
     @Query("SELECT * FROM progress WHERE bookId = :bookId")
     suspend fun get(bookId: String): ProgressEntity?
 

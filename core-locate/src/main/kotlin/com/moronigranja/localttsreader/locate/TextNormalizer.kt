@@ -16,7 +16,6 @@ import java.text.Normalizer
  * punctuation becomes a word separator ("re-enter" → "re enter").
  */
 object TextNormalizer {
-
     private val COMBINING_MARKS = Regex("\\p{M}")
     private val APOSTROPHES = Regex("[''\u2018\u2019\u02BC\u201A\u201B]")
     private val NON_ALNUM = Regex("[^a-z0-9\\s]")
@@ -36,7 +35,10 @@ object TextNormalizer {
      * Word n-grams of an already-normalized string. Texts shorter than [n] tokens return
      * their token set (unigram fallback). Empty input → empty set.
      */
-    fun grams(normalized: String, n: Int): Set<String> {
+    fun grams(
+        normalized: String,
+        n: Int,
+    ): Set<String> {
         require(n >= 1) { "n-gram size must be >= 1" }
         if (normalized.isEmpty()) return emptySet()
         val tokens = normalized.split(' ')

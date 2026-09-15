@@ -75,12 +75,13 @@ class SettingsPackRowsTest {
      * wires in PackModule. */
     private fun viewModel(dao: FakeSettingsDao): SettingsViewModel =
         SettingsViewModel(
-            registry = PackRegistry(
-                PackCache(tempDir),
-                PackDownloader(PackCache(tempDir), UnusedTransport),
-                DefaultEngines.descriptors +
-                    listOf(EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all)),
-            ),
+            registry =
+                PackRegistry(
+                    PackCache(tempDir),
+                    PackDownloader(PackCache(tempDir), UnusedTransport),
+                    DefaultEngines.descriptors +
+                        listOf(EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all)),
+                ),
             cache = PackCache(tempDir),
             settings = AppSettings(SettingsStore(dao)),
             voiceCatalog = VoiceCatalog(PackCache(tempDir)),
@@ -144,7 +145,9 @@ class SettingsPackRowsTest {
 
             assertEquals(
                 setOf("eng", "spa", "fra", "deu", "por", "ita"),
-                vm.state.first { it.packs.isNotEmpty() }.packs
+                vm.state
+                    .first { it.packs.isNotEmpty() }
+                    .packs
                     .filter { it.engineId == TESS_ENGINE_ID }
                     .map { it.packId }
                     .toSet(),

@@ -1,16 +1,16 @@
 package com.moronigranja.localttsreader.tts
 
-import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import java.io.IOException
+import java.io.InputStream
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse.BodyHandlers
 import java.time.Duration
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * The downloader's network seam. `core-tts` is pure JVM; concrete transports
@@ -25,18 +25,25 @@ import java.time.Duration
  * `Range: bytes=<rangeFrom>-`.
  */
 interface DownloadTransport {
-
     /**
      * Opens [url]; a non-null [rangeFrom] requests that byte range (resume).
      * Returns [OpenResult.Body] on a 2xx response, [OpenResult.HttpError]
      * otherwise. May throw [IOException] on connection/read failures.
      */
-    suspend fun open(url: String, rangeFrom: Long? = null): OpenResult
+    suspend fun open(
+        url: String,
+        rangeFrom: Long? = null,
+    ): OpenResult
 }
 
 sealed interface OpenResult {
-    data class Body(val body: HttpBody) : OpenResult
-    data class HttpError(val status: Int) : OpenResult
+    data class Body(
+        val body: HttpBody,
+    ) : OpenResult
+
+    data class HttpError(
+        val status: Int,
+    ) : OpenResult
 }
 
 /** A 2xx response with a cancellable byte stream. */
@@ -62,19 +69,25 @@ class JdkHttpTransport(
     private val connectTimeout: Duration = Duration.ofSeconds(15),
     private val requestTimeout: Duration = Duration.ofMinutes(2),
 ) : DownloadTransport {
+    private val client =
+        HttpClient
+            .newBuilder()
+            .connectTimeout(connectTimeout)
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build()
 
-    private val client = HttpClient.newBuilder()
-        .connectTimeout(connectTimeout)
-        .followRedirects(HttpClient.Redirect.NORMAL)
-        .build()
-
-    override suspend fun open(url: String, rangeFrom: Long?): OpenResult =
+    override suspend fun open(
+        url: String,
+        rangeFrom: Long?,
+    ): OpenResult =
         suspendCancellableCoroutine { continuation ->
-            val request = HttpRequest.newBuilder(URI(url))
-                .timeout(requestTimeout)
-                .apply { if (rangeFrom != null) header("Range", "bytes=$rangeFrom-") }
-                .GET()
-                .build()
+            val request =
+                HttpRequest
+                    .newBuilder(URI(url))
+                    .timeout(requestTimeout)
+                    .apply { if (rangeFrom != null) header("Range", "bytes=$rangeFrom-") }
+                    .GET()
+                    .build()
             val future = client.sendAsync(request, BodyHandlers.ofInputStream())
             continuation.invokeOnCancellation { future.cancel(true) }
             future.whenComplete { response, error ->
@@ -88,8 +101,12 @@ class JdkHttpTransport(
                         OpenResult.Body(
                             HttpBody(
                                 statusCode = response.statusCode(),
-                                contentLength = response.headers()
-                                    .firstValue("Content-Length").orElse(null)?.toLongOrNull(),
+                                contentLength =
+                                    response
+                                        .headers()
+                                        .firstValue("Content-Length")
+                                        .orElse(null)
+                                        ?.toLongOrNull(),
                                 bytes = response.body(),
                             ),
                         ),

@@ -34,7 +34,6 @@ import org.robolectric.shadows.ShadowAudioTrack
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PassageOutputReuseTest {
-
     private val output = AudioTrackPassageOutput()
 
     /** (AudioTrack the write landed on, bytes written) — one entry per play. */
@@ -44,7 +43,11 @@ class PassageOutputReuseTest {
     fun captureWrites() {
         ShadowAudioTrack.addAudioDataListener(
             object : ShadowAudioTrack.OnAudioDataWrittenListener {
-                override fun onAudioDataWritten(track: AudioTrack, data: ByteArray, format: AudioFormat) {
+                override fun onAudioDataWritten(
+                    track: AudioTrack,
+                    data: ByteArray,
+                    format: AudioFormat,
+                ) {
                     writes += track to data.size
                 }
             },
@@ -58,8 +61,10 @@ class PassageOutputReuseTest {
         ShadowAudioTrack.resetTest()
     }
 
-    private fun pcm(frames: Int, seed: Int): ByteArray =
-        ByteArray(frames * 2) { ((it + seed) * 31).toByte() }
+    private fun pcm(
+        frames: Int,
+        seed: Int,
+    ): ByteArray = ByteArray(frames * 2) { ((it + seed) * 31).toByte() }
 
     @Test
     fun `prearmed track is swapped in at the boundary (no rebuild)`() {

@@ -20,7 +20,6 @@ import com.moronigranja.localttsreader.model.LibraryEntry
 class BookImporter(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
-
     /** Format gate for the typed failure path (UnsupportedFormat). */
     fun isSupported(fileName: String): Boolean = EBookFormats.parserFor(fileName) != null
 
@@ -41,20 +40,22 @@ class BookImporter(
 
     /** Parses one source into a segmented [LibraryEntry] (+cover); the coordinator owns index + persistence. */
     fun import(source: EBookSource): ImportOutcome {
-        val parser = EBookFormats.parserFor(source.fileName)
-            ?: return ImportOutcome.Failed(source.fileName, ImportFailureReason.UnsupportedFormat)
+        val parser =
+            EBookFormats.parserFor(source.fileName)
+                ?: return ImportOutcome.Failed(source.fileName, ImportFailureReason.UnsupportedFormat)
 
-        val book = try {
-            parser.parse(source) // EBookSource.open() is a factory: a fresh stream per call
-        } catch (e: EBookParseException) {
-            return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError(e.message ?: "parse failed"))
-        } catch (e: OutOfMemoryError) {
-            // An OOM is an Error: one file's parse must fail that file, never the process.
-            return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError("not enough memory to read this book"))
-        } catch (e: Exception) {
-            // Stream/open failures land here (the pre-import bytes read is gone; the coordinator owns id/lookup).
-            return ImportOutcome.Failed(source.fileName, ImportFailureReason.Unreadable)
-        }
+        val book =
+            try {
+                parser.parse(source) // EBookSource.open() is a factory: a fresh stream per call
+            } catch (e: EBookParseException) {
+                return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError(e.message ?: "parse failed"))
+            } catch (e: OutOfMemoryError) {
+                // An OOM is an Error: one file's parse must fail that file, never the process.
+                return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError("not enough memory to read this book"))
+            } catch (e: Exception) {
+                // Stream/open failures land here (the pre-import bytes read is gone; the coordinator owns id/lookup).
+                return ImportOutcome.Failed(source.fileName, ImportFailureReason.Unreadable)
+            }
 
         val segmented = BookSegmentation.segment(book) // index/segmentation contract (C4)
         // E1: ONE capped read reused for the cover + source-bytes capture; a source that cannot be re-read has no sidecar.
@@ -88,15 +89,27 @@ sealed interface ImportOutcome {
         val sourceFileName: String? = null,
     ) : ImportOutcome
 
-    data class Unchanged(val bookId: String) : ImportOutcome
-    data class Failed(val fileName: String, val reason: ImportFailureReason) : ImportOutcome
+    data class Unchanged(
+        val bookId: String,
+    ) : ImportOutcome
+
+    data class Failed(
+        val fileName: String,
+        val reason: ImportFailureReason,
+    ) : ImportOutcome
 }
 
 sealed interface ImportFailureReason {
     data object UnsupportedFormat : ImportFailureReason
+
     data object Unreadable : ImportFailureReason
-    data class ParseError(val message: String) : ImportFailureReason
+
+    data class ParseError(
+        val message: String,
+    ) : ImportFailureReason
 
     /** The durable commit failed (CR-3/A3): the index was NOT touched. */
-    data class Storage(val message: String) : ImportFailureReason
+    data class Storage(
+        val message: String,
+    ) : ImportFailureReason
 }

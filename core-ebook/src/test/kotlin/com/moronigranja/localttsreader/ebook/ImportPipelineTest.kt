@@ -15,28 +15,30 @@ import org.junit.jupiter.api.Test
  * bounded passages.
  */
 class ImportPipelineTest {
-
     @Test
     fun `parse then segment produces an index-ready book`() {
         val longChapter = (1..50).joinToString(" ") { "Sentence $it of a genuinely long opening paragraph continues." }
-        val epub = zip(
-            "META-INF/container.xml" to CONTAINER,
-            "OEBPS/content.opf" to opf(
-                title = "The Long Book",
-                spine = listOf("f0" to "title.xhtml", "f1" to "c1.xhtml", "f2" to "c2.xhtml"),
-                ncxHref = "toc.ncx",
-            ),
-            "OEBPS/toc.ncx" to ncx(
-                listOf(
-                    "title.xhtml" to "Title Page",
-                    "c1.xhtml" to "Chapter 1",
-                    "c2.xhtml" to "Chapter 2",
-                ),
-            ),
-            "OEBPS/title.xhtml" to chapterHtml(null, listOf("A Novel by Someone")),
-            "OEBPS/c1.xhtml" to chapterHtml(null, listOf(longChapter)),
-            "OEBPS/c2.xhtml" to chapterHtml(null, listOf("Much shorter second chapter.")),
-        )
+        val epub =
+            zip(
+                "META-INF/container.xml" to CONTAINER,
+                "OEBPS/content.opf" to
+                    opf(
+                        title = "The Long Book",
+                        spine = listOf("f0" to "title.xhtml", "f1" to "c1.xhtml", "f2" to "c2.xhtml"),
+                        ncxHref = "toc.ncx",
+                    ),
+                "OEBPS/toc.ncx" to
+                    ncx(
+                        listOf(
+                            "title.xhtml" to "Title Page",
+                            "c1.xhtml" to "Chapter 1",
+                            "c2.xhtml" to "Chapter 2",
+                        ),
+                    ),
+                "OEBPS/title.xhtml" to chapterHtml(null, listOf("A Novel by Someone")),
+                "OEBPS/c1.xhtml" to chapterHtml(null, listOf(longChapter)),
+                "OEBPS/c2.xhtml" to chapterHtml(null, listOf("Much shorter second chapter.")),
+            )
 
         val parsed = EpubParser.parse(epub)
         val ready = BookSegmentation.segment(parsed)

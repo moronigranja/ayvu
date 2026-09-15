@@ -11,27 +11,32 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class IndexRebuilderTest {
-
     private fun cached(
         id: String = "book-1",
         title: String = "Title",
         passages: List<CachedPassage> = emptyList(),
     ) = CachedBook(id = id, title = title, passages = passages)
 
-    private fun passage(chapter: Int, index: Int, text: String, chapterTitle: String? = "Chapter $chapter") =
-        CachedPassage(chapterIndex = chapter, chapterTitle = chapterTitle, passageIndex = index, text = text)
+    private fun passage(
+        chapter: Int,
+        index: Int,
+        text: String,
+        chapterTitle: String? = "Chapter $chapter",
+    ) = CachedPassage(chapterIndex = chapter, chapterTitle = chapterTitle, passageIndex = index, text = text)
 
     /** The importer's view of a book, flattened the way the store caches it. */
-    private fun Book.toCachedBook() = CachedBook(
-        id = id,
-        title = title,
-        authors = authors,
-        passages = chapters.flatMap { chapter ->
-            chapter.passages.mapIndexed { index, p ->
-                CachedPassage(chapter.index, chapter.title, index, p.text)
-            }
-        },
-    )
+    private fun Book.toCachedBook() =
+        CachedBook(
+            id = id,
+            title = title,
+            authors = authors,
+            passages =
+                chapters.flatMap { chapter ->
+                    chapter.passages.mapIndexed { index, p ->
+                        CachedPassage(chapter.index, chapter.title, index, p.text)
+                    }
+                },
+        )
 
     // ------------------------------------------------------------------
     // Rebuild semantics
@@ -39,14 +44,16 @@ class IndexRebuilderTest {
 
     @Test
     fun `rebuild populates the index from cached passages`() {
-        val book = cached(
-            id = "abc",
-            title = "Anna Karenina",
-            passages = listOf(
-                passage(0, 0, "All happy families are alike."),
-                passage(1, 0, "Happy families are all alike; every unhappy family is unhappy in its own way."),
-            ),
-        )
+        val book =
+            cached(
+                id = "abc",
+                title = "Anna Karenina",
+                passages =
+                    listOf(
+                        passage(0, 0, "All happy families are alike."),
+                        passage(1, 0, "Happy families are all alike; every unhappy family is unhappy in its own way."),
+                    ),
+            )
 
         val target = TextIndex()
         IndexRebuilder(target).rebuild(listOf(book))
@@ -121,12 +128,13 @@ class IndexRebuilderTest {
             listOf(
                 cached(
                     title = "Mixed",
-                    passages = listOf(
-                        passage(2, 0, "chapter two prose", chapterTitle = null),
-                        passage(0, 1, "chapter zero second"),
-                        passage(0, 0, "chapter zero first"),
-                        passage(1, 0, "chapter one prose"),
-                    ),
+                    passages =
+                        listOf(
+                            passage(2, 0, "chapter two prose", chapterTitle = null),
+                            passage(0, 1, "chapter zero second"),
+                            passage(0, 0, "chapter zero first"),
+                            passage(1, 0, "chapter one prose"),
+                        ),
                 ),
             ),
         )
@@ -140,15 +148,17 @@ class IndexRebuilderTest {
 
     @Test
     fun `rebuild from cache equals index after direct import`() {
-        val book = Book(
-            id = "imported",
-            title = "Direct",
-            authors = listOf("A. Writer"),
-            chapters = listOf(
-                Chapter(0, "Intro", listOf(TextPassage("The first passage."), TextPassage("The second."))),
-                Chapter(1, null, listOf(TextPassage("Dénouement — with accents."))),
-            ),
-        )
+        val book =
+            Book(
+                id = "imported",
+                title = "Direct",
+                authors = listOf("A. Writer"),
+                chapters =
+                    listOf(
+                        Chapter(0, "Intro", listOf(TextPassage("The first passage."), TextPassage("The second."))),
+                        Chapter(1, null, listOf(TextPassage("Dénouement — with accents."))),
+                    ),
+            )
 
         val direct = TextIndex().also { it.add(book) }
         val rebuilt = TextIndex()

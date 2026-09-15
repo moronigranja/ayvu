@@ -7,13 +7,22 @@ import org.junit.jupiter.api.Test
 
 /** S1: downscale geometry, interpolation, edge clamping — pure arithmetic. */
 class ScreenshotDownscalerTest {
+    private fun solid(
+        width: Int,
+        height: Int,
+        color: Int,
+    ) = OcrImage(width, height, IntArray(width * height) { color })
 
-    private fun solid(width: Int, height: Int, color: Int) =
-        OcrImage(width, height, IntArray(width * height) { color })
+    private fun argb(
+        r: Int,
+        g: Int,
+        b: Int,
+    ) = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
 
-    private fun argb(r: Int, g: Int, b: Int) = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-
-    private fun row(image: OcrImage, y: Int) = image.argb.copyOfRange(y * image.width, (y + 1) * image.width)
+    private fun row(
+        image: OcrImage,
+        y: Int,
+    ) = image.argb.copyOfRange(y * image.width, (y + 1) * image.width)
 
     @Test
     fun `at-or-below the cap the image passes through unchanged`() {
@@ -44,10 +53,12 @@ class ScreenshotDownscalerTest {
     fun `exact 2x box average of four distinct pixels`() {
         // 2x2 source with per-corner colors; the single output pixel must be
         // the mean of all four (bilinear at the box centre = box average).
-        val src = OcrImage(
-            2, 2,
-            intArrayOf(argb(255, 0, 0), argb(0, 255, 0), argb(0, 0, 255), argb(255, 255, 255)),
-        )
+        val src =
+            OcrImage(
+                2,
+                2,
+                intArrayOf(argb(255, 0, 0), argb(0, 255, 0), argb(0, 0, 255), argb(255, 255, 255)),
+            )
         val out = ScreenshotDownscaler.downscale(src, maxLongSide = 1)
         assertEquals(1, out.width)
         assertEquals(1, out.height)

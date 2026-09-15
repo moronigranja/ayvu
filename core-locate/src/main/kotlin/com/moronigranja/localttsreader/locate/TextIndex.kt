@@ -13,7 +13,6 @@ import com.moronigranja.localttsreader.model.Book
  * concurrent indexing for longer than the snapshot copy.
  */
 class TextIndex {
-
     private data class PassageRef(
         val chapterIndex: Int,
         val chapterTitle: String?,
@@ -73,9 +72,10 @@ class TextIndex {
      * Ties keep the earliest book/passage in index (insertion) order.
      */
     @Synchronized
-    fun query(snippet: String, minConfidence: Double): MatchResult? {
-        return bestLocked(snippet)?.takeIf { it.confidence >= minConfidence }
-    }
+    fun query(
+        snippet: String,
+        minConfidence: Double,
+    ): MatchResult? = bestLocked(snippet)?.takeIf { it.confidence >= minConfidence }
 
     @Synchronized
     fun best(snippet: String): MatchResult? = bestLocked(snippet)
@@ -92,14 +92,15 @@ class TextIndex {
             for (passage in book.passages) {
                 val recall = TextMatcher.scoreNormalized(normalized, passage.grams)
                 if (best == null || recall > best.confidence) {
-                    best = MatchResult(
-                        bookId = book.id,
-                        bookTitle = book.title,
-                        chapterIndex = passage.chapterIndex,
-                        chapterTitle = passage.chapterTitle,
-                        passageIndex = passage.passageIndex,
-                        confidence = recall,
-                    )
+                    best =
+                        MatchResult(
+                            bookId = book.id,
+                            bookTitle = book.title,
+                            chapterIndex = passage.chapterIndex,
+                            chapterTitle = passage.chapterTitle,
+                            passageIndex = passage.passageIndex,
+                            confidence = recall,
+                        )
                 }
             }
         }

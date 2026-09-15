@@ -4,10 +4,14 @@ import com.moronigranja.localttsreader.ocr.OcrImage
 
 /** What the share gateway received (S2): a text snippet or a shared image. */
 sealed interface ShareInput {
-    data class Text(val text: String) : ShareInput
+    data class Text(
+        val text: String,
+    ) : ShareInput
 
     /** Full-resolution decoded raster; the resolver downscales before OCR. */
-    data class Image(val image: OcrImage) : ShareInput
+    data class Image(
+        val image: OcrImage,
+    ) : ShareInput
 }
 
 /**

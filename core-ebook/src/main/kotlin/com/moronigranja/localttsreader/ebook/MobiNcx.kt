@@ -25,24 +25,42 @@ package com.moronigranja.localttsreader.ebook
  * nav points, never an exception, so callers can fall back to whole-book parsing.
  */
 internal object MobiNcx {
-
     /** One nav point: [label] (null when the entry carries no usable label) and its
      *  byte offset (filepos) into the decompressed text records. */
-    data class NavPoint(val label: String?, val posByte: Long)
+    data class NavPoint(
+        val label: String?,
+        val posByte: Long,
+    )
 
     private const val NO_INDEX = 0xFFFFFFFFL
     private const val ORDT_CODE = 0xFDEAL
     private const val INDX_HEADER_SIZE = 0x38
 
     /** One TAGX entry: tag id, values-per-entry, control-byte mask, end-flag. */
-    private data class Tag(val id: Int, val valuesPerEntry: Int, val mask: Int, val endFlag: Int)
+    private data class Tag(
+        val id: Int,
+        val valuesPerEntry: Int,
+        val mask: Int,
+        val endFlag: Int,
+    )
 
     /** TAGX tag table plus the control-byte count shared by every IDXT entry. */
-    private class TagTable(val tags: List<Tag>, val controlByteCount: Int)
+    private class TagTable(
+        val tags: List<Tag>,
+        val controlByteCount: Int,
+    )
 
-    private class PendingTag(val id: Int, val valueCount: Int?, val valueBytes: Int, val valuesPerEntry: Int)
+    private class PendingTag(
+        val id: Int,
+        val valueCount: Int?,
+        val valueBytes: Int,
+        val valuesPerEntry: Int,
+    )
 
-    fun navPoints(container: MobiContainer, mobiHeader: ByteArray?): List<NavPoint> {
+    fun navPoints(
+        container: MobiContainer,
+        mobiHeader: ByteArray?,
+    ): List<NavPoint> {
         if (mobiHeader == null || mobiHeader.size < 0xF8) return emptyList()
         val idx = Bytes.u32(mobiHeader, 0xF4)
         if (idx == NO_INDEX || idx > Int.MAX_VALUE) return emptyList()
@@ -98,7 +116,12 @@ internal object MobiNcx {
         return ShortArray(oentries.toInt()) { Bytes.u16(main, op2.toInt() + 4 + 2 * it).toShort() }
     }
 
-    private fun readRecord(record: ByteArray, table: TagTable, ordt2: ShortArray?, out: MutableList<NavPoint>) {
+    private fun readRecord(
+        record: ByteArray,
+        table: TagTable,
+        ordt2: ShortArray?,
+        out: MutableList<NavPoint>,
+    ) {
         if (record.size < INDX_HEADER_SIZE || !Bytes.hasText(record, 0, "INDX")) return
         val idxtPos = Bytes.u32(record, 0x14)
         val entryCount = Bytes.u32(record, 0x18)
@@ -110,7 +133,12 @@ internal object MobiNcx {
         }
     }
 
-    private fun readEntry(record: ByteArray, start: Int, table: TagTable, ordt2: ShortArray?): NavPoint? {
+    private fun readEntry(
+        record: ByteArray,
+        start: Int,
+        table: TagTable,
+        ordt2: ShortArray?,
+    ): NavPoint? {
         if (start < 0 || start >= record.size) return null
         val labelLen = Bytes.u8(record, start)
         if (start + 1 + labelLen > record.size) return null
@@ -127,7 +155,11 @@ internal object MobiNcx {
      * partial values), with bounds checks instead of index errors: any overrun
      * aborts the entry (null), which the caller skips.
      */
-    private fun readTagValues(record: ByteArray, controlStart: Int, table: TagTable): Map<Int, List<Long>>? {
+    private fun readTagValues(
+        record: ByteArray,
+        controlStart: Int,
+        table: TagTable,
+    ): Map<Int, List<Long>>? {
         val pending = mutableListOf<PendingTag>()
         var controlIndex = 0
         var dataStart = controlStart + table.controlByteCount
@@ -178,7 +210,10 @@ internal object MobiNcx {
     }
 
     /** Amazon variable-width integer (7-bit groups, high bit ends), null past the end. */
-    private fun readVwi(record: ByteArray, pos: Int): Pair<Int, Long>? {
+    private fun readVwi(
+        record: ByteArray,
+        pos: Int,
+    ): Pair<Int, Long>? {
         var value = 0L
         var p = pos
         while (p < record.size) {
@@ -191,15 +226,20 @@ internal object MobiNcx {
     }
 
     /** UTF-8 label, ORDT2-translated for the rare 65002 books (KindleUnpack parity). */
-    private fun decodeLabel(labelBytes: ByteArray, ordt2: ShortArray?): String? {
-        val decoded = if (ordt2 != null) {
-            val mapped = ByteArray(labelBytes.size) { i ->
-                (ordt2[labelBytes[i].toInt() and 0xFF].toInt() and 0xFF).toByte()
+    private fun decodeLabel(
+        labelBytes: ByteArray,
+        ordt2: ShortArray?,
+    ): String? {
+        val decoded =
+            if (ordt2 != null) {
+                val mapped =
+                    ByteArray(labelBytes.size) { i ->
+                        (ordt2[labelBytes[i].toInt() and 0xFF].toInt() and 0xFF).toByte()
+                    }
+                String(mapped, Charsets.UTF_8)
+            } else {
+                String(labelBytes, Charsets.UTF_8)
             }
-            String(mapped, Charsets.UTF_8)
-        } else {
-            String(labelBytes, Charsets.UTF_8)
-        }
         return OpfBookReader.decodeEntities(decoded).trim().ifEmpty { null }
     }
 }

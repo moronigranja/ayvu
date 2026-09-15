@@ -11,14 +11,15 @@ import com.moronigranja.localttsreader.model.TextPassage
  * passage texts to the reconstructed [Book], never to a source file.
  */
 fun CachedBook.toBook(): Book {
-    val chapters = passages.groupBy { it.chapterIndex }
-        .map { (index, rows) ->
-            Chapter(
-                index = index,
-                title = rows.firstNotNullOfOrNull { it.chapterTitle },
-                passages = rows.sortedBy { it.passageIndex }.map { TextPassage(it.text) },
-            )
-        }
-        .sortedBy { it.index }
+    val chapters =
+        passages
+            .groupBy { it.chapterIndex }
+            .map { (index, rows) ->
+                Chapter(
+                    index = index,
+                    title = rows.firstNotNullOfOrNull { it.chapterTitle },
+                    passages = rows.sortedBy { it.passageIndex }.map { TextPassage(it.text) },
+                )
+            }.sortedBy { it.index }
     return Book(id = id, title = title, authors = authors, chapters = chapters)
 }

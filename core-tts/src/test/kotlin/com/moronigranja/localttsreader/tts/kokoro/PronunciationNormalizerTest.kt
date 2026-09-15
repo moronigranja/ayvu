@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class PronunciationNormalizerTest {
-
     @Test
     fun `honorific Ms with period is rewritten to Miz`() {
         assertEquals(

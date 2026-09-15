@@ -20,11 +20,11 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object OcrModule {
-
     @Provides
     @Singleton
-    fun provideTessDataDir(@ApplicationContext context: Context): File =
-        TessDataStager.tesseractDataPath(context.filesDir)
+    fun provideTessDataDir(
+        @ApplicationContext context: Context,
+    ): File = TessDataStager.tesseractDataPath(context.filesDir)
 
     @Provides
     @Singleton

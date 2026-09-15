@@ -17,9 +17,17 @@ package com.moronigranja.localttsreader.tts
  */
 sealed interface PackStatus {
     data object NotDownloaded : PackStatus
-    data class Downloading(val downloadedBytes: Long, val totalBytes: Long) : PackStatus
+
+    data class Downloading(
+        val downloadedBytes: Long,
+        val totalBytes: Long,
+    ) : PackStatus
+
     data object Ready : PackStatus
-    data class Failed(val reason: DownloadFailureReason) : PackStatus
+
+    data class Failed(
+        val reason: DownloadFailureReason,
+    ) : PackStatus
 }
 
 data class PackState(

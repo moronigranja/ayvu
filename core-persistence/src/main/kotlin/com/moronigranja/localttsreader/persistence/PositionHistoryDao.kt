@@ -6,7 +6,6 @@ import androidx.room.Query
 
 @Dao
 interface PositionHistoryDao {
-
     @Insert
     suspend fun insert(entry: PositionHistoryEntity): Long
 
@@ -38,5 +37,8 @@ interface PositionHistoryDao {
           )
         """,
     )
-    suspend fun prune(bookId: String, keep: Int)
+    suspend fun prune(
+        bookId: String,
+        keep: Int,
+    )
 }

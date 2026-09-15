@@ -81,8 +81,8 @@ class ThreadSweepRunner(
         corpusName: String,
         waitUnplugged: Boolean,
         log: (String) -> Unit,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             if (waitUnplugged) {
                 if (PowerProbe.isPlugged(context)) {
                     log("waiting for the cable to be pulled — battery current while plugged is a charge current, not a load signal")
@@ -177,7 +177,6 @@ class ThreadSweepRunner(
             log("thread-sweep leg unavailable: $e")
             false
         }
-    }
 
     /** Power with no inference running — the constant every leg sits on top of. */
     private fun measureIdleBaseline(): JSONObject {

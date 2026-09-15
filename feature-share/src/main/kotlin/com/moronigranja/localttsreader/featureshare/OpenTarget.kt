@@ -1,6 +1,5 @@
 package com.moronigranja.localttsreader.featureshare
 
-
 /**
  * What "Listen from here" needs to open (S3): a book and a passage to start
  * playback at. The extras contract is owned HERE (the originating feature);
@@ -19,7 +18,11 @@ data class OpenTarget(
         const val DEFAULT_CHAPTER = -1 // absent = start wherever resume would
 
         /** Pure parse for tests and the app's intent consumption. */
-        fun fromExtras(bookId: String?, chapterIndex: Int, passageIndex: Int): OpenTarget? {
+        fun fromExtras(
+            bookId: String?,
+            chapterIndex: Int,
+            passageIndex: Int,
+        ): OpenTarget? {
             if (bookId.isNullOrBlank()) return null
             return OpenTarget(bookId, chapterIndex.coerceAtLeast(0), passageIndex.coerceAtLeast(0))
         }

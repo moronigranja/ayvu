@@ -11,15 +11,17 @@ import androidx.documentfile.provider.DocumentFile
  * longer resolve yields an empty result (nothing imported), never a crash.
  */
 fun Context.scanTree(uri: Uri): FolderScanResult<Uri> {
-    val root = DocumentFile.fromTreeUri(this, uri)
-        ?: return FolderScanResult(emptyList(), 0, truncated = false)
+    val root =
+        DocumentFile.fromTreeUri(this, uri)
+            ?: return FolderScanResult(emptyList(), 0, truncated = false)
     return FolderScanPolicy.collect(root.toScanNode())
 }
 
-private fun DocumentFile.toScanNode(): ScanNode<Uri> = ScanNode(
-    name = name ?: "",
-    isDirectory = isDirectory,
-    // Files carry their own content URI; directories carry nothing.
-    payload = if (isFile) uri else null,
-    listChildren = { listFiles().map { it.toScanNode() }.toList() },
-)
+private fun DocumentFile.toScanNode(): ScanNode<Uri> =
+    ScanNode(
+        name = name ?: "",
+        isDirectory = isDirectory,
+        // Files carry their own content URI; directories carry nothing.
+        payload = if (isFile) uri else null,
+        listChildren = { listFiles().map { it.toScanNode() }.toList() },
+    )

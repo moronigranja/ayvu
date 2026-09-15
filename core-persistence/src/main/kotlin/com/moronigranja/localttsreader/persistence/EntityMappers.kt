@@ -15,21 +15,22 @@ private const val AUTHORS_SEPARATOR = "\u001F"
 
 fun encodeAuthors(authors: List<String>): String = authors.joinToString(AUTHORS_SEPARATOR)
 
-fun decodeAuthors(encoded: String): List<String> =
-    if (encoded.isEmpty()) emptyList() else encoded.split(AUTHORS_SEPARATOR)
+fun decodeAuthors(encoded: String): List<String> = if (encoded.isEmpty()) emptyList() else encoded.split(AUTHORS_SEPARATOR)
 
-fun LibraryEntry.bookEntity(): BookEntity = BookEntity(
-    id = book.id,
-    title = book.title,
-    authors = encodeAuthors(book.authors),
-    importedAtEpochMillis = importedAtEpochMillis,
-)
+fun LibraryEntry.bookEntity(): BookEntity =
+    BookEntity(
+        id = book.id,
+        title = book.title,
+        authors = encodeAuthors(book.authors),
+        importedAtEpochMillis = importedAtEpochMillis,
+    )
 
 /** List-view entry: chapters are cached per passage, not re-assembled here. */
-fun BookEntity.toLibraryEntry(): LibraryEntry = LibraryEntry(
-    book = Book(id = id, title = title, authors = decodeAuthors(authors)),
-    importedAtEpochMillis = importedAtEpochMillis,
-)
+fun BookEntity.toLibraryEntry(): LibraryEntry =
+    LibraryEntry(
+        book = Book(id = id, title = title, authors = decodeAuthors(authors)),
+        importedAtEpochMillis = importedAtEpochMillis,
+    )
 
 /** Flattens one book's chapters into cache rows — the stored cached parse. */
 fun Book.cachedPassages(): List<PassageEntity> =

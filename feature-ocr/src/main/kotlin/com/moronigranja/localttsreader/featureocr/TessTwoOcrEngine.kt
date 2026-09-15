@@ -5,9 +5,9 @@ import com.googlecode.tesseract.android.TessBaseAPI
 import com.moronigranja.localttsreader.ocr.OcrEngine
 import com.moronigranja.localttsreader.ocr.OcrImage
 import com.moronigranja.localttsreader.ocr.OcrResult
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -22,49 +22,54 @@ import javax.inject.Inject
  * across concurrent passes, and a full-page pass runs on the IO dispatcher —
  * the same lazily-allocated, disposed-per-call pattern keeps memory bounded.
  */
-class TessTwoOcrEngine @Inject constructor(
-    private val dataPath: File,
-) : OcrEngine {
-
-    override suspend fun recognize(image: OcrImage, languages: List<String>): OcrResult {
-        require(languages.isNotEmpty()) { "at least one tessdata language is required" }
-        return withContext(Dispatchers.IO) {
-            val bitmap = toBitmap(image)
-            try {
-                val tess = TessBaseAPI()
+class TessTwoOcrEngine
+    @Inject
+    constructor(
+        private val dataPath: File,
+    ) : OcrEngine {
+        override suspend fun recognize(
+            image: OcrImage,
+            languages: List<String>,
+        ): OcrResult {
+            require(languages.isNotEmpty()) { "at least one tessdata language is required" }
+            return withContext(Dispatchers.IO) {
+                val bitmap = toBitmap(image)
                 try {
-                    val initialized = try {
-                        tess.init(dataPath.absolutePath, languages.joinToString("+"))
-                    } catch (e: RuntimeException) {
-                        // Missing/foreign traineddata and cube-only quirks throw
-                        // from init; surface the precise cause instead of a guess.
-                        throw IllegalStateException(
-                            "tessdata init failed for ${languages.joinToString("+")} under $dataPath: ${e.message}",
-                            e,
-                        )
+                    val tess = TessBaseAPI()
+                    try {
+                        val initialized =
+                            try {
+                                tess.init(dataPath.absolutePath, languages.joinToString("+"))
+                            } catch (e: RuntimeException) {
+                                // Missing/foreign traineddata and cube-only quirks throw
+                                // from init; surface the precise cause instead of a guess.
+                                throw IllegalStateException(
+                                    "tessdata init failed for ${languages.joinToString("+")} under $dataPath: ${e.message}",
+                                    e,
+                                )
+                            }
+                        if (!initialized) {
+                            throw IllegalStateException(
+                                "tessdata init returned false for ${languages.joinToString("+")} under $dataPath",
+                            )
+                        }
+                        tess.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
+                        tess.setImage(bitmap)
+                        val text = tess.utF8Text
+                        val confidence = tess.meanConfidence().toDouble() / 100.0
+                        OcrResult(text?.trim().orEmpty(), confidence)
+                    } finally {
+                        tess.end()
                     }
-                    if (!initialized) {
-                        throw IllegalStateException(
-                            "tessdata init returned false for ${languages.joinToString("+")} under $dataPath",
-                        )
-                    }
-                    tess.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
-                    tess.setImage(bitmap)
-                    val text = tess.utF8Text
-                    val confidence = tess.meanConfidence().toDouble() / 100.0
-                    OcrResult(text?.trim().orEmpty(), confidence)
                 } finally {
-                    tess.end()
+                    bitmap.recycle()
                 }
-            } finally {
-                bitmap.recycle()
             }
         }
-    }
 
-    private fun toBitmap(image: OcrImage): Bitmap {
-        val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        bitmap.setPixels(image.argb, 0, image.width, 0, 0, image.width, image.height)
-        return bitmap
+        private fun toBitmap(image: OcrImage): Bitmap {
+            val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(image.argb, 0, image.width, 0, 0, image.width, image.height)
+            return bitmap
+        }
     }
-}

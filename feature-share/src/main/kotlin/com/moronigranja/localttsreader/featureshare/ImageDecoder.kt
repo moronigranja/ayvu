@@ -16,10 +16,12 @@ import com.moronigranja.localttsreader.ocr.OcrImage
  * toward [DECODE_MAX_LONG_SIDE] before pixel extraction.
  */
 object ImageDecoder {
-
     const val DECODE_MAX_LONG_SIDE = 2400
 
-    fun decode(uri: Uri, resolver: ContentResolver): OcrImage? {
+    fun decode(
+        uri: Uri,
+        resolver: ContentResolver,
+    ): OcrImage? {
         // Bounds pass: decodeStream returns null BY DESIGN with
         // inJustDecodeBounds=true — the options receive the dimensions, so
         // the null is expected and ignored (the stream is reopened below).
@@ -33,8 +35,9 @@ object ImageDecoder {
         }
 
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        val bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-            ?: return null
+        val bitmap =
+            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+                ?: return null
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         val image = OcrImage(bitmap.width, bitmap.height, pixels)

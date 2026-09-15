@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test
 
 /** S-debug: container.xml full-path extraction must be parser-independent. */
 class ContainerFullPathTest {
-
     @Test
     fun `double-quoted full-path`() {
         val xml = """<?xml version="1.0" encoding="UTF-8"?>
@@ -21,14 +20,17 @@ class ContainerFullPathTest {
     @Test
     fun `single-quoted attributes parse`() {
         // Gutenberg-style declarations: legal XML, hostile to naive parsers.
-        val xml = "<?xml version='1.0' encoding='utf-8'?>\n<container><rootfiles><rootfile full-path='content.opf'/></rootfiles></container>"
+        val xml =
+            "<?xml version='1.0' encoding='utf-8'?>\n" +
+                "<container><rootfiles><rootfile full-path='content.opf'/></rootfiles></container>"
         assertEquals("content.opf", OpfBookReader.extractFullPath(xml))
     }
 
     @Test
     fun `utf-8 BOM before the declaration is tolerated`() {
-        val xml = "\uFEFF<?xml version=\"1.0\" encoding=\"UTF-8\"?><container>..." +
-            "<rootfile full-path=\"OPS/package.opf\"/></container>"
+        val xml =
+            "\uFEFF<?xml version=\"1.0\" encoding=\"UTF-8\"?><container>..." +
+                "<rootfile full-path=\"OPS/package.opf\"/></container>"
         assertEquals("OPS/package.opf", OpfBookReader.extractFullPath(xml))
     }
 
@@ -49,9 +51,10 @@ class ContainerFullPathTest {
 
     @Test
     fun `findOpfPath surfaces a typed error for a missing container`() {
-        val thrown = org.junit.jupiter.api.assertThrows<EBookParseException> {
-            OpfBookReader.findOpfPath(emptyMap())
-        }
+        val thrown =
+            org.junit.jupiter.api.assertThrows<EBookParseException> {
+                OpfBookReader.findOpfPath(emptyMap())
+            }
         assertEquals("META-INF/container.xml is missing", thrown.message)
     }
 }

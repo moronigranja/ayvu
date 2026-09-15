@@ -37,13 +37,14 @@ import kotlin.concurrent.withLock
 class EspeakPhonemizer(
     libraryPath: String = DEFAULT_LIBRARY,
     dataPath: String? = null,
-) : Phonemizer, AutoCloseable {
-
+) : Phonemizer,
+    AutoCloseable {
     private val lock = ReentrantLock()
     private val lib: EspeakLibrary
     private val languageToIdentifier: Map<String, String>
     private var currentVoice: String? = null
     private var closed = false
+
     // espeak_Initialize may keep the data path pointer; hold the buffer for the object's life.
     @Suppress("unused")
     private val dataMemory: Memory?
@@ -51,13 +52,14 @@ class EspeakPhonemizer(
     init {
         lock.withLock {
             lib = Native.load(libraryPath, EspeakLibrary::class.java)
-            dataMemory = dataPath?.let { path ->
-                val bytes = path.toByteArray(Charsets.UTF_8)
-                Memory((bytes.size + 1).toLong()).also { memory ->
-                    memory.write(0, bytes, 0, bytes.size)
-                    memory.setByte(bytes.size.toLong(), 0)
+            dataMemory =
+                dataPath?.let { path ->
+                    val bytes = path.toByteArray(Charsets.UTF_8)
+                    Memory((bytes.size + 1).toLong()).also { memory ->
+                        memory.write(0, bytes, 0, bytes.size)
+                        memory.setByte(bytes.size.toLong(), 0)
+                    }
                 }
-            }
             val sampleRate = lib.espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0L, dataMemory, 0)
             if (sampleRate <= 0) {
                 lib.espeak_Terminate()
@@ -69,14 +71,18 @@ class EspeakPhonemizer(
 
     override fun supportedLanguages(): Set<String> = languageToIdentifier.keys
 
-    override fun phonemize(text: String, language: String): String {
+    override fun phonemize(
+        text: String,
+        language: String,
+    ): String {
         lock.withLock {
             check(!closed) { "phonemizer is closed" }
-            val identifier = languageToIdentifier[language]
-                ?: throw PhonemizeException(
-                    "language '$language' is not supported by this espeak-ng installation " +
-                        "(available: ${languageToIdentifier.keys.sorted().joinToString(", ")})"
-                )
+            val identifier =
+                languageToIdentifier[language]
+                    ?: throw PhonemizeException(
+                        "language '$language' is not supported by this espeak-ng installation " +
+                            "(available: ${languageToIdentifier.keys.sorted().joinToString(", ")})",
+                    )
             if (currentVoice != identifier) {
                 if (lib.espeak_SetVoiceByName(identifier) != 0) {
                     throw PhonemizeException("failed to load espeak-ng voice '$identifier'")
@@ -85,9 +91,11 @@ class EspeakPhonemizer(
             }
 
             // phonemizer: str2list -> line.strip('\n') -> drop blank lines
-            val lines = text.trim { it == '\n' }
-                .split('\n')
-                .filter { it.isNotBlank() }
+            val lines =
+                text
+                    .trim { it == '\n' }
+                    .split('\n')
+                    .filter { it.isNotBlank() }
 
             val punctuated = mutableListOf<String>()
             for (line in lines) {
@@ -126,7 +134,8 @@ class EspeakPhonemizer(
         // (https://github.com/espeak-ng/espeak-ng/issues/694)
         out = out.replace(Regex("_+"), "_").replace(Regex("_ "), " ")
         // language_switch with 'keep-flags' is a pass-through (no-op here)
-        return out.split(' ')
+        return out
+            .split(' ')
             .joinToString(" ") { word ->
                 // strip=False, tie=None: espeak's '_' phoneme separator is added
                 // back per word and then replaced by the empty phone separator.
@@ -182,11 +191,24 @@ class EspeakPhonemizer(
     }
 
     private interface EspeakLibrary : Library {
-        fun espeak_Initialize(output: Int, buflength: Long, path: Pointer?, options: Int): Int
+        fun espeak_Initialize(
+            output: Int,
+            buflength: Long,
+            path: Pointer?,
+            options: Int,
+        ): Int
+
         fun espeak_Terminate()
+
         fun espeak_SetVoiceByName(name: String?): Int
+
         fun espeak_ListVoices(voiceSpec: Pointer?): Pointer?
-        fun espeak_TextToPhonemes(textIn: PointerByReference?, textmode: Int, phonememode: Int): Pointer?
+
+        fun espeak_TextToPhonemes(
+            textIn: PointerByReference?,
+            textmode: Int,
+            phonememode: Int,
+        ): Pointer?
     }
 
     companion object {
@@ -199,15 +221,18 @@ class EspeakPhonemizer(
         /** Let JNA/Native.findLibrary resolve "espeak-ng"/"espeak" through the system loader. */
         const val DEFAULT_LIBRARY: String = "espeak-ng"
 
-        fun load(libraryPath: String = DEFAULT_LIBRARY, dataPath: String? = defaultDataPath()): EspeakPhonemizer =
-            EspeakPhonemizer(libraryPath, dataPath)
+        fun load(
+            libraryPath: String = DEFAULT_LIBRARY,
+            dataPath: String? = defaultDataPath(),
+        ): EspeakPhonemizer = EspeakPhonemizer(libraryPath, dataPath)
 
         private fun defaultDataPath(): String? {
-            val candidates = listOf(
-                "/usr/share/espeak-ng-data",
-                "/usr/local/share/espeak-ng-data",
-                "/usr/lib/espeak-ng-data",
-            )
+            val candidates =
+                listOf(
+                    "/usr/share/espeak-ng-data",
+                    "/usr/local/share/espeak-ng-data",
+                    "/usr/lib/espeak-ng-data",
+                )
             return candidates.firstOrNull { File(it).isDirectory }
         }
     }
@@ -217,13 +242,21 @@ class EspeakPhonemizer(
 @Structure.FieldOrder("name", "languages", "identifier", "gender", "age", "variant", "xx1", "score", "spare")
 internal class EspeakVoiceStruct : Structure() {
     @JvmField var name: Pointer? = null
+
     @JvmField var languages: Pointer? = null
+
     @JvmField var identifier: Pointer? = null
+
     @JvmField var gender: Byte = 0
+
     @JvmField var age: Byte = 0
+
     @JvmField var variant: Byte = 0
+
     @JvmField var xx1: Byte = 0
+
     @JvmField var score: Int = 0
+
     @JvmField var spare: Pointer? = null
 }
 
@@ -232,31 +265,37 @@ internal class EspeakVoiceStruct : Structure() {
  * B/E/I/A), phonemize the chunks, splice the marks back.
  */
 private object PunctuationPreserve {
-
     // phonemizer Punctuation.default_marks()
     private const val MARKS = ";:,.!?¡¿—…\"«»“”(){}[]"
     private const val DECIMALS = ",."
 
-    private val marksRegex: Regex = run {
-        val others = MARKS.filter { it !in DECIMALS }
-        val escapedClass = buildString { for (c in others) append(escapeClassChar(c)) }
-        val alternatives = buildList {
-            if (escapedClass.isNotEmpty()) add("[$escapedClass]")
-            for (decimal in DECIMALS) {
-                // A decimal separator between two digits is not punctuation (phonemizer).
-                add("(?<![0-9])[$decimal]")
-                add("[$decimal](?![0-9])")
-            }
+    private val marksRegex: Regex =
+        run {
+            val others = MARKS.filter { it !in DECIMALS }
+            val escapedClass = buildString { for (c in others) append(escapeClassChar(c)) }
+            val alternatives =
+                buildList {
+                    if (escapedClass.isNotEmpty()) add("[$escapedClass]")
+                    for (decimal in DECIMALS) {
+                        // A decimal separator between two digits is not punctuation (phonemizer).
+                        add("(?<![0-9])[$decimal]")
+                        add("[$decimal](?![0-9])")
+                    }
+                }
+            Regex("(\\s*(?:${alternatives.joinToString("|")})+\\s*)+")
         }
-        Regex("(\\s*(?:${alternatives.joinToString("|")})+\\s*)+")
-    }
 
-    private fun escapeClassChar(c: Char): String = when (c) {
-        '\\', '[', ']', '^', '-', '&' -> "\\$c"
-        else -> c.toString()
-    }
+    private fun escapeClassChar(c: Char): String =
+        when (c) {
+            '\\', '[', ']', '^', '-', '&' -> "\\$c"
+            else -> c.toString()
+        }
 
-    data class Mark(val index: Int, val text: String, val position: Char)
+    data class Mark(
+        val index: Int,
+        val text: String,
+        val position: Char,
+    )
 
     /** Splits one line into chunks and marks; empties are dropped by the caller. */
     fun preserve(line: String): Pair<List<String>, List<Mark>> {
@@ -265,14 +304,16 @@ private object PunctuationPreserve {
         if (matches.size == 1 && matches[0].value == line) {
             return emptyList<String>() to listOf(Mark(0, line, 'A'))
         }
-        val marks = matches.mapIndexed { i, match ->
-            val position = when {
-                i == 0 && line.startsWith(match.value) -> 'B'
-                i == matches.lastIndex && line.endsWith(match.value) -> 'E'
-                else -> 'I'
+        val marks =
+            matches.mapIndexed { i, match ->
+                val position =
+                    when {
+                        i == 0 && line.startsWith(match.value) -> 'B'
+                        i == matches.lastIndex && line.endsWith(match.value) -> 'E'
+                        else -> 'I'
+                    }
+                Mark(0, match.value, position)
             }
-            Mark(0, match.value, position)
-        }
         val chunks = mutableListOf<String>()
         var remaining = line
         for (mark in marks) {
@@ -292,7 +333,10 @@ private object PunctuationPreserve {
      * phonemizer Punctuation.restore with Separator('', '', ' ') and strip=False:
      * re-inserts the marks between the phonemized chunks, each line joined with ' '.
      */
-    fun restore(phonemized: List<String>, marks: List<Mark>): List<String> {
+    fun restore(
+        phonemized: List<String>,
+        marks: List<Mark>,
+    ): List<String> {
         val text = phonemized.toMutableList()
         val queue = marks.toMutableList()
         val out = mutableListOf<String>()

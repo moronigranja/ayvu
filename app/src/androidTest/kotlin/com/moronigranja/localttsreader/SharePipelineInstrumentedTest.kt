@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.moronigranja.localttsreader.ocr.TessDataStager
 import com.moronigranja.localttsreader.featureocr.TessTwoOcrEngine
 import com.moronigranja.localttsreader.featureshare.ImageDecoder
 import com.moronigranja.localttsreader.featureshare.ShareInput
@@ -20,12 +19,13 @@ import com.moronigranja.localttsreader.model.CachedBook
 import com.moronigranja.localttsreader.model.CachedPassage
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.TextPassage
-import java.io.File
+import com.moronigranja.localttsreader.ocr.TessDataStager
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * S2 on-device verification: the real pipeline against the real index and
@@ -45,22 +45,23 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class SharePipelineInstrumentedTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private val quote = "All happy families are alike; each unhappy family is unhappy in its own way."
 
-    private val book = Book(
-        id = "share-e2e-book",
-        title = "Anna Karenina (share test)",
-        chapters = listOf(
-            Chapter(
-                0,
-                "All happy families",
-                listOf(TextPassage(quote)),
-            ),
-        ),
-    )
+    private val book =
+        Book(
+            id = "share-e2e-book",
+            title = "Anna Karenina (share test)",
+            chapters =
+                listOf(
+                    Chapter(
+                        0,
+                        "All happy families",
+                        listOf(TextPassage(quote)),
+                    ),
+                ),
+        )
 
     private fun resolver(): ShareSnippetResolver {
         val index = TextIndex()
@@ -70,14 +71,15 @@ class SharePipelineInstrumentedTest {
                 CachedBook(
                     id = book.id,
                     title = book.title,
-                    passages = listOf(
-                        CachedPassage(
-                            chapterIndex = 0,
-                            chapterTitle = "All happy families",
-                            passageIndex = 0,
-                            text = quote,
+                    passages =
+                        listOf(
+                            CachedPassage(
+                                chapterIndex = 0,
+                                chapterTitle = "All happy families",
+                                passageIndex = 0,
+                                text = quote,
+                            ),
                         ),
-                    ),
                 ),
             ),
         )
@@ -92,48 +94,51 @@ class SharePipelineInstrumentedTest {
     }
 
     @Test
-    fun textShareResolvesToTheBookPassage() = runBlocking {
-        val resolution = resolver().resolve(ShareInput.Text(quote))
-        assertTrue("expected Found, was $resolution", resolution is ShareResolution.Found)
-        val found = resolution as ShareResolution.Found
-        assertEquals(book.id, found.bookId)
-        assertEquals(0, found.chapterIndex)
-        assertEquals(0, found.passageIndex)
-        assertTrue(found.confidence >= 0.99)
-    }
+    fun textShareResolvesToTheBookPassage() =
+        runBlocking {
+            val resolution = resolver().resolve(ShareInput.Text(quote))
+            assertTrue("expected Found, was $resolution", resolution is ShareResolution.Found)
+            val found = resolution as ShareResolution.Found
+            assertEquals(book.id, found.bookId)
+            assertEquals(0, found.chapterIndex)
+            assertEquals(0, found.passageIndex)
+            assertTrue(found.confidence >= 0.99)
+        }
 
     @Test
-    fun imageShareDecodesOcrsAndResolves() = runBlocking {
-        // Render the quote the way a screenshot of the page would look.
-        val bitmap = Bitmap.createBitmap(1400, 700, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.WHITE)
-        val canvas = Canvas(bitmap)
-        val paint = Paint().apply {
-            color = Color.BLACK
-            textSize = 72f
-            isAntiAlias = true
+    fun imageShareDecodesOcrsAndResolves() =
+        runBlocking {
+            // Render the quote the way a screenshot of the page would look.
+            val bitmap = Bitmap.createBitmap(1400, 700, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(Color.WHITE)
+            val canvas = Canvas(bitmap)
+            val paint =
+                Paint().apply {
+                    color = Color.BLACK
+                    textSize = 72f
+                    isAntiAlias = true
+                }
+            val lines = quote.split("; ")
+            var y = 140f
+            for (line in lines) {
+                canvas.drawText(line, 60f, y, paint)
+                y += 110f
+            }
+
+            val file = File(context.cacheDir, "share-test.png")
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+
+            val image = ImageDecoder.decode(Uri.fromFile(file), context.contentResolver)
+            assertTrue("decoded image", image != null)
+            image!!
+
+            val resolution = resolver().resolve(ShareInput.Image(image))
+            assertTrue("expected Found, was $resolution", resolution is ShareResolution.Found)
+            val found = resolution as ShareResolution.Found
+            assertEquals(book.id, found.bookId)
+            assertTrue("OCR confidence for the rendered quote", found.confidence >= 0.5)
+            file.delete()
+            Unit
         }
-        val lines = quote.split("; ")
-        var y = 140f
-        for (line in lines) {
-            canvas.drawText(line, 60f, y, paint)
-            y += 110f
-        }
-
-        val file = File(context.cacheDir, "share-test.png")
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-
-        val image = ImageDecoder.decode(Uri.fromFile(file), context.contentResolver)
-        assertTrue("decoded image", image != null)
-        image!!
-
-        val resolution = resolver().resolve(ShareInput.Image(image))
-        assertTrue("expected Found, was $resolution", resolution is ShareResolution.Found)
-        val found = resolution as ShareResolution.Found
-        assertEquals(book.id, found.bookId)
-        assertTrue("OCR confidence for the rendered quote", found.confidence >= 0.5)
-        file.delete()
-        Unit
-    }
 }

@@ -12,23 +12,24 @@ import org.junit.jupiter.api.Test
  * pin the decisions themselves.
  */
 class FolderScanPolicyTest {
+    private fun file(name: String): ScanNode<String> = ScanNode(name, isDirectory = false, payload = name) { emptyList() }
 
-    private fun file(name: String): ScanNode<String> =
-        ScanNode(name, isDirectory = false, payload = name) { emptyList() }
-
-    private fun dir(name: String, vararg children: ScanNode<String>): ScanNode<String> =
-        ScanNode(name, isDirectory = true, payload = null) { children.toList() }
+    private fun dir(
+        name: String,
+        vararg children: ScanNode<String>,
+    ): ScanNode<String> = ScanNode(name, isDirectory = true, payload = null) { children.toList() }
 
     @Test
     fun `root files are collected in walk order with unsupported entries skipped`() {
-        val root = dir(
-            "root",
-            file("a.epub"),
-            file("notes.pdf"),
-            file("b.mobi"),
-            file("cover.jpg"),
-            file("c.txt"),
-        )
+        val root =
+            dir(
+                "root",
+                file("a.epub"),
+                file("notes.pdf"),
+                file("b.mobi"),
+                file("cover.jpg"),
+                file("c.txt"),
+            )
 
         val result = FolderScanPolicy.collect(root)
 
@@ -39,10 +40,11 @@ class FolderScanPolicyTest {
 
     @Test
     fun `one nested folder level is scanned`() {
-        val root = dir(
-            "root",
-            dir("series", file("book-one.epub"), file("book-two.epub")),
-        )
+        val root =
+            dir(
+                "root",
+                dir("series", file("book-one.epub"), file("book-two.epub")),
+            )
 
         val result = FolderScanPolicy.collect(root)
 
@@ -51,14 +53,15 @@ class FolderScanPolicyTest {
 
     @Test
     fun `folders deeper than one nested level are not descended`() {
-        val root = dir(
-            "root",
+        val root =
             dir(
-                "author",
-                dir("trilogy", dir("extra", file("too-deep.epub"))),
-                file("on-shelf.epub"),
-            ),
-        )
+                "root",
+                dir(
+                    "author",
+                    dir("trilogy", dir("extra", file("too-deep.epub"))),
+                    file("on-shelf.epub"),
+                ),
+            )
 
         val result = FolderScanPolicy.collect(root)
 
@@ -79,20 +82,21 @@ class FolderScanPolicyTest {
 
     @Test
     fun `the default gate is the shared EBookFormats extension set`() {
-        val root = dir(
-            "root",
-            file("a.epub"),
-            file("b.txt"),
-            file("c.markdown"),
-            file("d.md"),
-            file("e.azw3"),
-            file("f.kf8"),
-            file("g.mobi"),
-            file("h.azw"),
-            file("i.pdf"),
-            file("j.jpg"),
-            file("k.kfx"),
-        )
+        val root =
+            dir(
+                "root",
+                file("a.epub"),
+                file("b.txt"),
+                file("c.markdown"),
+                file("d.md"),
+                file("e.azw3"),
+                file("f.kf8"),
+                file("g.mobi"),
+                file("h.azw"),
+                file("i.pdf"),
+                file("j.jpg"),
+                file("k.kfx"),
+            )
 
         // No explicit predicate: the shared EBookFormats.parserFor is the gate.
         val result = FolderScanPolicy.collect(root)

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test
  * doctypes and single-quoted declarations).
  */
 class XmlPreprocessingTest {
-
     @Test
     fun `external doctype is stripped so no dtd is ever fetched`() {
         val xml = """<?xml version="1.0"?>
@@ -55,10 +54,11 @@ class XmlPreprocessingTest {
     @Test
     fun `parseXml accepts a gutenberg-style single-quoted declaration`() {
         // Full-path: parse a minimal doc exactly as Gutenberg's opf opens.
-        val doc = OpfBookReader.parseXmlPublic(
-            "<?xml version='1.0' encoding='UTF-8'?>\n<package version=\"3.0\"/>".toByteArray(),
-            "content.opf",
-        )
+        val doc =
+            OpfBookReader.parseXmlPublic(
+                "<?xml version='1.0' encoding='UTF-8'?>\n<package version=\"3.0\"/>".toByteArray(),
+                "content.opf",
+            )
         assertEquals(org.w3c.dom.Node.ELEMENT_NODE, doc.documentElement.nodeType)
     }
 
@@ -66,10 +66,11 @@ class XmlPreprocessingTest {
     fun `external doctype parses without loading the dtd`() {
         // An unreachable SYSTEM id would hang/fail if fetched; strip-first
         // means this completes immediately with the right root.
-        val doc = OpfBookReader.parseXmlPublic(
-            """<!DOCTYPE package SYSTEM "http://127.0.0.1:1/nonexistent.dtd"><package/>""".toByteArray(),
-            "content.opf",
-        )
+        val doc =
+            OpfBookReader.parseXmlPublic(
+                """<!DOCTYPE package SYSTEM "http://127.0.0.1:1/nonexistent.dtd"><package/>""".toByteArray(),
+                "content.opf",
+            )
         assertEquals("package", doc.documentElement.nodeName)
     }
 
@@ -78,10 +79,11 @@ class XmlPreprocessingTest {
         // S-device bug 2026-08-27: decode-first turned a valid "Love &amp; Romance"
         // into a bare '&' and the SAX parse died. Only HTML-named extras and bare
         // '&' may be pre-processed; XML-valid entities stay for the parser.
-        val doc = OpfBookReader.parseXmlPublic(
-            """<package><title>Love &amp; Romance &mdash; R&amp;D</title><note>a & b</note></package>""".toByteArray(),
-            "content.opf",
-        )
+        val doc =
+            OpfBookReader.parseXmlPublic(
+                """<package><title>Love &amp; Romance &mdash; R&amp;D</title><note>a & b</note></package>""".toByteArray(),
+                "content.opf",
+            )
         assertEquals("Love & Romance — R&D", doc.getElementsByTagName("title").item(0).textContent)
         assertEquals("a & b", doc.getElementsByTagName("note").item(0).textContent)
     }

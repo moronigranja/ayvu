@@ -19,8 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.moronigranja.localttsreader.ui.LoadingState
 import com.moronigranja.localttsreader.ui.AyvuSpacing
+import com.moronigranja.localttsreader.ui.LoadingState
 
 /**
  * S2 result UX: "Found: book · chapter · passage" for a hit; a clear
@@ -62,26 +62,27 @@ private fun VerdictContent(
     when (resolution) {
         is ShareResolution.Found -> FoundCard(resolution, onListen)
         is ShareResolution.NotFound -> NotFoundCard(resolution)
-        is ShareResolution.Failed -> Card(
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        ) {
-            Column(
-                Modifier.padding(AyvuSpacing.LG),
-                verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
+        is ShareResolution.Failed ->
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
             ) {
-                Text(
-                    "Could not match the share.",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-                Text(
-                    resolution.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
+                Column(
+                    Modifier.padding(AyvuSpacing.LG),
+                    verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
+                ) {
+                    Text(
+                        "Could not match the share.",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(
+                        resolution.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
             }
-        }
     }
     OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
         Text("Close")
@@ -89,7 +90,10 @@ private fun VerdictContent(
 }
 
 @Composable
-private fun FoundCard(found: ShareResolution.Found, onListen: (ShareResolution.Found) -> Unit) {
+private fun FoundCard(
+    found: ShareResolution.Found,
+    onListen: (ShareResolution.Found) -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         Column(Modifier.padding(AyvuSpacing.LG), verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM)) {
             Text("Found in your library", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

@@ -33,7 +33,6 @@ class PiperVoiceConfig(
      * voices carry single-id entries; the format allows lists). */
     val phonemeIdMap: Map<Char, List<Int>>,
 ) {
-
     /**
      * Maps a phoneme string to the model's phoneme ids — the verified rule
      * above. Whitespace collapses to the single gap the caller already
@@ -66,8 +65,7 @@ class PiperVoiceConfig(
      * (durations divide by speed, so speed 2.0 halves the length scale — the
      * speed 1.0 default stays the measured json values).
      */
-    fun scales(speed: Double): FloatArray =
-        floatArrayOf(noiseScale, (lengthScale / speed.coerceIn(SPEED_RANGE)).toFloat(), noiseW)
+    fun scales(speed: Double): FloatArray = floatArrayOf(noiseScale, (lengthScale / speed.coerceIn(SPEED_RANGE)).toFloat(), noiseW)
 
     companion object {
         private const val BOS = 1
@@ -91,16 +89,27 @@ class PiperVoiceConfig(
                 map[key[0]] = value.jsonArray.map { it.jsonPrimitive.int }
             }
             return PiperVoiceConfig(
-                sampleRateHz = audio["sample_rate"]?.jsonPrimitive?.int
-                    ?: error("sample_rate missing from Piper voice config"),
-                noiseScale = (inference["noise_scale"]?.jsonPrimitive?.double
-                    ?: error("noise_scale missing from Piper voice config")).toFloat(),
-                lengthScale = (inference["length_scale"]?.jsonPrimitive?.double
-                    ?: error("length_scale missing from Piper voice config")).toFloat(),
-                noiseW = (inference["noise_w"]?.jsonPrimitive?.double
-                    ?: error("noise_w missing from Piper voice config")).toFloat(),
-                espeakVoice = espeak["voice"]?.jsonPrimitive?.content
-                    ?: error("espeak voice missing from Piper voice config"),
+                sampleRateHz =
+                    audio["sample_rate"]?.jsonPrimitive?.int
+                        ?: error("sample_rate missing from Piper voice config"),
+                noiseScale =
+                    (
+                        inference["noise_scale"]?.jsonPrimitive?.double
+                            ?: error("noise_scale missing from Piper voice config")
+                    ).toFloat(),
+                lengthScale =
+                    (
+                        inference["length_scale"]?.jsonPrimitive?.double
+                            ?: error("length_scale missing from Piper voice config")
+                    ).toFloat(),
+                noiseW =
+                    (
+                        inference["noise_w"]?.jsonPrimitive?.double
+                            ?: error("noise_w missing from Piper voice config")
+                    ).toFloat(),
+                espeakVoice =
+                    espeak["voice"]?.jsonPrimitive?.content
+                        ?: error("espeak voice missing from Piper voice config"),
                 phonemeIdMap = map,
             )
         }

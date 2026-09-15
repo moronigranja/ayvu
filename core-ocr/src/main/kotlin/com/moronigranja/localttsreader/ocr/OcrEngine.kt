@@ -13,7 +13,9 @@ package com.moronigranja.localttsreader.ocr
  * (feature-ocr), fakes/alternates in tests and tooling.
  */
 interface OcrEngine {
-
     /** Extracts [text] + confidence from [image] for the requested [languages]. */
-    suspend fun recognize(image: OcrImage, languages: List<String>): OcrResult
+    suspend fun recognize(
+        image: OcrImage,
+        languages: List<String>,
+    ): OcrResult
 }
