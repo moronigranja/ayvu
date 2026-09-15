@@ -6,12 +6,16 @@ import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.player.BookLayout
 import com.moronigranja.localttsreader.player.InMemoryPlayerStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.PlayerProgress
 import com.moronigranja.localttsreader.player.PlayerStateMachine
 import com.moronigranja.localttsreader.player.PlayerStore
-import kotlin.math.abs
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,6 +25,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CountDownLatch
+import kotlin.math.abs
 
 /**
  * CR-2 service-edge regression (roadmap A2): STOP and service teardown must
@@ -36,22 +42,29 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackServiceCr2Test {
-
     private val context: Context = RuntimeEnvironment.getApplication()
     private val sampleRate = 24_000
 
-    private val book = Book(
-        id = "cr2-book",
-        title = "CR2",
-        chapters = listOf(Chapter(0, "One", listOf(TextPassage("p0")))),
-    )
+    private val book =
+        Book(
+            id = "cr2-book",
+            title = "CR2",
+            chapters = listOf(Chapter(0, "One", listOf(TextPassage("p0")))),
+        )
 
     /** Fake output: reports live samples until [stop] zeroes the head — the
      * real AudioTrackPassageOutput contract (CR-2: persistence must capture
      * BEFORE teardown, or it reads baseline + 0). */
-    private class FakeOutput(var liveSamples: Int = 0) : PassageOutput {
+    private class FakeOutput(
+        var liveSamples: Int = 0,
+    ) : PassageOutput {
         var stopped = false
-        override fun play(pcm: ByteArray, sampleRate: Int, speed: Double) {
+
+        override fun play(
+            pcm: ByteArray,
+            sampleRate: Int,
+            speed: Double,
+        ) {
             liveSamples = 0
             stopped = false
         }
@@ -66,11 +79,21 @@ class PlaybackServiceCr2Test {
         override fun setVolume(multiplier: Float) = Unit
     }
 
-    /** Counts [PlayerStore.commitProgress] calls — the single-write assertions. */
-    private class CountingStore(private val inner: PlayerStore) : PlayerStore by inner {
+    /** Counts [PlayerStore.commitProgress] calls — the single-write assertions —
+     * and records the thread each write ran on (pass 3: the edge's writes must be
+     * serialized on the dedicated player thread). */
+    private class CountingStore(
+        private val inner: PlayerStore,
+    ) : PlayerStore by inner {
         var commits = 0
-        override suspend fun commitProgress(progress: PlayerProgress, ringPush: PlayerPosition?) {
+        val writeThreads = mutableListOf<String>()
+
+        override suspend fun commitProgress(
+            progress: PlayerProgress,
+            ringPush: PlayerPosition?,
+        ) {
             commits++
+            writeThreads += Thread.currentThread().name
             inner.commitProgress(progress, ringPush)
         }
     }
@@ -86,14 +109,19 @@ class PlaybackServiceCr2Test {
         machine: PlayerStateMachine,
         output: FakeOutput,
         baseline: Double = 10.0,
-    ): PlaybackService = PlaybackService().apply {
-        this.store = store
-        this.machine = machine
-        this.output = output
-        this.baselineOffset = baseline
-    }
+    ): PlaybackService =
+        PlaybackService().apply {
+            this.store = store
+            this.machine = machine
+            this.output = output
+            this.baselineOffset = baseline
+        }
 
-    private fun awaitRow(store: PlayerStore, bookId: String, expect: Double): PlayerProgress {
+    private fun awaitRow(
+        store: PlayerStore,
+        bookId: String,
+        expect: Double,
+    ): PlayerProgress {
         val deadline = System.currentTimeMillis() + 5_000
         while (System.currentTimeMillis() < deadline) {
             val row = runBlocking { store.readProgress(bookId) }
@@ -172,5 +200,108 @@ class PlaybackServiceCr2Test {
         assertFalse(service.dueCheckpoint(t0 + 4_999L))
         assertTrue("interval elapsed", service.dueCheckpoint(t0 + 5_000L))
         assertFalse(service.dueCheckpoint(t0 + 6_000L))
+    }
+
+    // ------------------------------------------------------------------
+    // Pass 3 (2026-09-15): the final write is uncancellable but SERIALIZED
+    // ------------------------------------------------------------------
+
+    /** Occupies the service's dedicated player thread so a write enqueued after
+     * this point cannot run until the returned lambda is called — the ordering
+     * below becomes deterministic instead of a scheduling race. */
+    private fun occupyPlayerThread(service: PlaybackService): () -> Unit {
+        val field =
+            PlaybackService::class.java.getDeclaredField("playerDispatcher").apply { isAccessible = true }
+        val dispatcher = field.get(service) as CoroutineDispatcher
+        val gate = CountDownLatch(1)
+        CoroutineScope(dispatcher).launch { gate.await() }
+        return { gate.countDown() }
+    }
+
+    private fun finalStopJobOf(service: PlaybackService): Job? {
+        val field =
+            PlaybackService::class.java.getDeclaredField("finalStopJob").apply { isAccessible = true }
+        return field.get(service) as Job?
+    }
+
+    /** The CR-2 write runs on the loop's thread, not a bare `Dispatchers.Default`
+     * worker: the machine's single-writer contract assumes the edge serializes. */
+    @Test
+    fun `the final stop write runs on the player thread`() {
+        val store = CountingStore(InMemoryPlayerStore())
+        val machine = playingMachine(store)
+        val fake = FakeOutput(liveSamples = (5.0 * sampleRate).toInt())
+        val service = service(store, machine, fake)
+
+        service.captureAndStop()
+        awaitRow(store, book.id, 15.0)
+
+        // Prefix, not equality: kotlinx-coroutines debug mode appends
+        // " @coroutine#N" to the thread name.
+        assertTrue(
+            "the final write must run on the player thread, was ${store.writeThreads.last()}",
+            store.writeThreads.last().startsWith("AyvuPlayer"),
+        )
+    }
+
+    /** CR-2 + CR-5: the deferred teardown clear belongs to the session that
+     * stopped. A newer command owns the published state — clearing here would
+     * blank the UI of a session that is already loading. */
+    @Test
+    fun `a superseded stop never clears a newer session's published state`() {
+        val store = CountingStore(InMemoryPlayerStore())
+        val machine = playingMachine(store)
+        val fake = FakeOutput(liveSamples = (5.0 * sampleRate).toInt())
+        val service = service(store, machine, fake)
+        val release = occupyPlayerThread(service)
+        try {
+            PlaybackStateHolder.reset()
+            PlaybackStateHolder.update { it.copy(bookId = "newer-session") }
+
+            service.captureAndStop() // its write queues behind the occupier
+            service.stopEverything() // a NEWER command's stop bumps the generation
+
+            release()
+            runBlocking { finalStopJobOf(service)?.join() }
+
+            assertEquals(
+                "the clear belongs to the superseded session only",
+                "newer-session",
+                PlaybackStateHolder.state.value.bookId,
+            )
+        } finally {
+            release()
+            PlaybackStateHolder.reset()
+        }
+    }
+
+    /** The write targets the machine the session ENDED with: a later command
+     * rebuilds `machine`, and writing through the field committed this session's
+     * offset to the next book's row. */
+    @Test
+    fun `the final stop write never lands on a machine rebuilt by a later command`() {
+        val store = CountingStore(InMemoryPlayerStore())
+        val machine = playingMachine(store)
+        val fake = FakeOutput(liveSamples = (5.0 * sampleRate).toInt())
+        val service = service(store, machine, fake)
+        val release = occupyPlayerThread(service)
+        try {
+            service.captureAndStop() // enqueued behind the occupier
+            val replacementStore = CountingStore(InMemoryPlayerStore())
+            service.machine = PlayerStateMachine(replacementStore, BookLayout(book)) // a newer command's rebuild
+            val replacementCommits = replacementStore.commits
+
+            release()
+            runBlocking { finalStopJobOf(service)?.join() }
+
+            assertEquals(
+                "the superseded session's write stays on its own machine",
+                replacementCommits,
+                replacementStore.commits,
+            )
+            awaitRow(store, book.id, 15.0) // and it did land — on the original machine
+        } finally {
+            release()
+        }
     }
 }

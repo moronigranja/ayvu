@@ -7,18 +7,17 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.featureplayer.playback.PregenWorker
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.TextPassage
+import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.pregen.PcmPassageCache
 import com.moronigranja.localttsreader.player.pregen.PregenKey
 import com.moronigranja.localttsreader.player.pregen.PregenSpaceEstimator
-import java.io.File
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -26,6 +25,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * End-to-end offline pre-generation (decisions #42) on the real device,
@@ -42,7 +43,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PregenE2eTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var cache: PcmPassageCache
 
@@ -52,55 +52,57 @@ class PregenE2eTest {
 
     // 4 passages x ~15 s ≈ 1 min of audio: a real synthesis run (Kokoro RTF
     // ~0.7 on this device) without stretching the test past ~4 minutes total.
-    private val book = Book(
-        id = "t42-pregen-e2e-book",
-        title = "Pregen E2E Book",
-        chapters = listOf(
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "t42-pregen-e2e-book",
+            title = "Pregen E2E Book",
+            chapters =
                 listOf(
-                    TextPassage(
-                        "The hikers met at dawn by the old stone bridge. " +
-                            "Mist lay over the river and the town was quiet. " +
-                            "They packed the map, the thermos, and the climbing rope. " +
-                            "The trail rose gently through the pines for an hour. " +
-                            "Listen to the wind in the high branches and the birds. " +
-                            "It takes patience to reach the ridge before noon.",
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage(
+                                "The hikers met at dawn by the old stone bridge. " +
+                                    "Mist lay over the river and the town was quiet. " +
+                                    "They packed the map, the thermos, and the climbing rope. " +
+                                    "The trail rose gently through the pines for an hour. " +
+                                    "Listen to the wind in the high branches and the birds. " +
+                                    "It takes patience to reach the ridge before noon.",
+                            ),
+                            TextPassage(
+                                "Beyond the ridge the valley opened wide and green. " +
+                                    "A stream cut through the meadow and the sheep had come down. " +
+                                    "They stopped for bread and cheese under a lone oak. " +
+                                    "The afternoon light made the water shine like silver. " +
+                                    "Keep the pace steady and the summit will come to you.",
+                            ),
+                        ),
                     ),
-                    TextPassage(
-                        "Beyond the ridge the valley opened wide and green. " +
-                            "A stream cut through the meadow and the sheep had come down. " +
-                            "They stopped for bread and cheese under a lone oak. " +
-                            "The afternoon light made the water shine like silver. " +
-                            "Keep the pace steady and the summit will come to you.",
+                    Chapter(
+                        1,
+                        "Two",
+                        listOf(
+                            TextPassage(
+                                "The descent was steeper than the map suggested. " +
+                                    "Loose stones slid underfoot and the rope scraped the rock. " +
+                                    "They moved one at a time and called out before each step. " +
+                                    "By evening the forest closed in and the path softened. " +
+                                    "Rest now, and let the fire hold the dark at bay.",
+                            ),
+                        ),
+                    ),
+                    Chapter(
+                        2,
+                        "Three",
+                        listOf(
+                            TextPassage(
+                                "And this is the very last passage of the test book. Goodbye.",
+                            ),
+                        ),
                     ),
                 ),
-            ),
-            Chapter(
-                1,
-                "Two",
-                listOf(
-                    TextPassage(
-                        "The descent was steeper than the map suggested. " +
-                            "Loose stones slid underfoot and the rope scraped the rock. " +
-                            "They moved one at a time and called out before each step. " +
-                            "By evening the forest closed in and the path softened. " +
-                            "Rest now, and let the fire hold the dark at bay.",
-                    ),
-                ),
-            ),
-            Chapter(
-                2,
-                "Three",
-                listOf(
-                    TextPassage(
-                        "And this is the very last passage of the test book. Goodbye.",
-                    ),
-                ),
-            ),
-        ),
-    )
+        )
 
     @Before
     fun setUp() {
@@ -114,6 +116,13 @@ class PregenE2eTest {
             // construction.
             val app = context.applicationContext as LocalTtsReaderApp
             app.libraryStore.add(LibraryEntry(book, importedAtEpochMillis = 1L))
+            // Pin the ENGINE and voice: the anchors assertion below is a Kokoro
+            // contract (Piper returns `segments = null` by design, #30b), and the
+            // worker resolves the engine from persisted settings — a device left
+            // on Piper failed this for a reason unrelated to the code under test
+            // (S22 2026-09-15).
+            app.appSettings.setTtsEngine(SettingsStore.DEFAULT_TTS_ENGINE)
+            app.appSettings.setVoice(SettingsStore.DEFAULT_VOICE)
             cache = PcmPassageCache(File(context.filesDir, "pregen")) // read-only handle to the worker's tier
             File(context.filesDir, "pregen").deleteRecursively()
         }
@@ -132,14 +141,14 @@ class PregenE2eTest {
     fun workerPregensTheBookThenPlaybackCompletesOverTheCache() {
         // 1) The real manual worker (Hilt graph, singleton engine, foreground).
         val workManager = WorkManager.getInstance(context)
-        val request = OneTimeWorkRequestBuilder<PregenWorker>()
-            .setInputData(
-                workDataOf(
-                    PregenWorker.KEY_MODE to PregenWorker.MODE_MANUAL,
-                    PregenWorker.KEY_BOOK_IDS to arrayOf(book.id),
-                ),
-            )
-            .build()
+        val request =
+            OneTimeWorkRequestBuilder<PregenWorker>()
+                .setInputData(
+                    workDataOf(
+                        PregenWorker.KEY_MODE to PregenWorker.MODE_MANUAL,
+                        PregenWorker.KEY_BOOK_IDS to arrayOf(book.id),
+                    ),
+                ).build()
         workManager.enqueue(request)
 
         // 2) Wait for the worker to fill the tier (synthesis ~1 min + engine

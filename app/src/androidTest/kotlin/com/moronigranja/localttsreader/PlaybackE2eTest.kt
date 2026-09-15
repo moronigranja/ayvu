@@ -5,7 +5,6 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.model.Book
 import com.moronigranja.localttsreader.model.Chapter
 import com.moronigranja.localttsreader.model.LibraryEntry
@@ -14,6 +13,9 @@ import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
+import com.moronigranja.localttsreader.persistence.SettingEntity
+import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,47 +39,58 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PlaybackE2eTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var database: LibraryDatabase
     private lateinit var store: RoomLibraryStore
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private val book = Book(
-        id = "t4-e2e-book",
-        title = "E2E Test Book",
-        chapters = listOf(
-            // Passage 1 is deliberately long (~15 s): the pre-generation queue
-            // (T5) synthesizes passage 2 while it plays — even on a throttled,
-            // locked-screen device a 1-passage head start finishes in time, so
-            // passage 2 MUST come out of the queue, not the synthesizer.
-            Chapter(
-                0,
-                "One",
+    private val book =
+        Book(
+            id = "t4-e2e-book",
+            title = "E2E Test Book",
+            chapters =
                 listOf(
-                    TextPassage(
-                        "The hikers met at dawn by the old stone bridge. " +
-                            "Mist lay over the river and the town was quiet. " +
-                            "They packed the map, the thermos, and the climbing rope. " +
-                            "The trail rose gently through the pines for an hour. " +
-                            "Listen to the wind in the high branches and the birds. " +
-                            "It takes patience to reach the ridge before noon.",
+                    // Passage 1 is deliberately long (~15 s): the pre-generation queue
+                    // (T5) synthesizes passage 2 while it plays — even on a throttled,
+                    // locked-screen device a 1-passage head start finishes in time, so
+                    // passage 2 MUST come out of the queue, not the synthesizer.
+                    Chapter(
+                        0,
+                        "One",
+                        listOf(
+                            TextPassage(
+                                "The hikers met at dawn by the old stone bridge. " +
+                                    "Mist lay over the river and the town was quiet. " +
+                                    "They packed the map, the thermos, and the climbing rope. " +
+                                    "The trail rose gently through the pines for an hour. " +
+                                    "Listen to the wind in the high branches and the birds. " +
+                                    "It takes patience to reach the ridge before noon.",
+                            ),
+                        ),
                     ),
+                    Chapter(1, "Two", listOf(TextPassage("And this is the very last passage of the test book. Goodbye."))),
                 ),
-            ),
-            Chapter(1, "Two", listOf(TextPassage("And this is the very last passage of the test book. Goodbye."))),
-        ),
-    )
+        )
 
     @Before
-    fun setUp() = runBlocking {
-        database = Room.databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-            .allowMainThreadQueries()
-            .build()
-        store = RoomLibraryStore(database, scope)
-        store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
-    }
+    fun setUp() =
+        runBlocking {
+            database =
+                Room
+                    .databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .allowMainThreadQueries()
+                    .build()
+            store = RoomLibraryStore(database, scope)
+            store.add(LibraryEntry(book, importedAtEpochMillis = 1L))
+            // Pin the ENGINE and voice: this class asserts Kokoro's sentence
+            // anchors, and the engine resolves from the persisted setting, so a
+            // device left on Piper (`segments = null` by design, #30b) failed it
+            // for a reason that had nothing to do with the code under test
+            // (S22 2026-09-15). Same idiom as EsVoiceE2eTest's KEY_VOICE write.
+            database.settingsDao().put(SettingEntity(SettingsStore.KEY_TTS_ENGINE, SettingsStore.DEFAULT_TTS_ENGINE))
+            database.settingsDao().put(SettingEntity(SettingsStore.KEY_VOICE, SettingsStore.DEFAULT_VOICE))
+        }
 
     @After
     fun tearDown() {

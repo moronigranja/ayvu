@@ -19,6 +19,7 @@ import com.moronigranja.localttsreader.player.InMemoryPlayerStore
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.PlayerPosition
+import com.moronigranja.localttsreader.player.PlayerProgress
 import com.moronigranja.localttsreader.player.PlayerStateMachine
 import com.moronigranja.localttsreader.player.PlayerStore
 import com.moronigranja.localttsreader.tts.EngineSpec
@@ -399,6 +400,40 @@ class PlaybackServicePublishGuardTest {
                     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
                 ).allNotifications
         assertEquals("structural publish notifies once", 1, notified.size)
+        PlaybackStateHolder.reset()
+    }
+
+    // ------------------------------------------------------------------
+    // Undo availability — machine-owned, never an edge mirror
+    // ------------------------------------------------------------------
+
+    /** `canUndo` is derived from the machine's ring on EVERY open path. The
+     * edge used to keep its own `ringHasEntries` mirror and refresh it in only
+     * three places (navigate/seek/undo), so opening a book that already carried
+     * undo history published canUndo = false until the first skip — a disabled
+     * undo button over an available undo. */
+    @Test
+    fun `opening a book with existing undo history publishes canUndo`() {
+        val store = InMemoryPlayerStore()
+        // A previous session's skip, exactly as it persisted: the resume row and
+        // the ring entry it pushed, written in one commit (the store contract).
+        runBlocking {
+            store.commitProgress(
+                PlayerProgress(book.id, 0, 0, 0.0, 1.0, updatedAtEpochMillis = 1L),
+                ringPush = PlayerPosition(book.id, 0, 1),
+            )
+        }
+        val service = createdService(store, machine = null)
+        PlaybackStateHolder.reset()
+
+        service.openBook(book.id)
+
+        Thread.sleep(400) // openBook loads the book + publishes on the command loop
+        assertTrue(
+            "an existing ring entry must surface as canUndo on open",
+            PlaybackStateHolder.state.value.canUndo,
+        )
+        service.stopEverything()
         PlaybackStateHolder.reset()
     }
 }
