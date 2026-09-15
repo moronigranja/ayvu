@@ -2,6 +2,7 @@
 // scripts own their builds. This file only hosts the cross-module boundary
 // check (A6).
 
+import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.attributes.Bundling
 
 val ktlint by configurations.creating {
@@ -61,17 +62,20 @@ tasks.register("checkFeatureBoundaries") {
             .map { it.path }
             .toSet()
 
+        // Read the DECLARED dependencies of every configuration. The earlier
+        // `dependencyConstraints` query only ever contained `constraints {}`
+        // entries — this build declares none — so the guard could not fire
+        // even for a real implementation(project(":feature-…")) edge.
         val violations = rootProject.subprojects
             .filter { it.name.startsWith("feature-") }
             .flatMap { module ->
-                val deps = runCatching {
-                    module.configurations.getByName("implementation")
-                        .dependencyConstraints
-                }.getOrDefault(emptySet())
-                deps.mapNotNull { dep ->
-                    val target = dep.name
-                    target.takeIf { it in featureModules && it != module.path }
-                }
+                module.configurations
+                    .flatMap { it.allDependencies }
+                    .filterIsInstance<ProjectDependency>()
+                    .mapNotNull { dep ->
+                        val target = dep.path
+                        target.takeIf { it in featureModules && it != module.path }?.let { "${module.path} → $it" }
+                    }
             }
             .distinct()
             .sorted()

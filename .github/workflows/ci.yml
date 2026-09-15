@@ -31,8 +31,11 @@ jobs:
         run: |
           ./gradlew --no-daemon \
             :core-model:test :core-ebook:test :core-locate:test \
-            :core-tts:test :core-player:test :core-ocr:test
-      - name: ktlint (baseline-gated)
+            :core-tts:test :core-translate:test :core-player:test \
+            :core-ocr:test :core-backup:test
+      - name: Architecture guard (feature-* never depend on feature-*)
+        run: ./gradlew --no-daemon checkFeatureBoundaries
+      - name: ktlint (no baseline — a violation fails)
         run: ./gradlew --no-daemon ktlintCheck
 
   android-build:
@@ -46,6 +49,7 @@ jobs:
           tools/docker-build.sh \
             :app:assembleDebug :app:assembleDebugAndroidTest \
             :app:testDebugUnitTest :core-persistence:testDebugUnitTest \
+            :core-ui:testDebugUnitTest \
             :feature-settings:testDebugUnitTest :feature-share:testDebugUnitTest \
             :feature-player:testDebugUnitTest :feature-library:testDebugUnitTest
 
