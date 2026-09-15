@@ -61,6 +61,18 @@ object PronunciationNormalizer {
         expansion: String,
     ): Rule = Regex("(?<=\\d)[ \\u00A0]?${Regex.escape(symbol)}(?![\\p{L}\\p{N}])") to { expansion }
 
+    /**
+     * A unit symbol that needs its own word. The stone/piedra abbreviations collide
+     * with the English ordinal suffix — "21st" is twenty-first, not twenty-one
+     * stone — and an ordinal suffix is written ATTACHED while the unit is written
+     * spaced, so requiring the space separates them. The date rule feeding an
+     * ordinal into the measurement rule is how G0 exposed this.
+     */
+    private fun unitSpaced(
+        symbol: String,
+        expansion: String,
+    ): Rule = Regex("(?<=\\d)[ \\u00A0]+${Regex.escape(symbol)}(?![\\p{L}\\p{N}])") to { expansion }
+
     /** A pattern whose replacement needs the matched groups (separators, decades, signs). */
     private fun transform(
         pattern: String,
@@ -234,6 +246,184 @@ object PronunciationNormalizer {
             transform("(\\d+)p\\b") { m -> "${m.groupValues[1]} pence" },
         )
 
+    /** Month names by base language, 1-based (index 0 is unused). */
+    private val dateMonths =
+        mapOf(
+            "en" to
+                listOf(
+                    "",
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
+                ),
+            "es" to
+                listOf(
+                    "",
+                    "enero",
+                    "febrero",
+                    "marzo",
+                    "abril",
+                    "mayo",
+                    "junio",
+                    "julio",
+                    "agosto",
+                    "septiembre",
+                    "octubre",
+                    "noviembre",
+                    "diciembre",
+                ),
+            "fr" to
+                listOf(
+                    "",
+                    "janvier",
+                    "février",
+                    "mars",
+                    "avril",
+                    "mai",
+                    "juin",
+                    "juillet",
+                    "août",
+                    "septembre",
+                    "octobre",
+                    "novembre",
+                    "décembre",
+                ),
+            "it" to
+                listOf(
+                    "",
+                    "gennaio",
+                    "febbraio",
+                    "marzo",
+                    "aprile",
+                    "maggio",
+                    "giugno",
+                    "luglio",
+                    "agosto",
+                    "settembre",
+                    "ottobre",
+                    "novembre",
+                    "dicembre",
+                ),
+            "pt" to
+                listOf(
+                    "",
+                    "janeiro",
+                    "fevereiro",
+                    "março",
+                    "abril",
+                    "maio",
+                    "junho",
+                    "julho",
+                    "agosto",
+                    "setembro",
+                    "outubro",
+                    "novembro",
+                    "dezembro",
+                ),
+        )
+
+    /** Date prepositions: a bare "3/4" is a fraction or a score, not a date. */
+    private val dateLeads =
+        mapOf(
+            "es" to "el|la|en|desde|hasta|del",
+            "fr" to "le|la|en|depuis|jusqu'au|du|au|dès",
+            "it" to "il|lo|la|l'|dal|fino|entro|nel|in",
+            "pt" to "em|no|na|desde|até|de|do|da",
+        )
+
+    /** "1st/2nd/3rd/4th…": espeak ordinalizes the written suffix itself. */
+    private fun englishOrdinalDay(day: Int): String {
+        val suffix =
+            when {
+                day % 100 in 11..13 -> "th"
+                day % 10 == 1 -> "st"
+                day % 10 == 2 -> "nd"
+                day % 10 == 3 -> "rd"
+                else -> "th"
+            }
+        return "$day$suffix"
+    }
+
+    /** The spoken shape of a resolved date, or null when the figures are not one. */
+    private fun spokenDate(
+        language: String,
+        firstText: String,
+        secondText: String,
+        year: String?,
+    ): String? {
+        val base = language.substringBefore('-')
+        val months = dateMonths[base] ?: return null
+        var month = firstText.toInt()
+        var day = secondText.toInt()
+        // The corpus writes slash-dates month-first (its pairs read "3/4/2024" as
+        // "4 March 2024" in every language), and a figure that cannot be a month
+        // settles the rest by arithmetic: 25/12 is 25 December, not month 25.
+        if (month > 12) {
+            val swap = month
+            month = day
+            day = swap
+        }
+        if (month !in 1..12 || day !in 1..31) return null
+        val name = months[month]
+        return when {
+            // en-us: the day is ordinal and the year comma-separated ("March 4th, 2024").
+            base == "en" && !language.startsWith("en-gb") ->
+                "$name ${englishOrdinalDay(day)}${if (year == null) "" else ", $year"}"
+            // en-gb prose is day-first ("4 March 2024"), like every other locale.
+            base == "en" -> "$day $name${if (year == null) "" else " $year"}"
+            base == "es" || base == "pt" -> "$day de $name${if (year == null) "" else " de $year"}"
+            else -> "$day $name${if (year == null) "" else " $year"}"
+        }
+    }
+
+    /**
+     * Numeric dates (G0 `date-slash-read-aloud`). Every variant loses the date
+     * meaning: en/es/it verbalize the slash ("three slash four", "tres barra
+     * cuatro"), fr drops it and reads bare cardinals ("trois quatre…"), pt reads
+     * zero-padded digits ("zero três zero quatro"). Dropping the slash alone is
+     * not the fix — the figures still read as cardinals — so the whole date is
+     * rewritten into the language's spoken shape. The day/month pair needs a date
+     * preposition because "3/4" alone is a fraction ("3/4 cup") far more often
+     * than a date; a four-digit year makes the form unambiguous on its own.
+     */
+    private fun dates(language: String): List<Rule> {
+        val base = language.substringBefore('-')
+        if (dateMonths[base] == null) return emptyList()
+        val leads = dateLeads[base]
+        return listOfNotNull(
+            transform("(?<![\\d/])(\\d{1,2})/(\\d{1,2})/(\\d{4})\\b") { m ->
+                spokenDate(language, m.groupValues[1], m.groupValues[2], m.groupValues[3]) ?: m.value
+            },
+            leads?.let {
+                transform("(?i)\\b($it)\\s*(\\d{1,2})/(\\d{1,2})\\b") { m ->
+                    spokenDate(language, m.groupValues[2], m.groupValues[3], null)
+                        ?.let { date -> "${m.groupValues[1]} $date" } ?: m.value
+                }
+            },
+        )
+    }
+
+    /**
+     * Rules that depend on the REGION rather than the base language. Dates are the
+     * only such rule set: en-us writes "March 4th, 2024" where en-gb writes "4
+     * March 2024", and the whole rest of the English set is shared.
+     */
+    private fun regionRules(language: String): List<Rule> =
+        when {
+            !language.startsWith("en") -> emptyList()
+            language.startsWith("en-gb") -> dates("en-gb")
+            else -> dates("en-us")
+        }
+
     /**
      * pt-BR money (G0 `pt-br-currency-real-read-with-dollar`): `R$` expanded to
      * "real dólar", and the owner's ruling is "deveria ser 'reais' somente" — the
@@ -323,7 +513,7 @@ object PronunciationNormalizer {
                 unit("lb", " pounds"),
                 unit("oz", " ounces"),
                 unit("mi", " miles"),
-                unit("st", " stone"),
+                unitSpaced("st", " stone"),
                 unit("W", " watts"),
                 unit("L", " liters"),
                 unit("m", " meters"),
@@ -371,7 +561,7 @@ object PronunciationNormalizer {
                 unit("mi", " millas"),
                 unit("lb", " libras"),
                 unit("oz", " onzas"),
-                unit("st", " piedras"),
+                unitSpaced("st", " piedras"),
                 unit("°C", " grados Celsius"),
                 unit("°F", " grados Fahrenheit"),
                 unit("W", " vatios"),
@@ -380,6 +570,7 @@ object PronunciationNormalizer {
                 unit("m", " metros"),
                 minus("menos"),
                 regnalOrdinals("es"),
+                *dates("es").toTypedArray(),
             )
 
     private val fr: List<Rule> =
@@ -407,6 +598,7 @@ object PronunciationNormalizer {
                 unit("°F", " degrés Fahrenheit"),
                 minus("moins"),
                 *romanNumerals().toTypedArray(),
+                *dates("fr-fr").toTypedArray(),
             )
 
     private val it: List<Rule> =
@@ -438,6 +630,7 @@ object PronunciationNormalizer {
                 unit("L", " litri"),
                 unit("l", " litri"),
                 unit("m", " metri"),
+                *dates("it").toTypedArray(),
             )
 
     private val pt: List<Rule> =
@@ -466,6 +659,7 @@ object PronunciationNormalizer {
                 // Regnal numerals: I–X read ordinally in pt-BR too ("Pedro
                 // segundo", "Isabel segunda" — owner ruling, 2026-09-15).
                 regnalOrdinals("pt"),
+                *dates("pt-br").toTypedArray(),
                 // Units (G0 rows 0230-0232): every symbol is spelled ("ka-ge",
                 // "ka-eme", "agá").
                 unit("km/h", " quilômetros por hora"),
@@ -501,6 +695,9 @@ object PronunciationNormalizer {
         for ((re, rep) in byLanguage[language.substringBefore('-').lowercase()].orEmpty()) {
             out = re.replace(out) { m -> rep(m) }
         }
+        // Region-scoped rules last: they only ever see the base rules' output
+        // (an already-normalized date contains no slash). See [regionRules].
+        for ((re, rep) in regionRules(language.lowercase())) out = re.replace(out) { m -> rep(m) }
         return out
     }
 
@@ -511,5 +708,5 @@ object PronunciationNormalizer {
      * on the JVM accepts what ICU rejects.
      */
     internal val patternSources: List<String>
-        get() = byLanguage.values.flatten().map { it.first.pattern }
+        get() = (byLanguage.values.flatten() + regionRules("en-us") + regionRules("en-gb")).map { it.first.pattern }
 }

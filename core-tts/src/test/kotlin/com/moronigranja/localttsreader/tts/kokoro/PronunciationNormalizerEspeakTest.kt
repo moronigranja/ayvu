@@ -163,6 +163,39 @@ class PronunciationNormalizerEspeakTest {
                         "The claim is disputed.² Other scholars disagree.³" to
                             "The claim is disputed. Other scholars disagree."
                     ),
+                // Dates: the corpus already measured the render of each row's
+                // spelled-out half, so these expectations are the corpus's own
+                // reference audio, not an interpretation of it.
+                "en-us" to
+                    (
+                        "On 3/4/2024, or March 4th 2024, they met; it was the 21st of May." to
+                            "On March 4th, 2024, or March 4th 2024, they met; it was the 21st of May."
+                    ),
+                "en-gb" to
+                    (
+                        "On 3/4/2024, or 4 March 2024, they met; it was the 21st of May." to
+                            "On 4 March 2024, or 4 March 2024, they met; it was the 21st of May."
+                    ),
+                "es" to
+                    (
+                        "El 3/4/2024, o el 4 de marzo de 2024, se vieron; era el 21 de mayo." to
+                            "El 4 de marzo de 2024, o el 4 de marzo de 2024, se vieron; era el 21 de mayo."
+                    ),
+                "fr-fr" to
+                    (
+                        "Le 3/4/2024, ou le 4 mars 2024, ils se sont vus ; c'était le 21 mai." to
+                            "Le 4 mars 2024, ou le 4 mars 2024, ils se sont vus ; c'était le 21 mai."
+                    ),
+                "it" to
+                    (
+                        "Il 3/4/2024, ovvero il 4 marzo 2024, si incontrarono; era il 21 maggio." to
+                            "Il 4 marzo 2024, ovvero il 4 marzo 2024, si incontrarono; era il 21 maggio."
+                    ),
+                "pt-br" to
+                    (
+                        "Em 03/04/2024, ou 4 de março de 2024, se encontraram; era 21 de maio." to
+                            "Em 4 de março de 2024, ou 4 de março de 2024, se encontraram; era 21 de maio."
+                    ),
             )
 
         for ((language, pair) in cases) {

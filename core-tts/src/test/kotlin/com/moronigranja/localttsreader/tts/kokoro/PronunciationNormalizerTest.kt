@@ -143,6 +143,15 @@ class PronunciationNormalizerTest {
     }
 
     @Test
+    fun `an ordinal suffix is never a unit`() {
+        // "st" (stone) must not bite the ordinal suffix the date rule produces.
+        assertEquals("the 21st of May", spoken("the 21st of May", "en-us"))
+        assertEquals("her 1st novel", spoken("her 1st novel", "en-us"))
+        // …while the spaced unit still expands.
+        assertEquals("weighed 8 stone 5 pounds", spoken("weighed 8 st 5 lb", "en-us"))
+    }
+
+    @Test
     fun `a unit never fires without a figure`() {
         // "W." is a name initial here, not watts: the unit rules require a
         // preceding digit, which is what keeps them safe in prose.
@@ -311,6 +320,70 @@ class PronunciationNormalizerTest {
             "subiu de 1234 reais e 56 centavos para 1400 reais",
             spoken("subiu de R$ 1.234,56 para R$ 1.400,00", "pt-br"),
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Dates (G0 date-slash-read-aloud)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `slash-dates are spoken as dates in every locale`() {
+        // Each expectation is the corpus row's own spelled-out half: the corpus
+        // already measured the render of these exact strings, so matching them is
+        // matching the target audio, not a guess.
+        assertEquals(
+            "On March 4th, 2024, or March 4th 2024, they met; it was the 21st of May.",
+            spoken("On 3/4/2024, or March 4th 2024, they met; it was the 21st of May.", "en-us"),
+        )
+        assertEquals(
+            "On 4 March 2024, or 4 March 2024, they met; it was the 21st of May.",
+            spoken("On 3/4/2024, or 4 March 2024, they met; it was the 21st of May.", "en-gb"),
+        )
+        assertEquals(
+            "El 4 de marzo de 2024, o el 4 de marzo de 2024, se vieron; era el 21 de mayo.",
+            spoken("El 3/4/2024, o el 4 de marzo de 2024, se vieron; era el 21 de mayo.", "es"),
+        )
+        assertEquals(
+            "Le 4 mars 2024, ou le 4 mars 2024, ils se sont vus ; c'était le 21 mai.",
+            spoken("Le 3/4/2024, ou le 4 mars 2024, ils se sont vus ; c'était le 21 mai.", "fr-fr"),
+        )
+        assertEquals(
+            "Il 4 marzo 2024, ovvero il 4 marzo 2024, si incontrarono; era il 21 maggio.",
+            spoken("Il 3/4/2024, ovvero il 4 marzo 2024, si incontrarono; era il 21 maggio.", "it"),
+        )
+        assertEquals(
+            "Em 4 de março de 2024, ou 4 de março de 2024, se encontraram; era 21 de maio.",
+            spoken("Em 03/04/2024, ou 4 de março de 2024, se encontraram; era 21 de maio.", "pt-br"),
+        )
+    }
+
+    @Test
+    fun `the day-month form needs a date preposition`() {
+        // Corpus rows 0103/0143/0185/0226: "el 25/12" is a date…
+        assertEquals("el 25 de diciembre", spoken("el 25/12", "es"))
+        assertEquals("le 21 mai", spoken("le 21/5", "fr-fr"))
+        assertEquals("il 25 dicembre", spoken("il 25/12", "it"))
+        assertEquals("em 25 de dezembro", spoken("em 25/12", "pt-br"))
+        // …but a bare pair with no date word is a fraction or a score.
+        assertEquals("add 3/4 cup", spoken("add 3/4 cup", "en-us"))
+        assertEquals("won 2/1", spoken("won 2/1", "en-us"))
+        assertEquals("una fracción 3/4", spoken("una fracción 3/4", "es"))
+    }
+
+    @Test
+    fun `a figure that cannot be a month settles the order`() {
+        // The corpus writes slash-dates month-first, and 25 cannot be a month, so
+        // the swap is arithmetic rather than convention.
+        assertEquals("el 25 de diciembre", spoken("el 25/12", "es"))
+        assertEquals("il 25 dicembre", spoken("il 25/12", "it"))
+        // A month-name-free impossibility stays untouched.
+        assertEquals("el 32/13", spoken("el 32/13", "es"))
+    }
+
+    @Test
+    fun `a four-digit year needs no context word`() {
+        assertEquals("By June 7th, 2000, the edition was due.", spoken("By 06/07/2000, the edition was due.", "en-us"))
+        assertEquals("By 7 June 2000, the edition was due.", spoken("By 06/07/2000, the edition was due.", "en-gb"))
     }
 
     // ------------------------------------------------------------------

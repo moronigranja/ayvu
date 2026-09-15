@@ -123,6 +123,28 @@ Template:
   spoken month/day/year) before phonemization — removing the slash alone still reads
   "three four" as cardinals.
 - Status: **owner-confirmed (2026-09-13)** — "dates are reading slashes."
+- **Landed (2026-09-15); awaiting the owner's ear (batch 5).** The day/month order the
+  finding flagged as an owner call is settled by the corpus's own pairs rather than by a
+  coin flip: every language's row spells `3/4/2024` out as its **March 4** form
+  (en-us "March 4th", en-gb/es/it "4 March"/"4 de marzo"/"4 marzo", fr "4 mars", pt-br
+  "4 de março"), i.e. the numeric form is month-first in all six, while the SPOKEN shape
+  stays per locale (en-us month-first ordinal, en-gb day-first cardinal, es/pt
+  "D de <month> de Y", fr/it "D <month> Y"). A figure that cannot be a month settles the
+  rest arithmetically (`25/12` → 25 December), and the day/month-only form requires a
+  date preposition because a bare `3/4` is a fraction ("3/4 cup") far more often than a
+  date; the four-digit-year form needs no context.
+  Evidence: pure tests per locale against the corpus's spelled-out halves; the real-espeak
+  oracle renders each date row exactly as the corpus's own spelled-out half renders
+  (`PronunciationNormalizerEspeakTest`, six new pairs); the device harness renders
+  before/after pairs (30-35) plus a fraction-guard control (36).
+  **Cross-rule defect found and fixed by this batch:** the `st` (stone) unit rule bit the
+  ordinal suffix — "21st" → "twenty-one stone" — invisible until dates produced ordinals;
+  the unit now requires its space (`unitSpaced`).
+  **Residual risk (recorded, not hidden):** real-world European prose writes day-first
+  numerals (`3/4/2024` = 3 April in a French book), which this convention reads as
+  March 4. The corpus — the project's evidence — encodes month-first uniformly, so the
+  rule follows it; the choice is one per-locale table, so an owner ruling flips it
+  without touching the mechanism.
 
 ### measurement-unit-not-expanded (unit abbreviations spelled or unit omitted)
 - Category: `measurement`

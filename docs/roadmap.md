@@ -452,14 +452,32 @@ remaining built-in correction set is bounded by G0's typed findings.
 **Landed and EAR-VERIFIED on the S22 (2026-09-15):** `abbrev-not-expanded` +
 `abbrev-period-pause` (ordered per-language abbreviations/honorifics, consuming the
 trailing period, with the article-driven feminine forms and the `M.`/`D.` name guards),
-and `measurement-unit-not-expanded` + the separator family (`decimal-period-pause`,
-`decimal-comma-pause`, the thousands separator). Verification is three-layered:
-per-rule pure tests with boundary negatives, a **real-espeak oracle** (the corpus rows
-must render exactly as their expected spoken form — espeak-ng 1.52.0 ships on the host),
-and the **device listening harness** (`G1ListeningHarnessTest`), which renders each case
-twice — raw espeak vs the production pipeline — for the owner's ear.
+`measurement-unit-not-expanded` + the separator family (`decimal-period-pause`,
+`decimal-comma-pause`, the thousands separator), the footnote markers, the minus sign,
+the hyphen range, `decade-trailing-s-read-literally`, `roman-numeral-read-with-label`
+(with the pt/es regnal ordinals to X), `currency-amount-misread` (en) and
+`pt-br-currency-real-read-with-dollar` — owner-passed in five batches, each rendered as
+before/after WAV pairs through `G1ListeningHarnessTest`.
 
-**Two constraints this work established (both bit us):**
+**Batch 5 — dates — rendered on the S22 and awaiting the owner's ear (2026-09-15).**
+`date-slash-read-aloud` is rewritten per locale: the corpus's own pairs settle the
+day/month order (every row reads `3/4/2024` as "4 March 2024", i.e. month-first) and a
+figure that cannot be a month settles the rest by arithmetic (`25/12` → 25 December).
+The spoken shape is per locale (en-us "March 4th, 2024", en-gb "4 March 2024", es/pt
+"D de <month> de Y", fr/it "D <month> Y"). The day/month pair requires a date
+preposition (`el 25/12`) because a bare `3/4` is a fraction far more often than a date;
+a four-digit year needs no context. **Region-scoped rules** exist for exactly this one
+case (the English date shape is the only rule that differs by region, so `regionRules`
+applies after the base list rather than shipping two English lists).
+
+Verification is three-layered: per-rule pure tests with boundary negatives, a
+**real-espeak oracle** (the corpus rows must render exactly as their expected spoken form
+— espeak-ng 1.52.0 ships on the host; the date rows assert the pipeline renders the
+corpus's own spelled-out half byte-for-byte), and the **device listening harness**
+(`G1ListeningHarnessTest`), which renders each case twice — raw espeak vs the production
+pipeline — for the owner's ear.
+
+**Three constraints this work established (all bit us):**
 
 - **Rules run under Android's ICU regex engine, not the host's.** ICU rejects a
   lookbehind of unbounded length, so `(?<!\p{Lu}\p{Ll}+\s)` compiled and passed on the
@@ -470,11 +488,14 @@ twice — raw espeak vs the production pipeline — for the owner's ear.
   renders the OLD behaviour. The harness now fails fast on a rules-present guard, and its
   A/B assertion is on phonemes (deterministic) rather than PCM (fp32 ORT is not
   bit-reproducible, which is how a stale run once passed).
+- **Rules interfere with each other, so a rule's guard must be the unit's own shape.**
+  The `st` (stone) measurement rule bit the ordinal suffix of "21st" and said
+  "twenty-one stone"; it was invisible until the date rule started producing ordinals.
+  Both the unit and the ordinal are written after a figure, so the discriminating
+  property is the space (`21st` attached = ordinal, `8 st` spaced = stone) — now
+  `unitSpaced`, pinned by a test. Assume the next batch finds another cross-rule pair.
 
-**Remaining:** dates (per-locale slash-date expansion), decades, roman numerals
-(en/fr label removal + the pt/es regnal ordinals up to X), currencies (en amount order +
-cents; pt `R$` → "reais" with number agreement), footnote markers, the minus sign, the
-hyphen range — and the clause-boundary pause family (dialogue attribution, `?` boundary,
+**Remaining:** the clause-boundary pause family (dialogue attribution, `?` boundary,
 heading colon), which needs a mechanism decision because it *strengthens* a pause rather
 than removing punctuation, and therefore another ear round.
 

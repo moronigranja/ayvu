@@ -271,6 +271,64 @@ class G1ListeningHarnessTest {
                 listOf("45 reais"),
                 expectAbsent = listOf("dólar"),
             ),
+            // Batch 5: dates. Each expectation is the corpus row's own spelled-out
+            // half, so the ear compares against the corpus's own reference reading.
+            Case(
+                "30-en-us-date",
+                "en-us",
+                "af_heart",
+                "On 3/4/2024, or March 4th 2024, they met; it was the 21st of May.",
+                listOf("March 4th, 2024"),
+                expectAbsent = listOf("3/4/2024"),
+            ),
+            Case(
+                "31-en-gb-date",
+                "en-gb",
+                "af_heart",
+                "On 3/4/2024, or 4 March 2024, they met; it was the 21st of May.",
+                listOf("4 March 2024"),
+                expectAbsent = listOf("3/4/2024"),
+            ),
+            Case(
+                "32-es-date",
+                "es",
+                "ef_dora",
+                "El 3/4/2024, o el 4 de marzo de 2024, se vieron; era el 21 de mayo.",
+                listOf("4 de marzo de 2024"),
+                expectAbsent = listOf("3/4/2024"),
+            ),
+            Case(
+                "33-fr-date",
+                "fr-fr",
+                "ff_siwis",
+                "Le 3/4/2024, ou le 4 mars 2024, ils se sont vus ; c'était le 21 mai.",
+                listOf("4 mars 2024"),
+                expectAbsent = listOf("3/4/2024"),
+            ),
+            Case(
+                "34-it-date",
+                "it",
+                "if_sara",
+                "Il 3/4/2024, ovvero il 4 marzo 2024, si incontrarono; era il 21 maggio.",
+                listOf("4 marzo 2024"),
+                expectAbsent = listOf("3/4/2024"),
+            ),
+            Case(
+                "35-pt-date",
+                "pt-br",
+                "pf_dora",
+                "Em 03/04/2024, ou 4 de março de 2024, se encontraram; era 21 de maio.",
+                listOf("4 de março de 2024"),
+                expectAbsent = listOf("03/04/2024"),
+            ),
+            // The day/month pair needs a date word: a bare "3/4" is a fraction.
+            Case(
+                "36-fraction-guard",
+                "en-us",
+                "af_heart",
+                "Add 3/4 cup of sugar and win 2/1 against 5-2.",
+                listOf("3/4 cup", "2/1"),
+            ),
         )
 
     @Test
