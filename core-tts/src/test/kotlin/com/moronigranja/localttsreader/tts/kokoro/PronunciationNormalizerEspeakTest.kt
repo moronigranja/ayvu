@@ -2,6 +2,7 @@ package com.moronigranja.localttsreader.tts.kokoro
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -171,6 +172,35 @@ class PronunciationNormalizerEspeakTest {
                 phonemizer.phonemize(expectedSpoken, language),
                 normalized.phonemize(raw, language),
                 "$language: ${raw.take(40)}… must render as its spoken form",
+            )
+        }
+    }
+
+    /**
+     * The roman-numeral defect WAS espeak's label, so the check is its absence:
+     * the numeral never reaches the engine as a glyph, so it cannot be prefixed
+     * with "roman"/"romain". Asserted before AND after, so the test would notice
+     * if the upstream behaviour changed and the rule became a no-op.
+     */
+    @Test
+    fun `the roman label is absent from the render in en and fr`() {
+        val normalized = NormalizingPhonemizer(phonemizer)
+        val cases =
+            listOf(
+                Triple("en-us", "Chapter IV begins.", "ɹˌoʊmən"),
+                Triple("en-us", "King Henry VIII ruled.", "ɹˌoʊmən"),
+                Triple("fr-fr", "Le chapitre IV commence.", "ʁomˈɛ̃"),
+            )
+        for ((language, text, label) in cases) {
+            if (language !in phonemizer.supportedLanguages()) continue
+            assertTrue(
+                phonemizer.phonemize(text, language).contains(label),
+                "$language: before the rule the label is present ($label)",
+            )
+            assertTrue(
+                !normalized.phonemize(text, language).contains(label),
+                "$language: the normalized render must carry no label — was " +
+                    "\"${normalized.phonemize(text, language)}\"",
             )
         }
     }

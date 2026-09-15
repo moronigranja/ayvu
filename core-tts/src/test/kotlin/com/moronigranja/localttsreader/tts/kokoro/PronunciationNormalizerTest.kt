@@ -121,7 +121,7 @@ class PronunciationNormalizerTest {
             "O senhor Oliveira perguntou à professora Costa pelo doutor Barbosa.",
             spoken("O Sr. Oliveira perguntou à Profa. Costa pelo Dr. Barbosa.", "pt-br"),
         )
-        assertEquals("dom Pedro II governou", spoken("D. Pedro II governou", "pt-br"))
+        assertEquals("dom Pedro segundo governou", spoken("D. Pedro II governou", "pt-br"), "honorific + regnal compose")
         assertEquals("João D. Silva", spoken("João D. Silva", "pt-br"))
     }
 
@@ -242,6 +242,75 @@ class PronunciationNormalizerTest {
         assertEquals("the twenty hundreds", spoken("the 2000s", "en-us"))
         // An unmapped century is left alone rather than guessed.
         assertEquals("the 1500s", spoken("the 1500s", "en-us"))
+    }
+
+    // ------------------------------------------------------------------
+    // Roman numerals and currencies (G0 roman-numeral/currency rows)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `roman numerals lose espeak's "roman" label in English and French`() {
+        assertEquals(
+            "Chapter 4 begins at line 42; King Henry 8 ruled.",
+            spoken("Chapter IV begins at line xlii; King Henry VIII ruled.", "en-us"),
+        )
+        assertEquals(
+            "Louis 14 met Elizabeth 2; Pope Pius 12 watched.",
+            spoken("Louis XIV met Elizabeth II; Pope Pius XII watched.", "en-us"),
+        )
+        assertEquals(
+            "Le chapitre 4 commence ; Louis 14 a régné.",
+            spoken("Le chapitre IV commence ; Louis XIV a régné.", "fr-fr"),
+        )
+    }
+
+    @Test
+    fun `the English pronoun I and stray letters are never turned into numbers`() {
+        // The name branch requires two or more glyphs precisely for this.
+        assertEquals("So I went home.", spoken("So I went home.", "en-us"))
+        assertEquals("She met Mr V.", spoken("She met Mr V.", "en-us"))
+        assertEquals("a mix of X and Y", spoken("a mix of X and Y", "en-us"))
+    }
+
+    @Test
+    fun `Spanish and Portuguese regnal numerals read ordinally up to ten`() {
+        assertEquals("Isabel segunda", spoken("Isabel II", "es"))
+        assertEquals("el rey Felipe sexto", spoken("el rey Felipe VI", "es"))
+        // XI and above stay cardinal — the owner's boundary.
+        assertEquals("Luis XIV", spoken("Luis XIV", "es"))
+        assertEquals("dom Pedro segundo governou", spoken("D. Pedro II governou", "pt-br"), "honorific + regnal compose")
+        assertEquals("Isabel segunda", spoken("Isabel II", "pt-br"))
+        assertEquals("Luís XIV", spoken("Luís XIV", "pt-br"))
+        // es/it keep their own conventions for structural contexts (no rule).
+        assertEquals("capítulo IV", spoken("capítulo IV", "es"))
+    }
+
+    @Test
+    fun `English money is spoken with the currency after the amount`() {
+        assertEquals(
+            "It cost 1,234 dollars and 56 cents, or 99 euros and 95 cents, or 50 pounds.",
+            spoken("It cost $1,234.56, or €99.95, or £50.", "en-us"),
+        )
+        assertEquals(
+            "Prices rose from 10,000 yen to 12,500 yen, and 750 rupees became 900 rupees.",
+            spoken("Prices rose from ¥10,000 to ¥12,500, and ₹750 became ₹900.", "en-us"),
+        )
+        // A ".00" tail is dropped, not spoken as "point zero zero".
+        assertEquals("on a 45 dollars bill", spoken("on a $45.00 bill", "en-us"))
+        assertEquals("saved 20 cents", spoken("saved 20¢", "en-us"))
+        assertEquals("cost 45 pence", spoken("cost 45p", "en-gb"))
+    }
+
+    @Test
+    fun `Portuguese R$ is spoken as reais, never as real dolar`() {
+        assertEquals("Gorjeta sobre 45 reais", spoken("Gorjeta sobre R$ 45,00", "pt-br"))
+        assertEquals("1 real", spoken("R$ 1,00", "pt-br"), "the digit keeps espeak's own \"um\"")
+        // The thousands separator is stripped by the rule that follows, so the
+        // amount reaches the phonemizer as plain digits (read as words by espeak).
+        assertEquals(
+            "subiu de 1234 reais e 56 centavos para 1400 reais",
+            spoken("subiu de R$ 1.234,56 para R$ 1.400,00", "pt-br"),
+        )
     }
 
     // ------------------------------------------------------------------

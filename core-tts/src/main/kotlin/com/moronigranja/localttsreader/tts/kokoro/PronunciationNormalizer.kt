@@ -127,6 +127,127 @@ object PronunciationNormalizer {
     private fun minus(spoken: String): Rule = transform("(?<![\\d\\p{L}])\\s?[-−]\\s?(?=\\d)") { "$spoken " }
 
     /**
+     * The value of a roman numeral, or null when the glyphs are not one. Used to
+     * REPLACE the numeral with its digits before phonemization: espeak-ng prepends
+     * a literal "roman"/"romain" to every numeral it sees (G0
+     * `roman-numeral-read-with-label`), and it garbles lowercase forms in some
+     * voices, so the labels disappear when the numeral never reaches it.
+     */
+    private fun romanValue(roman: String): Int? {
+        val digits = mapOf('i' to 1, 'v' to 5, 'x' to 10, 'l' to 50, 'c' to 100, 'd' to 500, 'm' to 1000)
+        val values = roman.lowercase().map { digits[it] ?: return null }
+        if (values.isEmpty() || values.size > 7) return null
+        var total = 0
+        values.forEachIndexed { i, value ->
+            if (i + 1 < values.size && value < values[i + 1]) total -= value else total += value
+        }
+        return total.takeIf { it in 1..3999 }
+    }
+
+    /** Structural words after which a roman numeral counts rather than names. */
+    private val structuralContext =
+        "(?:chapter|subchapter|part|section|subsection|appendix|table|figure|act|scene|book|volume|" +
+            "line|paragraph|page|chap\\.|capítulo|capitolo|sección|sezione|seção|chapitre|paragraphe)"
+
+    /**
+     * The roman-numeral label class, scoped to en/fr where it was confirmed (es/it/pt
+     * read plain numbers and are left alone; their accepted-as-is lowercase garble
+     * stays accepted).
+     */
+    private fun romanNumerals(): List<Rule> =
+        listOf(
+            // A structural word disambiguates, so a single glyph is safe here
+            // ("Chapter I" → "Chapter 1"); the keyword is kept verbatim.
+            transform("(?i)\\b($structuralContext)\\s+([IVXLCDM]{1,7})\\b") { m ->
+                romanValue(m.groupValues[2])?.let { "${m.groupValues[1]} $it" } ?: m.value
+            },
+            // After a name, TWO or more glyphs are required: the English pronoun
+            // "I" and a stray "V"/"X" must never become numbers ("So I went"
+            // survives), and the lookbehind is bounded for ICU.
+            transform("(?<=\\b[A-Z][a-z]{1,20} )([IVXLCDM]{2,7})\\b") { m ->
+                romanValue(m.groupValues[1])?.toString() ?: m.value
+            },
+            // The lowercase garble in a structural context ("subsection iii").
+            transform("(?i)\\b($structuralContext)\\s+([ivxlcdm]{2,7})\\b") { m ->
+                romanValue(m.groupValues[2])?.let { "${m.groupValues[1]} $it" } ?: m.value
+            },
+        )
+
+    /** Regnal ordinals: the owner's I–X boundary, pt and es alike. */
+    private val ordinalFeminine =
+        mapOf(
+            "es" to listOf("primera", "segunda", "tercera", "cuarta", "quinta", "sexta", "séptima", "octava", "novena", "décima"),
+            "pt" to listOf("primeira", "segunda", "terceira", "quarta", "quinta", "sexta", "sétima", "oitava", "nona", "décima"),
+        )
+
+    private val ordinalMasculine =
+        mapOf(
+            "es" to listOf("primero", "segundo", "tercero", "cuarto", "quinto", "sexto", "séptimo", "octavo", "noveno", "décimo"),
+            "pt" to listOf("primeiro", "segundo", "terceiro", "quarto", "quinto", "sexto", "sétimo", "oitavo", "nono", "décimo"),
+        )
+
+    /**
+     * Grammatical gender of the regnal names the corpus carries. A literal
+     * dictionary cannot know that "Isabel II" is *segunda* while "Pedro II" is
+     * *segundo*; masculine is the documented default for an unknown name.
+     */
+    private val feminineRegnalNames =
+        setOf("isabel", "isabela", "elizabeth", "elisabet", "elisabetta", "maria", "ana", "beatriz", "catarina", "leonor")
+
+    /** `I`–`X` after a person name reads as an ordinal (owner ruling, 2026-09-15). */
+    private fun regnalOrdinals(language: String): Rule =
+        transform("\\b([A-Z][\\p{Ll}]{1,20}) (I|II|III|IV|V|VI|VII|VIII|IX|X)\\b") { m ->
+            val name = m.groupValues[1]
+            val value = romanValue(m.groupValues[2]) ?: return@transform m.value
+            val table =
+                if (name.lowercase() in feminineRegnalNames) ordinalFeminine[language] else ordinalMasculine[language]
+            table?.getOrNull(value - 1)?.let { "$name $it" } ?: m.value
+        }
+
+    /** Currency symbol → (plural, singular) name for English amounts. */
+    private val englishCurrencies =
+        mapOf(
+            "$" to ("dollars" to "dollar"),
+            "£" to ("pounds" to "pound"),
+            "€" to ("euros" to "euro"),
+            "¥" to ("yen" to "yen"),
+            "₹" to ("rupees" to "rupee"),
+        )
+
+    /**
+     * English money (G0 `currency-amount-misread`): the symbol precedes the amount
+     * in text and espeak reads it that way — "yen ten thousand" instead of "ten
+     * thousand yen" — and the cents as "point five six" instead of "and fifty-six
+     * cents". Rewriting the pair fixes the order, and a ".00" tail is dropped
+     * rather than spoken.
+     */
+    private fun englishCurrency(): List<Rule> =
+        listOf(
+            transform("([$£€¥₹])(\\d[\\d,]*\\d|\\d)(?:[.](\\d{2}))?") { m ->
+                val amount = m.groupValues[2]
+                val (plural, singular) = englishCurrencies.getValue(m.groupValues[1])
+                val unit = if (amount == "1") singular else plural
+                val cents = m.groupValues[3].trimStart('0')
+                if (cents.isEmpty()) "$amount $unit" else "$amount $unit and $cents cents"
+            },
+            transform("(\\d+)¢") { m -> "${m.groupValues[1]} cents" },
+            transform("(\\d+)p\\b") { m -> "${m.groupValues[1]} pence" },
+        )
+
+    /**
+     * pt-BR money (G0 `pt-br-currency-real-read-with-dollar`): `R$` expanded to
+     * "real dólar", and the owner's ruling is "deveria ser 'reais' somente" — the
+     * amount, then the currency in the right number. A ",00" tail disappears.
+     */
+    private fun portugueseCurrency(): Rule =
+        transform("R\\$\\s?(\\d[\\d.]*)(?:,(\\d{2}))?") { m ->
+            val amount = m.groupValues[1]
+            val unit = if (amount.replace(".", "") == "1") "real" else "reais"
+            val cents = m.groupValues[2].trimStart('0')
+            if (cents.isEmpty()) "$amount $unit" else "$amount $unit e $cents centavos"
+        }
+
+    /**
      * The token is only an honorific when it does not sit inside a name: an
      * initial BEFORE it (`J. M. Dupont`) or a full first name (`João D. Silva`)
      * means `M.`/`D.` is a name part, not an abbreviation. Both shapes appear in
@@ -168,7 +289,8 @@ object PronunciationNormalizer {
         )
 
     private val en: List<Rule> =
-        enSeparators +
+        englishCurrency() +
+            enSeparators +
             listOf(
                 // espeak-ng 1.52.0 spells "Ms." as "M S" (ˌɛmˈɛs); /mɪz/ is the
                 // idiomatic form and "Miz" renders mˈɪz (host-verified).
@@ -212,6 +334,8 @@ object PronunciationNormalizer {
                 transform("(?<=\\d)\\s?-\\s?(?=\\d)") { " to " },
                 // Decades (G0 `decade-trailing-s-read-literally`).
                 *englishDecades().toTypedArray(),
+                // Roman numerals (G0 `roman-numeral-read-with-label`).
+                *romanNumerals().toTypedArray(),
                 // Deliberately NOT expanded: U.S./U.K./a.m./p.m./ET/GMT are
                 // initialisms — espeak reads them as letters, which is correct.
                 // (The minus sign needs no rule in en: espeak already says "minus".)
@@ -255,6 +379,7 @@ object PronunciationNormalizer {
                 unit("l", " litros"),
                 unit("m", " metros"),
                 minus("menos"),
+                regnalOrdinals("es"),
             )
 
     private val fr: List<Rule> =
@@ -281,6 +406,7 @@ object PronunciationNormalizer {
                 unit("°C", " degrés Celsius"),
                 unit("°F", " degrés Fahrenheit"),
                 minus("moins"),
+                *romanNumerals().toTypedArray(),
             )
 
     private val it: List<Rule> =
@@ -315,7 +441,8 @@ object PronunciationNormalizer {
             )
 
     private val pt: List<Rule> =
-        commaDecimalSeparators("vírgula") +
+        listOf(portugueseCurrency()) +
+            commaDecimalSeparators("vírgula") +
             listOf(
                 abbrev("Sra", "senhora"),
                 abbrev("Srta", "senhorita"),
@@ -336,6 +463,9 @@ object PronunciationNormalizer {
                 // cinco"), and a bare "8h" is eight *hours* (row 0220).
                 Regex("(?<=\\d)h(?=\\d)") to { " e " },
                 Regex("(?<=\\d)h(?![\\p{L}\\p{N}])") to { " horas" },
+                // Regnal numerals: I–X read ordinally in pt-BR too ("Pedro
+                // segundo", "Isabel segunda" — owner ruling, 2026-09-15).
+                regnalOrdinals("pt"),
                 // Units (G0 rows 0230-0232): every symbol is spelled ("ka-ge",
                 // "ka-eme", "agá").
                 unit("km/h", " quilômetros por hora"),

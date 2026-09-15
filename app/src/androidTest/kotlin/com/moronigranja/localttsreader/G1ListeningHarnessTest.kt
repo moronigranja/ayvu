@@ -189,7 +189,13 @@ class G1ListeningHarnessTest {
             ),
             // Batch 3: signs, ranges, footnote markers, decades.
             Case("18-en-hyphen", "en-us", "af_heart", "The match ended 2-1 before 76,212 fans; a 4th straight win.", listOf("2 to 1")),
-            Case("19-en-decades", "en-us", "af_heart", "The 1800s, the '90s, and 2024 C.E. were all busy.", listOf("eighteen hundreds", "nineties")),
+            Case(
+                "19-en-decades",
+                "en-us",
+                "af_heart",
+                "The 1800s, the '90s, and 2024 C.E. were all busy.",
+                listOf("eighteen hundreds", "nineties"),
+            ),
             Case(
                 "20-en-footnotes",
                 "en-us",
@@ -198,9 +204,73 @@ class G1ListeningHarnessTest {
                 emptyList(),
                 expectAbsent = listOf("²", "³"),
             ),
-            Case("21-es-minus", "es", "ef_dora", "La temperatura bajó a −5 grados y subió 2,5 grados hacia las 9:45.", listOf("menos 5", "coma")),
-            Case("22-fr-minus", "fr-fr", "ff_siwis", "La température est tombée à −5 degrés, puis montée de 2,5 degrés.", listOf("moins 5", "virgule")),
-            Case("23-pt-minus", "pt-br", "pf_dora", "A temperatura caiu a −5 graus e subiu 2,5 graus por volta das 9h45.", listOf("menos 5", "vírgula", "9 e 45")),
+            Case(
+                "21-es-minus",
+                "es",
+                "ef_dora",
+                "La temperatura bajó a −5 grados y subió 2,5 grados hacia las 9:45.",
+                listOf("menos 5", "coma"),
+            ),
+            Case(
+                "22-fr-minus",
+                "fr-fr",
+                "ff_siwis",
+                "La température est tombée à −5 degrés, puis montée de 2,5 degrés.",
+                listOf("moins 5", "virgule"),
+            ),
+            Case(
+                "23-pt-minus",
+                "pt-br",
+                "pf_dora",
+                "A temperatura caiu a −5 graus e subiu 2,5 graus por volta das 9h45.",
+                listOf("menos 5", "vírgula", "9 e 45"),
+            ),
+            // Batch 4: roman numerals and money.
+            Case(
+                "24-en-roman",
+                "en-us",
+                "af_heart",
+                "Chapter IV begins at line xlii; King Henry VIII ruled.",
+                listOf("Chapter 4", "line 42", "Henry 8"),
+            ),
+            Case(
+                "25-fr-roman",
+                "fr-fr",
+                "ff_siwis",
+                "Le chapitre IV commence à la ligne xlii ; Louis XIV a régné.",
+                listOf("chapitre 4", "Louis 14"),
+            ),
+            Case(
+                "26-es-regnal",
+                "es",
+                "ef_dora",
+                "Luis XIV conoció a Isabel II; el papa Pío XII lo observó.",
+                listOf("Isabel segunda"),
+                expectAbsent = listOf("Isabel dos"),
+            ),
+            Case(
+                "27-pt-regnal",
+                "pt-br",
+                "pf_dora",
+                "Luís XIV encontrou Isabel II; o papa Pio XII observava.",
+                listOf("Isabel segunda"),
+                expectAbsent = listOf("Isabel dois"),
+            ),
+            Case(
+                "28-en-money",
+                "en-us",
+                "af_heart",
+                "It cost $1,234.56, or €99.95, or £50.",
+                listOf("1,234 dollars and 56 cents", "99 euros and 95 cents", "50 pounds"),
+            ),
+            Case(
+                "29-pt-money",
+                "pt-br",
+                "pf_dora",
+                "Gorjeta de 15% sobre R$ 45,00, e 20 centavos economizados.",
+                listOf("45 reais"),
+                expectAbsent = listOf("dólar"),
+            ),
         )
 
     @Test
