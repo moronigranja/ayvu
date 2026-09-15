@@ -48,6 +48,17 @@
 - Don't introduce a second convention (folder, pattern, DI style) when one already
   exists elsewhere. Match the nearest existing pattern.
 - Don't leave dead parsers, dead engines, or half-migrated callers. Clean cutover.
+- Don't write a regex that reaches the device with an UNBOUNDED lookbehind: text rules
+  (e.g. `PronunciationNormalizer`) run under Android's ICU engine, which rejects
+  `(?<!x+)`, while the host JVM accepts it — so it passes every local test and throws
+  `PatternSyntaxException` at class load on the phone. Keep lookbehinds bounded and let
+  the suite assert it (the G1 rules expose `patternSources` for exactly this).
+- Don't trust a difference as evidence: an assertion that "the output changed" can pass
+  on synthesis nondeterminism (fp32 ORT renders are not bit-reproducible). Assert the
+  deterministic thing — the text that reaches the engine, or the phonemes — and, for a
+  device harness, that the build under test actually carries the change (instrumented
+  tests load production classes from the APP apk, so reinstalling only the test apk
+  silently exercises the previous build).
 
 ## Definition of done for a change
 

@@ -441,13 +441,42 @@ for SMaLL-100, which #162 deleted for LFM2.5-1.2B on llama.cpp, so the read now 
 the shipped translator). The next action is human,
 not code: **the owner's listening pass** over the Roman-language classes.
 
-#### G1 — TTS pronunciation replacements — promoted from ideas
+#### G1 — TTS pronunciation replacements — IN PROGRESS (rule set bounded by G0)
 
 Add a deterministic, testable normalization/replacement stage before phonemization for
 names, honorifics, abbreviations, pauses and intentionally skipped page furniture. The
 reported `Ms.` → "M S" defect was the first regression case, already shipped
 (`PronunciationNormalizer` + `NormalizingPhonemizer`, `Ms.` → `Miz`, 2026-08-29). The
 remaining built-in correction set is bounded by G0's typed findings.
+
+**Landed and EAR-VERIFIED on the S22 (2026-09-15):** `abbrev-not-expanded` +
+`abbrev-period-pause` (ordered per-language abbreviations/honorifics, consuming the
+trailing period, with the article-driven feminine forms and the `M.`/`D.` name guards),
+and `measurement-unit-not-expanded` + the separator family (`decimal-period-pause`,
+`decimal-comma-pause`, the thousands separator). Verification is three-layered:
+per-rule pure tests with boundary negatives, a **real-espeak oracle** (the corpus rows
+must render exactly as their expected spoken form — espeak-ng 1.52.0 ships on the host),
+and the **device listening harness** (`G1ListeningHarnessTest`), which renders each case
+twice — raw espeak vs the production pipeline — for the owner's ear.
+
+**Two constraints this work established (both bit us):**
+
+- **Rules run under Android's ICU regex engine, not the host's.** ICU rejects a
+  lookbehind of unbounded length, so `(?<!\p{Lu}\p{Ll}+\s)` compiled and passed on the
+  host and threw `PatternSyntaxException` at class load on the device. Keep lookbehinds
+  bounded; `PronunciationNormalizer.patternSources` exists so the suite asserts it.
+- **The device harness needs BOTH APKs installed** — instrumented tests load production
+  classes from the target app APK, so reinstalling only the androidTest APK silently
+  renders the OLD behaviour. The harness now fails fast on a rules-present guard, and its
+  A/B assertion is on phonemes (deterministic) rather than PCM (fp32 ORT is not
+  bit-reproducible, which is how a stale run once passed).
+
+**Remaining:** dates (per-locale slash-date expansion), decades, roman numerals
+(en/fr label removal + the pt/es regnal ordinals up to X), currencies (en amount order +
+cents; pt `R$` → "reais" with number agreement), footnote markers, the minus sign, the
+hyphen range — and the clause-boundary pause family (dialogue attribution, `?` boundary,
+heading colon), which needs a mechanism decision because it *strengthens* a pause rather
+than removing punctuation, and therefore another ear round.
 
 Start with ordered literal rules plus a small built-in correction set. Regex and user
 editing require explicit limits and preview because an unbounded rule can silently
