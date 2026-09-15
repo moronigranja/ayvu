@@ -126,6 +126,69 @@ class PronunciationNormalizerTest {
     }
 
     // ------------------------------------------------------------------
+    // Units and digit separators (G0 measurement/number rows)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `English units expand and the decimal point becomes the spoken word`() {
+        assertEquals(
+            "The room was 12 feet by 8 meters; it weighed 2 point 5 kilograms and held 3 liters.",
+            spoken("The room was 12 ft by 8 m; it weighed 2.5 kg and held 3 L.", "en-us"),
+        )
+        assertEquals("0 point 5% is half", spoken("0.5% is half", "en-us"))
+        assertEquals("99 point 5 per cent", spoken("99.5 per cent", "en-gb"))
+        // The reading is unchanged for a fraction espeak already handled — the
+        // rule removes the punctuation role, it does not add the word.
+        assertEquals("3 point 14159 is pi", spoken("3.14159 is pi", "en-us"))
+    }
+
+    @Test
+    fun `a unit never fires without a figure`() {
+        // "W." is a name initial here, not watts: the unit rules require a
+        // preceding digit, which is what keeps them safe in prose.
+        assertEquals("W. Somerset Maugham wrote it.", spoken("W. Somerset Maugham wrote it.", "en-us"))
+        assertEquals("the m in the word", spoken("the m in the word", "en-us"))
+    }
+
+    @Test
+    fun `Spanish units expand, thousands drop and the decimal comma is spoken`() {
+        assertEquals(
+            "La sala medía 12 pies por 8 metros; pesaba 2 coma 5 kilogramos y cabían 3 litros.",
+            spoken("La sala medía 12 pies por 8 m; pesaba 2,5 kg y cabían 3 l.", "es"),
+        )
+        assertEquals("Costaba 1234 coma 56 $", spoken("Costaba 1.234,56 $", "es"))
+    }
+
+    @Test
+    fun `French units expand including the rate form`() {
+        assertEquals(
+            "Roulez 5 km au nord à 90 kilomètres par heure par 36 degrés Celsius à l'ombre.",
+            spoken("Roulez 5 km au nord à 90 km/h par 36 °C à l'ombre.", "fr-fr"),
+        )
+    }
+
+    @Test
+    fun `Italian units expand and the decimal comma is spoken`() {
+        assertEquals(
+            "La stanza era 12 piedi per 8 metri; pesava 2 virgola 5 chilogrammi e conteneva 3 litri.",
+            spoken("La stanza era 12 piedi per 8 m; pesava 2,5 kg e conteneva 3 l.", "it"),
+        )
+    }
+
+    @Test
+    fun `Portuguese units expand and the clock form loses its letter`() {
+        assertEquals(
+            "A sala tinha 12 pés por 8 metros; pesava 2 vírgula 5 quilogramas e cabiam 3 litros.",
+            spoken("A sala tinha 12 pés por 8 m; pesava 2,5 kg e cabiam 3 l.", "pt-br"),
+        )
+        assertEquals(
+            "por volta das 9 e 45",
+            spoken("por volta das 9h45", "pt-br"),
+        )
+        assertEquals("às 8 horas da manhã", spoken("às 8h da manhã", "pt-br"))
+    }
+
+    // ------------------------------------------------------------------
     // Scoping
     // ------------------------------------------------------------------
 

@@ -100,6 +100,37 @@ class PronunciationNormalizerEspeakTest {
                         "O Sr. Oliveira perguntou à Profa. Costa pelo Dr. Barbosa." to
                             "O senhor Oliveira perguntou à professora Costa pelo doutor Barbosa."
                     ),
+                // Units and digit separators (G0 measurement/number rows).
+                "en-us" to
+                    (
+                        "The room was 12 ft by 8 m; it weighed 2.5 kg and held 3 L." to
+                            "The room was 12 feet by 8 meters; it weighed 2 point 5 kilograms and held 3 liters."
+                    ),
+                "en-gb" to
+                    (
+                        "He scored 99.5 per cent and lost 8 of 9 frames." to
+                            "He scored 99 point 5 per cent and lost 8 of 9 frames."
+                    ),
+                "es" to
+                    (
+                        "La sala medía 12 pies por 8 m; pesaba 2,5 kg y cabían 3 l." to
+                            "La sala medía 12 pies por 8 metros; pesaba 2 coma 5 kilogramos y cabían 3 litros."
+                    ),
+                "fr-fr" to
+                    (
+                        "Roulez 5 km au nord à 90 km/h par 36 °C à l'ombre." to
+                            "Roulez 5 km au nord à 90 kilomètres par heure par 36 degrés Celsius à l'ombre."
+                    ),
+                "it" to
+                    (
+                        "La stanza era 12 piedi per 8 m; pesava 2,5 kg e conteneva 3 l." to
+                            "La stanza era 12 piedi per 8 metri; pesava 2 virgola 5 chilogrammi e conteneva 3 litri."
+                    ),
+                "pt-br" to
+                    (
+                        "A sala tinha 12 pés por 8 m; pesava 2,5 kg e cabiam 3 l." to
+                            "A sala tinha 12 pés por 8 metros; pesava 2 vírgula 5 quilogramas e cabiam 3 litros."
+                    ),
             )
 
         for ((language, pair) in cases) {
