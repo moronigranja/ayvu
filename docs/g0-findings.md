@@ -442,6 +442,31 @@ Template:
   thousands `.` spoken as a full stop — the same separator family as es 0106 / it 0188.
 - Status: **owner-confirmed (2026-09-15)**.
 
+## Listening pass closed (2026-09-15)
+
+The owner reviewed the remaining residual rows and accepted them: **no new classes**.
+Recorded precisely, because "accepted" means different things per row:
+
+- **Currency, es/fr/it (0105, 0145–0147, 0186–0188)** — read correctly: the amount comes
+  first and the currency word is right ("cuarenta y cinco euros", "quatre-vingt-quinze
+  euros", "novantanove … euro"). Only the separator family applies to them, which the
+  confirmed `decimal-period-pause` already owns (0188's `1.234,56` → "uno. [break]
+  duecento…").
+- **en-us 0012, es 0111, it 0182** — read correctly, no rule.
+- **Lowercase roman numerals, it 0192/0193 + pt 0234** (`xlii` → `ksliˈi`/`sliˈi`, `iii` →
+  `jjˈi`) — **accepted as-is**, recorded like url-code and `&&`: an uppercase
+  normalization is available if the corpus ever shows it in real text, but the owner does
+  not want a rule for it.
+- **Rows a confirmed class already owns** are covered by that class rather than accepted as
+  clean: es 0110/0112 (regnal ordinals), fr 0148–0150 (`m`/`l` and `km/h` → "kilomètres
+  hache"), it 0188 (separator family).
+
+**G0 acceptance status:** corpus synthesizes end-to-end on the S22 ✅; findings recorded as
+typed classes ✅ (20 classes: 14 confirmed + 6 in the 2026-09-15 batch, plus 5 wholesale
+verdicts and this closure); **G1's built-in rule set is now fully bounded** — the classes
+name their scope, their evidence rows and their rule shape, and the pre-G1 implementation
+starts from them.
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
