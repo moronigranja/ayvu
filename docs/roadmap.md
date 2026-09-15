@@ -401,8 +401,22 @@ settled the "and" form), `decimal-comma-pause` (the decimal comma is
 treated as a clause comma, inserting a pause inside numbers like "dois virgula
 [gap] cinco"; the spoken separator word itself was accepted), and
 `heading-title-colon-pause` (pause at the heading colon/em-dash too short before
-the title; boundary-pause family). Verified clean
-the same day: page-furniture,
+the title; boundary-pause family). From the 2026-09-15 continuation of the pass:
+`hyphen-read-as-dash` (a numeric range/score hyphen is spoken as "dash" — `2-1` →
+"two dash one", `lines 8-19` → "eight dash nineteen"; expected "to"),
+`decimal-period-pause` (a decimal point spoken as a clause break — `0.5%` → "zero
+[break] five per cent", `99.5` → "ninety-nine [break] five" — while `3.14159` and
+`12.50` in the same corpus say "point" correctly, so the fix is the separator's
+punctuation role, not the word), and `roman-numeral-regnal-not-ordinal` (regnal
+numerals read ordinally — "Isabel segunda", not "Isabel dois"; pt confirmed, it
+already ordinalizes, the es call is open) — plus a **scope extension** to the
+existing `measurement-unit-not-expanded`: espeak-es/fr also spell single-letter
+metric symbols and imperial abbreviations as letters (`8 m` → "ocho eme"), so the
+G1 dictionary needs all six Latin-script languages, not en/it/pt.
+
+Verified clean
+the same day (page-furniture's verdict covers pagination and boundaries only — its
+numeric ranges carry the new `hyphen-read-as-dash` class): page-furniture,
 long-paragraph, url-code (owner-accepted as-is), the decimal comma (owner withdrew
 it — the Spanish "coma" convention stands), and `&&` (accepted as-is). All
 owner-calls resolved: url-code, `&&` accepted as-is; `e.g.`/`i.e.` expand to
@@ -410,8 +424,10 @@ owner-calls resolved: url-code, `&&` accepted as-is; `e.g.`/`i.e.` expand to
 are recorded as a non-native-ear limitation.
 
 **Gates:** G1's built-in rule set (bounded by the typed findings) and D5's engine choice
-(its quality gate is the G0 blind read, and the pt-BR blind read decides whether
-SMaLL-100-class quality carries into the translation slice). The next action is human,
+(its quality gate is the G0 blind read, and the pt-BR blind read decides whether the
+*translated* render is acceptable in the read-in-language slice — that clause was written
+for SMaLL-100, which #162 deleted for LFM2.5-1.2B on llama.cpp, so the read now targets
+the shipped translator). The next action is human,
 not code: **the owner's listening pass** over the Roman-language classes.
 
 #### G1 — TTS pronunciation replacements — promoted from ideas

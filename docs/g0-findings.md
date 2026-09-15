@@ -133,9 +133,19 @@ Template:
   `oz`→"O Z", `m`→"M", `L`→"L", `mi`→"mi", `st`→"st", `mph`→"M P H", `W`→"W",
   `°F`→"degrees F", `°C`→"degrees C" (0019–0021, 0064–0066); it `kg`→"K P G",
   `km`→"ka p emme", `°C`→"C" (0189–0191); pt-br `kg`→"ka je", `km`→"ka eme",
-  `°C`→"C" (0230–0232). espeak-es and espeak-fr expand most units correctly
-  (`kg`→"kilogramo/kilogramme", `km`→"kilomètre(s)") — the defect is en/it/pt
-  dictionary gaps, so the G1 dictionary must be language-scoped, not global.
+  `°C`→"C" (0230–0232). **Scope extended (owner-confirmed 2026-09-15, es 0107):** the
+  earlier "espeak-es and espeak-fr expand most units correctly — the defect is en/it/pt"
+  note was too generous. espeak-es expands `kg` properly ("dos coma cinco
+  **kilogramo**") but spells single-letter metric symbols and imperial abbreviations as
+  letters: `8 m` → "ocho **eme**", `3 l` → "tres **ele**" (0107, owner-confirmed);
+  `14 st 2 lb` → "catorce **ese-te** dos **ele-be**", `6 mph` →
+  "seis **eme-pe-hache**" (0109, owner-confirmed 2026-09-15 — "units of measurement
+  should be spelled out"). fr the
+  same: `8 m` → "huit **emme**", `3 l` → "trois **elle**" (0148/0150). So es and fr fail
+  on single-letter metric symbols and on imperial abbreviations, and succeed only on
+  multi-letter metric ones (`kg`, `km`). The conclusion stands — the G1 dictionary must
+  be **language-scoped, not global** — but it now needs per-language entries across all
+  six Latin-script languages, not just en/it/pt.
 - Also (extends the slash finding): `km/h` → spelled units plus the slash verbalized
   ("ka eme barra hache" es 0108, "ka eme barra acca" it 0190, "ka eme aga" pt 0231)
   — the slash-normalization fix from date-slash-read-aloud must be shared with
@@ -148,7 +158,8 @@ Template:
   sharing the abbrev-not-expanded mechanism; rate forms (`km/h`, `mph`) need
   slash-aware expansion to "per hour"/per-language equivalent.
 - Status: **owner-confirmed (2026-09-13)** — "measurements are reading k g instead
-  of kilograms, f t instead of feet."
+  of kilograms, f t instead of feet." Reconfirmed for es on 2026-09-15 with the rule
+  stated plainly: **"units of measurement should be spelled out."**
 
 ### dialogue-quote-attribution-pause (no pause between closing quote and attribution)
 - Category: `dialogue`
@@ -321,6 +332,75 @@ Template:
 - Status: **owner-confirmed (2026-09-13)** — "a pause after the heading, before the
   title would be better."
 
+### roman-numeral-regnal-not-ordinal (regnal numerals spoken as cardinals)
+- Category: `roman-numeral`
+- Example (owner-confirmed, pt-br 0235): "Luís XIV encontrou Isabel II; o papa Pio XII
+  observava." → "Isabel **dois**" (`ˌizabˈɛʊ dˈoɪs`), "Pio **doze**" (`pˈiʊ dˈozy`).
+  Expected: the ordinal — "Isabel **segunda**", i.e. the numeral on a person's name is a
+  regnal number, not a count.
+- Scope: **pt confirmed** (0233 "D. Pedro II", 0235). `it` needs **no** rule — espeak-it
+  already ordinalizes ("Pio **dodicesimo**", "Elisabetta **seconda**"). `es` shows the same
+  cardinal behaviour (0110–0112: "Isabel **dos**", "Felipe **vi**") and needs its own owner
+  call. `fr` is subsumed by the confirmed `roman-numeral-read-with-label`.
+- Open sub-question (owner call): **which magnitudes take the ordinal.** pt usage is
+  II → "segunda/segundo" ✓ but XIV → "Luís catorze" (cardinal) is the common reading, so
+  the rule needs a boundary — a per-language ordinal table plus a threshold, not a blanket
+  ordinalizer. Suggested default to confirm: ordinal up to X in a regnal context, cardinal
+  above.
+- G1 rule: **context-sensitive — the first finding that is not a literal dictionary.**
+  `(<Capitalized name>)\s+(II|III|IV|…)` → the ordinal from a per-language table, with a
+  negative guard for structural contexts (`chapter`/`part`/`section`/`appendix`/`table`/
+  `figure`/`book`/`volume`/`act`/`scene`) so "Chapter IV" stays "capítulo quatro". Bounded
+  pattern, still testable — but it is the case the doc's "an unbounded rule can silently
+  rewrite a whole book" warning is about, so it lands with its negative tests.
+- Frequency: pt 0233/0235 (2/377) plus the analogous es rows under their own call.
+- Status: **owner-confirmed (2026-09-15)** — "some roman numerals should read as ordinal:
+  'Isabel segunda', not 'Isabel dois'."
+
+### hyphen-read-as-dash (numeric range/score hyphen spoken as "dash")
+- Category: `number`, `page-furniture`
+- Example (owner-confirmed, en-gb 0056): "The match ended 2-1 before 76,212 fans" → "two
+  **dash** one" (`tˈuː dˈaʃ wˈɒn`). Expected: "two **to** one" (owner wording).
+- Scope (phoneme-verified): 0035 en-us and 0080 en-gb — the `page-furniture` rows'
+  "lines 8-19" → "eight **dash** nineteen" (`ˈeɪt dˈæʃ nˈaɪntiːn` / `ˈeɪt dˈaʃ nˈaɪntiːn`).
+  **This lands inside a category the doc had recorded as verified fine** — the
+  page-furniture verdict covered pagination and boundaries, not numeric ranges, so that
+  verdict is now qualified rather than general (see the non-findings section).
+- Expected: a numeric hyphen is a range/score, not punctuation — "to" (en). Other
+  languages need their own call; only the English rows show it here.
+- Frequency: 3/377 (0056, 0035, 0080) — every `digit-digit` hyphen in the corpus.
+- G1 rule: `(?<=\d)\s?-\s?(?=\d)` → `" to "` (language-scoped word), before
+  phonemization. Note this is the *opposite* direction from the separator family: it
+  ADDS a word where the family REMOVES a punctuation role. Bounded and literal.
+- Status: **owner-confirmed (2026-09-15)** — "I would expect 'two to one'."
+
+### decimal-period-pause (a decimal point spoken as a clause break)
+- Category: `number`, `currency`
+- Example (owner-confirmed): "…and 0.5% is half." (0010 en-us; 0055 en-gb identical) →
+  "zero **[break]** five per cent" (`zˈiəɹoʊ.  fˈaɪv pɚsˈɛnt` — a clause break where a
+  decimal separator belongs), and "He scored 99.5 per cent…" (0057 en-gb) →
+  "ninety-nine **[break]** five per cent" (`nˈaɪnti nˈaɪn.  fˈaɪv`).
+  Owner report cited id `0012`; the corpus rows carrying a period-decimal are 0010/0055
+  (0.5%) and 0057 (99.5) — 0012's IPA has no break and its text has no decimal (it is the
+  `007` row). Recorded against the rows that carry the evidence.
+- Counter-examples in the SAME corpus (why this is not "espeak can't read decimals"):
+  `3.14159` (0010/0055) → "three **point** one four one five nine" ✓ and `£12.50` (0062)
+  → "twelve **point** five zero" ✓. So espeak does emit "point" for some fraction shapes;
+  the defect is the dot's punctuation role surviving for others (single-digit and
+  two-digit fractions, `.00`). That shape-dependence is exactly why the fix must not be
+  "add the word point" but "make `digit.digit` non-punctuating".
+- Frequency: 4/377 rows observed so far (0010, 0055, 0057; 0018's `$45.00` →
+  "forty-five **[break]** zero zero" is the same defect); 37 corpus rows carry a
+  period-decimal, so the class is *not* universal — the remaining rows should be heard
+  when the pass reaches them.
+- G1 rule: one shared **separator** mechanism with the confirmed pt-br
+  `decimal-comma-pause`: rewrite the separator so it carries no punctuation role, keeping
+  the spoken word ("point" / "vírgula" / "coma"). Language-aware, and it must cover the
+  thousands separator too (es 0106 / it 0188 read `1.234,56` as "uno. **[break]**
+  doscientos treinta y cuatro coma…" — a full stop inside the number).
+- Status: **owner-confirmed (2026-09-15)** — "0.5 percent has an unnecessary pause after
+  the dot."
+
 ## Candidate classes (host IPA reading only — confirm by ear before G1)
 
 These are IPA-column observations, not listening verdicts; each needs owner
@@ -332,10 +412,12 @@ confirmation before a G1 rule lands.
   `ˌeɪtʃtˌiːtˈiːpˌiːˈɛs:slˈæʃslæʃ …` ("H T T P S colon slash slash …") —
   **owner-accepted as-is (2026-09-13)**: no compaction rule. The URL reading
   stands as-is.
-- `page-furniture` — **owner-verified mostly fine (2026-09-13)**: "Page 42 of
-  320 — continued from previous — end of chapter" and the `p. 137 of 512, lines
-  8-19` / `Page 89 — blank…` rows read correctly; the em-dash boundaries carry
-  proper pauses. No normalization defect.
+- `page-furniture` — **owner-verified for pagination and boundaries (2026-09-13),
+  qualified 2026-09-15**: "Page 42 of 320 — continued from previous — end of chapter"
+  and the `Page 89 — blank…` rows read correctly, and the em-dash boundaries carry
+  proper pauses — but the same rows' **numeric ranges are not fine**: `lines 8-19`
+  renders "eight **dash** nineteen" (0035 en-us, 0080 en-gb), now recorded as the
+  confirmed `hyphen-read-as-dash` class. The verdict covers pagination, not numbers.
 - `long-paragraph` — **owner-verified fine (2026-09-13)**: no mispronunciations;
   pacing/prosody is engine-level, not a normalization fix.
 - `&&` → `ˈændænd` ("and and") — **owner-accepted as-is (2026-09-13)**: no rule.
