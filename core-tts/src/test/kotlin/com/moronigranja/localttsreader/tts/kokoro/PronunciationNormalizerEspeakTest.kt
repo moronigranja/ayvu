@@ -40,4 +40,76 @@ class PronunciationNormalizerEspeakTest {
             normalized.phonemize("Ms. Dalloway said.", "en-us"),
         )
     }
+
+    /**
+     * The G1 abbreviation class, verified through the REAL espeak-ng: the
+     * normalized render of a corpus row must equal the render of its expected
+     * spoken form. This is what keeps the dictionary honest — a wrong expansion
+     * word fails here even when the pure transform looks right.
+     *
+     * Rows are the G0 corpus entries (docs/g0-findings.md); a language whose
+     * voice is missing is skipped by the shared assumption.
+     */
+    @Test
+    fun `every language's honorific row renders as its spoken form`() {
+        val normalized = NormalizingPhonemizer(phonemizer)
+        val cases =
+            listOf(
+                "en-us" to
+                    (
+                        "Ms. Dalloway, Dr. Watson, and Prof. Higgins arrived at noon." to
+                            "Miz Dalloway, doctor Watson, and professor Higgins arrived at noon."
+                    ),
+                "en-us" to
+                    (
+                        "Rev. King, Capt. Ahab, and Gen. Lee signed the letter." to
+                            "reverend King, captain Ahab, and general Lee signed the letter."
+                    ),
+                "es" to
+                    (
+                        "Sra. Delgado, Dr. Vidal y Srta. Rivas llegaron al mediodía." to
+                            "señora Delgado, doctor Vidal y señorita Rivas llegaron al mediodía."
+                    ),
+                "es" to
+                    (
+                        "El Sr. Ortega preguntó a la Prof. Salas por el Dr. García." to
+                            "El señor Ortega preguntó a la profesora Salas por el doctor García."
+                    ),
+                "fr-fr" to
+                    (
+                        "M. Higgins et le Prof. Lefèvre arrivèrent à midi." to
+                            "monsieur Higgins et le professeur Lefèvre arrivèrent à midi."
+                    ),
+                "it" to
+                    (
+                        "Sig.ra Dalloway, Dott. Watson e Prof. Higgins arrivarono." to
+                            "signora Dalloway, dottore Watson e professore Higgins arrivarono."
+                    ),
+                "it" to
+                    (
+                        "Il Sig. Verdi chiese alla Dott.ssa Bianchi notizie dell'Avv. Rossi." to
+                            "Il signor Verdi chiese alla dottoressa Bianchi notizie dell'avvocato Rossi."
+                    ),
+                "pt-br" to
+                    (
+                        "Sra. Dalloway, Dr. Watson e Prof. Higgins chegaram ao meio-dia." to
+                            "senhora Dalloway, doutor Watson e professor Higgins chegaram ao meio-dia."
+                    ),
+                "pt-br" to
+                    (
+                        "O Sr. Oliveira perguntou à Profa. Costa pelo Dr. Barbosa." to
+                            "O senhor Oliveira perguntou à professora Costa pelo doutor Barbosa."
+                    ),
+            )
+
+        for ((language, pair) in cases) {
+            val (raw, expectedSpoken) = pair
+            if (language !in phonemizer.supportedLanguages()) continue
+            assertEquals(
+                phonemizer.phonemize(expectedSpoken, language),
+                normalized.phonemize(raw, language),
+                "$language: ${raw.take(40)}… must render as its spoken form",
+            )
+        }
+    }
 }
