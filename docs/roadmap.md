@@ -165,7 +165,8 @@ D7 legs.
 | M2M-100-418M | DEFER — fp32 fails the memory gate; int8 24–31 ms/token, lower chr-F than SMaLL-100 |
 | SMaLL-100 int8 | ADOPTED for translate-then-read — one 915 MB pack, 8.9–9.9 ms/token, chr-F 51.9–63.2 |
 | OPUS-MT per-pair | measured record; specialist alternative (tc-big int8 speed-disqualified; fp32 quality fallback) |
-| LFM2.5-1.2B-Instruct | CANDIDATE for offline whole-book pregen (#161) — LLM second runtime; S22 llama.cpp 22.3 tok/s, chrF 67.37, 730 MB, co-residency passed; LiteRT S22 harness pending |
+| LFM2.5-1.2B-Instruct | SELECTED for offline whole-book pregen (#161, runtime locked) — llama.cpp-android on S22: 22.3 tok/s, chrF 67.37, 730 MB, co-residency passed; LiteRT-LM deadlocks on the S22 (all 3 profiles), host-measured 6.4-6.5× slower — exception closed |
+| LFM2.5-350M | REJECTED as fallback — chrF 59.11 below shipped SMaLL-100 (62.77); drops content, code-switches to English; low-memory fallback stays SMaLL-100 |
 | Gemma-4-E2B QAT / LFM2.5-2.6B-Base | measured ceiling, not selected — higher chrF (68.8/68.3) at 2.4-2.3× memory and slower on-device |
 
 ## Active work

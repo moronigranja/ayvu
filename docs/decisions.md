@@ -4,7 +4,7 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
-## 161. Offline pre-translation model candidate: LFM2.5-1.2B-Instruct; runtime = llama.cpp pending the LiteRT S22 check (2026-09-14)
+## 161. Offline pre-translation model: LFM2.5-1.2B-Instruct on llama.cpp-android — RUNTIME LOCKED (2026-09-14)
 
 Model-search closure after the beam-spike exploration (full measurements in
 `docs/prints/beam-spike/README.md`). Question: a better translator than
@@ -36,17 +36,31 @@ LLM inference is not SMaLL-100's ONNX graph).
   117.0), with identical quality. On-device exception to test: LiteRT's
   mobile kernels may flip the verdict on ARM (litert-community ships
   LFM2.5-1.2B int8 1.25 GB / int4 0.74 GB; third-party S26 measured 41
-  tok/s). S22 harness measurement pending; runtime choice locks after it.
+  tok/s). S22 harness run: **LiteRT-LM 0.16.1 DEADLOCKS on the S22** —
+  int8 inits and streams at ~4-5 tok/s then wedges mid-conversation;
+  int4 (51 s init) wedges on the first stream call; int4_gpu hangs in
+  initialization >6 min. All three profiles show the same signature
+  (thread pool asleep, 0% CPU, 35°C — JNI-blocking deadlock, not
+  thermal). Even the partial int8 speed was 4-5× slower than
+  llama.cpp-android's 22.3 tok/s. Runtime decision: **llama.cpp**; the
+  LiteRT exception is closed.
 - Failure-mode comparison vs SMaLL-100 (listening-relevant): SMaLL-100
-  produces word salad ("feijões" for feathers) and silently truncates
-  long passages; LFM1.2B is fluent with rare small hallucinations
-  (misleading but rarely unreadable).
+  produces word salad ("piso do céu do corrente" for hallway's oak floor)
+  and silently truncates long passages; LFM1.2B is fluent with rare
+  small hallucinations (misleading but rarely unreadable). On Jumper
+  prose the contrast is starker — SMaLL-100 garbles idioms while LFM1.2B
+  reads naturally.
+- LFM2.5-350M measured as a possible fallback: chrF 59.11 (host), ~430
+  tok/s host, 229 MB Q4 — BELOW shipped SMaLL-100 (62.77); samples drop
+  content / code-switch to English mid-sentence. Not a quality fallback;
+  the low-memory fallback is keeping SMaLL-100 live. (S22 on-device
+  number pending at write time; the verdict does not hinge on it.)
 
 Consequence: NOT yet wired into the product. Requires the #97
-second-runtime exception (llama.cpp or LiteRT), a PregenKey model
-dimension, and a pack/download surface for the LLM weights. The S22
-LiteRT-vs-llama.cpp harness measurement decides the runtime; then this
-becomes the "translate whole book offline" slice.
+second-runtime exception (llama.cpp only — the LiteRT variant is closed),
+a PregenKey model dimension, and a pack/download surface for the LLM
+weights. Runtime is locked (llama.cpp-android + LFM2.5-1.2B-Instruct
+Q4_K_M); this becomes the "translate whole book offline" slice.
 
 ## 160. core-translate: the SMaLL-100 tokenizer port, translate pack, and read-in-language wiring (2026-09-14)
 
