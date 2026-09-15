@@ -255,10 +255,9 @@ class PlaybackServiceFocusTest {
     @Test
     fun `focus loss while idle leaves the machine untouched`() {
         val store = InMemoryPlayerStore()
-        val machine =
-            PlayerStateMachine(store, BookLayout(book)).apply {
-                present(PlayerPosition(book.id, 0, 0)) // open-book mode: IDLE, no playback
-            }
+        val machine = PlayerStateMachine(store, BookLayout(book))
+        // open-book mode: IDLE, no playback
+        runBlocking { machine.present(PlayerPosition(book.id, 0, 0)) }
         val service = createdService(store, machine)
         PlaybackStateHolder.reset()
 

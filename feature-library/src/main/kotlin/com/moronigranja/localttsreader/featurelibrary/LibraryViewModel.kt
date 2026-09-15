@@ -14,7 +14,6 @@ import com.moronigranja.localttsreader.locate.IndexLock
 import com.moronigranja.localttsreader.locate.TextIndex
 import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.LibraryStore
-import com.moronigranja.localttsreader.persistence.ActivitySecondsDao
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.BookFileStore
 import com.moronigranja.localttsreader.persistence.ChapterCount
@@ -22,8 +21,7 @@ import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.ProgressEntity
 import com.moronigranja.localttsreader.persistence.SettingsStore
-import com.moronigranja.localttsreader.player.ActivityKind
-import com.moronigranja.localttsreader.player.ActivityRow
+import com.moronigranja.localttsreader.player.ActivityStore
 import com.moronigranja.localttsreader.player.DailyTotals
 import com.moronigranja.localttsreader.player.IoDispatcher
 import com.moronigranja.localttsreader.player.LocalDays
@@ -103,7 +101,7 @@ class LibraryViewModel
         // Default null: pure-JVM unit tests skip the book-bytes sidecar (Hilt provides it).
         private val bookFileStore: BookFileStore? = null,
         // Default null: pure-JVM unit tests skip the activity stats store (Hilt provides it).
-        private val activityDao: ActivitySecondsDao? = null,
+        private val activityStore: ActivityStore? = null,
         // A6: the app binds the intent-dispatching sender; tests pass a fake.
         private val commands: PlayerCommands,
     ) : ViewModel() {
@@ -317,23 +315,19 @@ class LibraryViewModel
          * tests) → [TodayStats.EMPTY]. */
         @OptIn(ExperimentalCoroutinesApi::class)
         val todayStats: StateFlow<TodayStats> =
-            if (activityDao == null) {
+            if (activityStore == null) {
                 MutableStateFlow(TodayStats.EMPTY)
             } else {
-                val dao = activityDao
+                val store = activityStore
                 combine(
-                    statsDay.flatMapLatest { key -> dao.observeSince(WeekSummary.startKey(key)) },
-                    dao.observeActiveDays(),
+                    statsDay.flatMapLatest { key -> store.observeSince(WeekSummary.startKey(key)) },
+                    store.observeActiveDays(),
                     statsDay,
                 ) { rows, activeDays, todayKey ->
-                    val activityRows =
-                        rows.map { row ->
-                            ActivityRow(row.dayKey, ActivityKind.valueOf(row.kind), row.seconds)
-                        }
                     TodayStats(
                         dayKey = todayKey,
-                        today = DailyTotals.summarize(todayKey, activityRows),
-                        week = WeekSummary.series(activityRows, todayKey),
+                        today = DailyTotals.summarize(todayKey, rows),
+                        week = WeekSummary.series(rows, todayKey),
                         streakDays = Streak.count(activeDays.toSet(), todayKey),
                     )
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayStats.EMPTY)

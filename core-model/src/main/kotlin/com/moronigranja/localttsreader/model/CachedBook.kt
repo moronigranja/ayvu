@@ -22,3 +22,26 @@ data class CachedPassage(
     val passageIndex: Int,
     val text: String,
 )
+
+/**
+ * The book as its storage-ready cached form (P2): one [CachedPassage] per
+ * passage, in spine order. This is THE flattening — the persistence layer
+ * stores exactly these rows, so a parse has one storage shape everywhere.
+ */
+fun Book.toCachedBook(): CachedBook =
+    CachedBook(
+        id = id,
+        title = title,
+        authors = authors,
+        passages =
+            chapters.flatMap { chapter ->
+                chapter.passages.mapIndexed { index, passage ->
+                    CachedPassage(
+                        chapterIndex = chapter.index,
+                        chapterTitle = chapter.title,
+                        passageIndex = index,
+                        text = passage.text,
+                    )
+                }
+            },
+    )

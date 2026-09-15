@@ -11,10 +11,12 @@ import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
 import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
+import com.moronigranja.localttsreader.persistence.RoomActivityStore
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.RoomPlayerStore
 import com.moronigranja.localttsreader.persistence.SettingsDao
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.ActivityStore
 import com.moronigranja.localttsreader.player.PlayerStore
 import dagger.Module
 import dagger.Provides
@@ -63,14 +65,10 @@ object PersistenceModule {
 
     @Provides
     @Singleton
-    fun provideRoomLibraryStore(
+    fun provideLibraryStore(
         database: LibraryDatabase,
         scope: CoroutineScope,
-    ): RoomLibraryStore = RoomLibraryStore(database, scope)
-
-    @Provides
-    @Singleton
-    fun provideLibraryStore(store: RoomLibraryStore): LibraryStore = store
+    ): LibraryStore = RoomLibraryStore(database, scope)
 
     @Provides
     @Singleton
@@ -88,7 +86,8 @@ object PersistenceModule {
     fun provideHistoryDao(database: LibraryDatabase) = database.historyDao()
 
     @Provides
-    fun provideActivitySecondsDao(database: LibraryDatabase) = database.activityDao()
+    @Singleton
+    fun provideActivityStore(database: LibraryDatabase): ActivityStore = RoomActivityStore(database.activityDao())
 
     @Provides
     @Singleton

@@ -376,10 +376,8 @@ class PlaybackServiceA57Test {
             )
         runBlocking { RoomLibraryStore(database, scope).add(LibraryEntry(turnBook, importedAtEpochMillis = 1L)) }
         val store = InMemoryPlayerStore()
-        val machine =
-            PlayerStateMachine(store, BookLayout(turnBook)).apply {
-                present(PlayerPosition(turnBook.id, 2, 0))
-            }
+        val machine = PlayerStateMachine(store, BookLayout(turnBook))
+        runBlocking { machine.present(PlayerPosition(turnBook.id, 2, 0)) }
         val service =
             PlaybackService().apply {
                 this.store = store

@@ -1,7 +1,7 @@
 package com.moronigranja.localttsreader.featureplayer.playback
 
+import com.moronigranja.localttsreader.model.LibraryStore
 import com.moronigranja.localttsreader.persistence.AppSettings
-import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.OfflineStorage
 import com.moronigranja.localttsreader.player.pregen.PcmPassageCache
 import com.moronigranja.localttsreader.player.pregen.PregenSpaceEstimate
@@ -20,30 +20,31 @@ import javax.inject.Singleton
  * — a disk miss just falls back to synthesis.
  */
 @Singleton
-class PregenStorage @Inject constructor(
-    private val pregenCache: PregenCache,
-    private val manager: PregenManager,
-    private val libraryStore: RoomLibraryStore,
-    private val settings: AppSettings,
-): OfflineStorage {
+class PregenStorage
+    @Inject
+    constructor(
+        private val pregenCache: PregenCache,
+        private val manager: PregenManager,
+        private val libraryStore: LibraryStore,
+        private val settings: AppSettings,
+    ) : OfflineStorage {
+        private val estimator = PregenSpaceEstimator(pregenCache.cache)
 
-    private val estimator = PregenSpaceEstimator(pregenCache.cache)
+        /** The shared disk tier (queries, book deletes). */
+        val cache: PcmPassageCache get() = pregenCache.cache
 
-    /** The shared disk tier (queries, book deletes). */
-    val cache: PcmPassageCache get() = pregenCache.cache
+        /** Bytes on disk per book (pcm + sidecar files); books without audio are absent. */
+        override fun usageByBook(): Map<String, Long> = pregenCache.cache.usageByBook()
 
-    /** Bytes on disk per book (pcm + sidecar files); books without audio are absent. */
-    override fun usageByBook(): Map<String, Long> = pregenCache.cache.usageByBook()
+        /** Estimates for every cached book in one pass (one cachedBooks() query). */
+        override suspend fun estimateAll(): Map<String, PregenSpaceEstimate> {
+            val voice = settings.state.value.voice
+            return libraryStore.cachedBooks().associate { it.id to estimator.estimate(it.toBook(), voice, 1.0) }
+        }
 
-    /** Estimates for every cached book in one pass (one cachedBooks() query). */
-    override suspend fun estimateAll(): Map<String, PregenSpaceEstimate> {
-        val voice = settings.state.value.voice
-        return libraryStore.cachedBooks().associate { it.id to estimator.estimate(it.toBook(), voice, 1.0) }
+        /** Reclaims one book's pre-generated audio: cancel queued work, then delete. */
+        override fun deleteBook(bookId: String) {
+            manager.cancel(bookId)
+            pregenCache.cache.deleteBook(bookId)
+        }
     }
-
-    /** Reclaims one book's pre-generated audio: cancel queued work, then delete. */
-    override fun deleteBook(bookId: String) {
-        manager.cancel(bookId)
-        pregenCache.cache.deleteBook(bookId)
-    }
-}

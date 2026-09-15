@@ -9,10 +9,10 @@ import com.moronigranja.localttsreader.backup.BackupReadError
 import com.moronigranja.localttsreader.backup.BackupReadResult
 import com.moronigranja.localttsreader.locate.IndexLock
 import com.moronigranja.localttsreader.locate.IndexRebuilder
+import com.moronigranja.localttsreader.model.LibraryStore
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.BackupMergeResult
 import com.moronigranja.localttsreader.persistence.BackupStore
-import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.IoDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -51,7 +51,7 @@ class BackupViewModel
     constructor(
         private val backupStore: BackupStore,
         private val appSettings: AppSettings,
-        private val roomLibraryStore: RoomLibraryStore,
+        private val libraryStore: LibraryStore,
         private val indexRebuilder: IndexRebuilder,
         private val indexLock: IndexLock,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -111,7 +111,7 @@ class BackupViewModel
                                     // Same resync the app runs at startup — restored
                                     // books are searchable without a relaunch.
                                     indexLock.withExclusiveIndex {
-                                        indexRebuilder.rebuild(roomLibraryStore.cachedBooks())
+                                        indexRebuilder.rebuild(libraryStore.cachedBooks())
                                     }
                                     merged
                                 }

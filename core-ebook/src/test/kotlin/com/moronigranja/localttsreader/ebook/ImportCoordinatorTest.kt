@@ -88,6 +88,8 @@ class ImportCoordinatorTest {
         var failures = 0
         override val books get() = inner.books
 
+        override suspend fun cachedBooks(): List<CachedBook> = inner.cachedBooks()
+
         override suspend fun contains(bookId: String): Boolean = inner.contains(bookId)
 
         override suspend fun add(entry: LibraryEntry) {

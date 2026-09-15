@@ -1,9 +1,9 @@
 package com.moronigranja.localttsreader.featureplayer.playback
 
-import com.moronigranja.localttsreader.persistence.ActivitySecondsDao
-import com.moronigranja.localttsreader.persistence.ActivitySecondsEntity
 import com.moronigranja.localttsreader.player.ActivityChunk
 import com.moronigranja.localttsreader.player.ActivityKind
+import com.moronigranja.localttsreader.player.ActivityRow
+import com.moronigranja.localttsreader.player.ActivityStore
 import com.moronigranja.localttsreader.player.LocalDays
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,25 +24,17 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class PlaybackServiceStatsTest {
+    /** Captured store writes for the inline (teardown) flush path. */
+    private class FakeActivityStore : ActivityStore {
+        val writes = mutableListOf<ActivityChunk>()
 
-    /** Captured DAO writes for the inline (teardown) flush path. */
-    private class FakeActivityDao : ActivitySecondsDao {
-        val writes = mutableListOf<ActivitySecondsEntity>()
-
-        override suspend fun accumulate(
-            dayKey: String,
-            bookId: String,
-            kind: String,
-            seconds: Long,
-        ) {
-            writes += ActivitySecondsEntity(dayKey, bookId, kind, seconds)
+        override suspend fun record(chunks: List<ActivityChunk>) {
+            writes += chunks
         }
 
-        override fun observeSince(sinceDayKey: String): Flow<List<ActivitySecondsEntity>> = MutableStateFlow(emptyList())
+        override fun observeSince(sinceDayKey: String): Flow<List<ActivityRow>> = MutableStateFlow(emptyList())
 
         override fun observeActiveDays(): Flow<List<String>> = MutableStateFlow(emptyList())
-
-        override suspend fun deleteByBook(bookId: String) {}
     }
 
     private val service = PlaybackService()
@@ -102,26 +94,22 @@ class PlaybackServiceStatsTest {
     }
 
     @Test
-    fun `the sync flush writes through the DAO inline`() {
-        val dao = FakeActivityDao()
-        service.activityDao = dao
+    fun `the sync flush writes through the store inline`() {
+        val store = FakeActivityStore()
+        service.activityStore = store
         // The init block replaced the sink with the capture list; the inline
-        // (teardown) path writes through the DAO, so restore the default.
-        service.activitySink = { chunks ->
-            for (chunk in chunks) {
-                service.activityDao.accumulate(chunk.dayKey, chunk.bookId, chunk.kind.name, chunk.seconds)
-            }
-        }
+        // (teardown) path writes through the store port, so restore the default.
+        service.activitySink = { chunks -> service.activityStore.record(chunks) }
         setClock(1_000_000_000)
         service.listenAccumulator.start("b1")
         setClock(1_000_000_000 + 45_000)
 
         service.flushListeningSync() // STOP/kill teardown path
 
-        assertEquals(1, dao.writes.size)
-        val write = dao.writes.single()
+        assertEquals(1, store.writes.size)
+        val write = store.writes.single()
         assertEquals("b1", write.bookId)
-        assertEquals("LISTEN", write.kind)
+        assertEquals(ActivityKind.LISTEN, write.kind)
         assertEquals(45L, write.seconds)
         assertEquals(LocalDays.key(1_000_000_000), write.dayKey)
         assertEquals(emptyList<ActivityChunk>(), flushed) // sync path bypasses the sink

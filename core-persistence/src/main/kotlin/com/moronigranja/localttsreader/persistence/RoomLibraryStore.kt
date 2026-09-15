@@ -1,5 +1,6 @@
 package com.moronigranja.localttsreader.persistence
 
+import androidx.room.withTransaction
 import com.moronigranja.localttsreader.model.CachedBook
 import com.moronigranja.localttsreader.model.LibraryEntry
 import com.moronigranja.localttsreader.model.LibraryStore
@@ -8,7 +9,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import androidx.room.withTransaction
 
 /**
  * Room-backed [LibraryStore] (P1/P2 swap target): [books] streams library rows
@@ -26,14 +26,15 @@ class RoomLibraryStore(
     private val database: LibraryDatabase,
     private val scope: CoroutineScope,
 ) : LibraryStore {
-
-    override val books: StateFlow<List<LibraryEntry>> = database.bookDao().observeAll()
-        .map { rows -> rows.map { it.toLibraryEntry() } }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    override val books: StateFlow<List<LibraryEntry>> =
+        database
+            .bookDao()
+            .observeAll()
+            .map { rows -> rows.map { it.toLibraryEntry() } }
+            .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** CR-3/A3: durable membership — the re-import duplicate gate (Room is truth). */
-    override suspend fun contains(bookId: String): Boolean =
-        database.bookDao().byId(bookId) != null
+    override suspend fun contains(bookId: String): Boolean = database.bookDao().byId(bookId) != null
 
     override suspend fun add(entry: LibraryEntry) {
         database.withTransaction {
@@ -63,7 +64,7 @@ class RoomLibraryStore(
     }
 
     /** Every book's cached parse, in import order — the rebuild's input (P2). */
-    suspend fun cachedBooks(): List<CachedBook> {
+    override suspend fun cachedBooks(): List<CachedBook> {
         val books = database.bookDao().all()
         val passagesByBook = database.passageDao().all().groupBy { it.bookId }
         return books.map { book ->

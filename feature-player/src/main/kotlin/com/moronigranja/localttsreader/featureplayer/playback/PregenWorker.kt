@@ -14,9 +14,9 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.moronigranja.localttsreader.model.CachedBook
+import com.moronigranja.localttsreader.model.LibraryStore
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.ProgressDao
-import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.pregen.OfflinePregen
 import com.moronigranja.localttsreader.player.pregen.PregenBudget
 import com.moronigranja.localttsreader.player.pregen.PregenKey
@@ -65,7 +65,7 @@ class PregenWorker
         @Assisted appContext: Context,
         @Assisted params: WorkerParameters,
         private val selector: EngineSelector,
-        private val libraryStore: RoomLibraryStore,
+        private val libraryStore: LibraryStore,
         private val settings: AppSettings,
         private val progressDao: ProgressDao,
         private val pregenCache: PregenCache,

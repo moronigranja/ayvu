@@ -27,10 +27,11 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.moronigranja.localttsreader.model.Book
+import com.moronigranja.localttsreader.model.LibraryStore
 import com.moronigranja.localttsreader.persistence.AppSettings
-import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.ActivityChunk
 import com.moronigranja.localttsreader.player.ActivityKind
+import com.moronigranja.localttsreader.player.ActivityStore
 import com.moronigranja.localttsreader.player.BookLayout
 import com.moronigranja.localttsreader.player.BookProgress
 import com.moronigranja.localttsreader.player.CoverageSpan
@@ -43,7 +44,6 @@ import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.PlayerState
 import com.moronigranja.localttsreader.player.PlayerStateMachine
 import com.moronigranja.localttsreader.player.PlayerStore
-import com.moronigranja.localttsreader.player.SleepTimer
 import com.moronigranja.localttsreader.player.TimeSpanAccumulator
 import com.moronigranja.localttsreader.player.passageText
 import com.moronigranja.localttsreader.player.pregen.CoverageEncoder
@@ -67,6 +67,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.Executors
@@ -109,22 +110,18 @@ class PlaybackService : Service() {
 
     @Inject lateinit var store: PlayerStore
 
-    @Inject lateinit var libraryStore: RoomLibraryStore
+    @Inject lateinit var libraryStore: LibraryStore
 
     @Inject lateinit var runtime: KokoroRuntime
 
-    @Inject lateinit var activityDao: com.moronigranja.localttsreader.persistence.ActivitySecondsDao
+    @Inject lateinit var activityStore: ActivityStore
 
     /** Phase H listening capture (decisions #157): whole seconds per local
      * day, opened at the PLAYING edge and flushed on every audio exit. The
      * sink is the test seam (the foregroundOps pattern); the service-scoped
-     * default writes through the DAO. The companion [clock] keeps it
-     * test-controllable. */
-    internal var activitySink: suspend (List<ActivityChunk>) -> Unit = { chunks ->
-        for (chunk in chunks) {
-            activityDao.accumulate(chunk.dayKey, chunk.bookId, chunk.kind.name, chunk.seconds)
-        }
-    }
+     * default writes through the [ActivityStore] port. The companion [clock]
+     * keeps it test-controllable. */
+    internal var activitySink: suspend (List<ActivityChunk>) -> Unit = { chunks -> activityStore.record(chunks) }
     internal val listenAccumulator =
         TimeSpanAccumulator(
             kind = ActivityKind.LISTEN,
@@ -160,6 +157,12 @@ class PlaybackService : Service() {
 
     /** CR-2 host-test seam: the current machine (set by tests directly). */
     internal var machine: PlayerStateMachine? = null
+
+    /** Geometry of the bound book — the machine's own layout, kept here so the
+     * boundary pre-arm walks the spine through [BookLayout.next] instead of
+     * re-implementing the walk (the two had drifted: the local copy skipped
+     * nothing and counted chapters differently). */
+    private var layout: BookLayout? = null
 
     /** Active book (internal for host tests that drive commands directly). */
     internal var book: Book? = null
@@ -247,7 +250,6 @@ class PlaybackService : Service() {
      * kokoro constant — a future 22.05/16 kHz engine would silently miscompute
      * both. Defaults to kokoro's 24 kHz before the first passage renders. */
     private var lastSampleRateHz = DEFAULT_SAMPLE_RATE_HZ
-    private var ringHasEntries = false
 
     // Measurement probes (goals §Measurement): tap-to-audio dispatch baseline
     // + boundary-gap consecutive-play baseline. Debug-gated (probesActive) and
@@ -396,10 +398,7 @@ class PlaybackService : Service() {
             // CR-5: a superseding command cancelled us — never touch shared state.
             if (!active(generation)) return@launchCommand
             if (activeBook == null) return@launchCommand
-            book = activeBook
-            machine = PlayerStateMachine(store, BookLayout(activeBook))
-            lastAudio = null
-            queue = buildQueue()
+            bindBook(activeBook)
             val position = machine!!.openPosition() ?: machine!!.firstPosition()
             if (position != null) machine!!.present(position)
             refreshBookmarks()
@@ -457,10 +456,7 @@ class PlaybackService : Service() {
             // CR-5: a superseding command cancelled us — never touch shared state.
             if (!active(generation)) return@launchCommand
             if (reloaded == null) return@launchCommand
-            book = reloaded
-            machine = PlayerStateMachine(store, BookLayout(reloaded))
-            lastAudio = null
-            queue = buildQueue()
+            bindBook(reloaded)
             val passage = if (direction < 0) activeBook.chapters[target].passages.lastIndex else 0
             machine!!.present(PlayerPosition(id, target, passage))
             refreshBookmarks()
@@ -509,10 +505,7 @@ class PlaybackService : Service() {
                         c?.let { PlayerPosition(id, it, 0) }
                     }
                 } ?: return@launchCommand
-            book = reloaded
-            machine = PlayerStateMachine(store, layout)
-            lastAudio = null
-            queue = buildQueue()
+            bindBook(reloaded, layout)
             machine!!.present(target)
             refreshBookmarks()
             startPrefill(target)
@@ -522,6 +515,24 @@ class PlaybackService : Service() {
             publish()
             foregroundOps.exit()
         }
+    }
+
+    /**
+     * Binds the service to [loaded] as the active book — the ONE copy of the
+     * rebuild every open/play command needs: the machine over the book (whose
+     * layout is also kept for the pre-arm's spine walk), the same-passage audio
+     * cache reset, and the pre-gen queue rebuilt over it. A caller that already
+     * built a layout for its target resolution passes it in.
+     */
+    private fun bindBook(
+        loaded: Book,
+        layout: BookLayout = BookLayout(loaded),
+    ) {
+        book = loaded
+        this.layout = layout
+        machine = PlayerStateMachine(store, layout)
+        lastAudio = null
+        queue = buildQueue()
     }
 
     /** Enriches the UI state with the book's bookmarks for the reader menu. */
@@ -556,10 +567,7 @@ class PlaybackService : Service() {
             // CR-5: a superseding command cancelled us — never touch shared state.
             if (!active(generation)) return@launchCommand
             if (activeBook == null) return@launchCommand
-            book = activeBook
-            machine = PlayerStateMachine(store, BookLayout(activeBook))
-            lastAudio = null
-            queue = buildQueue()
+            bindBook(activeBook)
             refreshBookmarks()
             val position =
                 if (explicit) {
@@ -731,7 +739,6 @@ class PlaybackService : Service() {
                 if (!active(generation)) return@launchCommand
                 active.notePlaybackOffset(live)
                 move(active)
-                ringHasEntries = store.readRing(active.bookId).isNotEmpty()
                 if (wasPaused) active.pause() // A7: navigation never resumes a paused playhead
                 if (active(generation)) publish()
             } finally {
@@ -778,7 +785,6 @@ class PlaybackService : Service() {
                         BookProgress.elapsedSeconds(activeBook, position) + deltaSeconds,
                     )
                 active.seekTo(target)
-                ringHasEntries = store.readRing(active.bookId).isNotEmpty()
                 // A7 (CR-7): seek repositions a paused playhead without resuming.
                 if (wasPaused) active.pause()
                 if (active(generation)) publish()
@@ -810,7 +816,6 @@ class PlaybackService : Service() {
             try {
                 if (!active(generation)) return@launchCommand
                 active.undoSkip()
-                ringHasEntries = store.readRing(active.bookId).isNotEmpty()
                 if (wasPaused) active.pause() // A7: undo never resumes a paused playhead
                 if (active(generation)) publish()
             } finally {
@@ -834,23 +839,36 @@ class PlaybackService : Service() {
 
     private fun cycleSleepTimer() {
         val active = machine ?: return
-        val next =
-            when (active.state.value.sleepTimer) {
-                SleepTimer.Off -> SleepTimer.EndOfChapter
-                SleepTimer.EndOfChapter -> SleepTimer.Duration(clock() + 30 * 60_000L)
-                is SleepTimer.Duration -> SleepTimer.Off
-            }
-        active.setSleepTimer(next)
+        // The cycle policy (and the 30-minute constant) belongs to the machine —
+        // this forwards the intent and republishes the timer state.
+        active.cycleSleepTimer(clock())
         publish()
     }
 
-    private fun addBookmarkAtPlayhead() {
+    /**
+     * Adds a bookmark at the playhead (long-press / menu action).
+     *
+     * The machine write runs on the player thread inside [commandLock] — the two
+     * serializations the machine's single-writer contract assumes (loop and ticker
+     * share the player thread; transport commands hold the lock) — so the write can
+     * neither interleave with a command's write nor publish a state a newer command
+     * already superseded. The offset is read at DISPATCH: the write may queue behind
+     * a command, and a bookmark must record the playhead the user pointed at.
+     *
+     * Deliberately NOT routed through [launchCommand]: that would claim command
+     * ownership, letting the next command's [stopEverything] cancel the write.
+     * Being internal also makes the path host-testable (the other seams' style).
+     */
+    internal fun addBookmarkAtPlayhead() {
         val active = machine ?: return
         val position = active.state.value.position ?: return
         val label = book?.passageText(position.chapterIndex, position.passageIndex)?.take(48)
-        scope.launch {
-            active.notePlaybackOffset(liveOffsetSeconds())
-            active.addBookmark(label = label)
+        val offset = liveOffsetSeconds()
+        scope.launch(playerDispatcher) {
+            commandLock.withLock {
+                active.notePlaybackOffset(offset)
+                active.addBookmark(label = label)
+            }
             refreshBookmarks()
             publish()
         }
@@ -880,17 +898,27 @@ class PlaybackService : Service() {
      * the single authoritative final write to [finalStopJob]. [stopEverything]
      * releases [output] (zeroing its head), so capturing first is what keeps
      * STOP from rewinding persistence to the buffer's start offset.
+     *
+     * The write is uncancellable by design (a newer command must never drop it)
+     * but it is SERIALIZED on the player thread, and it targets the machine the
+     * session ended with — a later command rebuilds `machine`, and writing
+     * through the field would commit this session's offset to the next book.
      * Returns the captured book-time offset.
      */
     internal fun captureAndStop(): Double {
         val finalOffset = liveOffsetSeconds()
         flushListeningSync() // the SCOPE may not get another turn after STOP
+        val target = machine // the session's machine: a later command rebuilds the field
         stopEverything()
         releaseAudioFocus()
+        val stopGeneration = commandGeneration // bumped by the stopEverything above
         finalStopJob =
-            scope.launch {
-                machine?.stop(finalOffset)
-                PlaybackStateHolder.reset()
+            scope.launch(playerDispatcher) {
+                target?.stop(finalOffset)
+                // CR-2 + CR-5: the teardown clear belongs to THIS session. A newer
+                // command bumps the generation and owns the published state —
+                // resetting here would blank the UI of a session already loading.
+                if (commandGeneration == stopGeneration) PlaybackStateHolder.reset()
             }
         return finalOffset
     }
@@ -922,18 +950,7 @@ class PlaybackService : Service() {
             // back to a synchronous synthesize.
             val voice = activeVoice()
             val translateLang = selector.translateLangInUse(activeBook.id)
-            val key =
-                PregenKey(
-                    activeBook.id,
-                    position.chapterIndex,
-                    position.passageIndex,
-                    voice,
-                    current.speed,
-                    translateLang = translateLang,
-                    // The translator that renders that language (decisions #162):
-                    // only an LFM render is a hit for this key.
-                    translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
-                )
+            val key = livePregenKey(activeBook, position, voice, current.speed, translateLang)
             // Deterministic re-seek (layer 2): in-flight first-listen persists
             // land before any re-fetch, so a played passage is always on disk.
             pendingPersists.forEach { it.join() }
@@ -1009,11 +1026,14 @@ class PlaybackService : Service() {
             // queue, then the disk tier, for the next passage's size/rate; a
             // miss just skips the pre-arm (the boundary falls back to build).
             runCatching {
-                val next = nextPosition(position, activeBook) ?: return@runCatching
+                val next = layout?.next(position.chapterIndex, position.passageIndex) ?: return@runCatching
+                val nextTarget = PlayerPosition(activeBook.id, next.first, next.second)
                 val nextPcm =
                     queue
-                        ?.peek(next.chapterIndex, next.passageIndex)
-                        ?: pregenCache.cache.get(PregenKey(activeBook.id, next.chapterIndex, next.passageIndex, voice, current.speed))
+                        ?.peek(nextTarget.chapterIndex, nextTarget.passageIndex)
+                        ?: pregenCache.cache.get(
+                            livePregenKey(activeBook, nextTarget, voice, current.speed, translateLang),
+                        )
                 if (nextPcm != null) output.prearm(nextPcm.pcm.size, nextPcm.sampleRateHz)
             }
             // Measurement probes (goals §Measurement): tap-to-audio at the
@@ -1293,7 +1313,7 @@ class PlaybackService : Service() {
             phase = state.phase,
             degraded = selector.isDegraded,
             sleepTimer = state.sleepTimer,
-            canUndo = ringHasEntries,
+            canUndo = state.canUndo,
             failure = state.failure ?: PlaybackStateHolder.state.value.failure,
         )
     }
@@ -1516,23 +1536,34 @@ class PlaybackService : Service() {
             .build()
     }
 
-    /** The passage after [position] in spine order, or null at the book's end
-     * (decisions #84 — the boundary pre-arm target). */
-    private fun nextPosition(
-        position: PlayerPosition,
+    /**
+     * The live-passage cache key — ONE builder for the loop's own lookup and the
+     * boundary pre-arm's peek, so the dimensions cannot drift apart (the pre-arm
+     * used to omit the read-in-language pair and so peeked the ORIGINAL
+     * language's audio in a translated session).
+     *
+     * The engine segment is left at [PregenKey.DEFAULT_ENGINE]: no product site
+     * supplies one today (queued finding — the dimension exists in the key and is
+     * documented as preventing cross-engine collisions, but nothing populates it).
+     */
+    internal fun livePregenKey(
         book: Book,
-    ): PlayerPosition? {
-        var chapter = position.chapterIndex
-        var passage = position.passageIndex + 1
-        while (chapter < book.chapters.size) {
-            if (passage < book.chapters[chapter].passages.size) {
-                return PlayerPosition(book.id, chapter, passage)
-            }
-            chapter += 1
-            passage = 0
-        }
-        return null
-    }
+        position: PlayerPosition,
+        voice: String,
+        speed: Double,
+        translateLang: String?,
+    ): PregenKey =
+        PregenKey(
+            book.id,
+            position.chapterIndex,
+            position.passageIndex,
+            voice,
+            speed,
+            translateLang = translateLang,
+            // Which translator rendered that language (decisions #162): only an
+            // LFM render is a hit for this key.
+            translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
+        )
 
     /** The book's cover bitmap for the media notification, cached per book
      * and downsampled to ≤ ~512 px (album-art only — full res is overkill). */

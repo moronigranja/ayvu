@@ -1,18 +1,35 @@
 package com.moronigranja.localttsreader.player
 
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.time.ZoneId
 
+// Phase H capture (roadmap; decisions #109): real consumption measurement.
+// Listening = wall-clock while `PlayerPhase == PLAYING`; reading =
+// page-flip-active reader dwell. Whole seconds are stored and split across
+// local-day boundaries; only the display rounds (so short valid sessions are
+// not discarded). These types are pure JVM — the Android edges
+// ([com.moronigranja.localttsreader.featureplayer.playback.PlaybackService]
+// for listening, the reader surface for reading) drive them.
+
 /**
- * Phase H capture (roadmap; decisions #109): real consumption measurement.
- * Listening = wall-clock while `PlayerPhase == PLAYING`; reading =
- * page-flip-active reader dwell. Whole seconds are stored and split across
- * local-day boundaries; only the display rounds (so short valid sessions are
- * not discarded). These types are pure JVM — the Android edges
- * ([com.moronigranja.localttsreader.featureplayer.playback.PlaybackService]
- * for listening, the reader surface for reading) drive them and write the
- * chunks through `ActivitySecondsDao`.
+ * The activity store's seam (Phase H, decisions #109): the write side the
+ * playback edge flushes through, and the day window the library's stats card
+ * observes. Both directions used to inject `ActivitySecondsDao` straight from
+ * feature modules — the contract lives here so the Room types stay inside
+ * core-persistence, exactly like [com.moronigranja.localttsreader.player.PlayerStore]
+ * and [com.moronigranja.localttsreader.model.LibraryStore] (A6).
  */
+interface ActivityStore {
+    /** Adds [chunks]' seconds onto their (day, book, kind) rows — additive, never a replace. */
+    suspend fun record(chunks: List<ActivityChunk>)
+
+    /** Rows on/after [sinceDayKey] (inclusive) — the TODAY card's window. */
+    fun observeSince(sinceDayKey: String): Flow<List<ActivityRow>>
+
+    /** Local day keys with at least a minute of combined activity — the streak's floor. */
+    fun observeActiveDays(): Flow<List<String>>
+}
 
 /** The two consumption kinds the dashboard counts (decisions #109). */
 enum class ActivityKind { READ, LISTEN }
@@ -32,7 +49,6 @@ data class ActivityChunk(
  * accumulators as function references so tests pin both.
  */
 object LocalDays {
-
     fun key(epochMs: Long): String =
         Instant
             .ofEpochMilli(epochMs)

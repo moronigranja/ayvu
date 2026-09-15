@@ -1,11 +1,9 @@
 package com.moronigranja.localttsreader.player
 
-/**
- * T4 player domain — the pure-JVM logic half of the docked read-along player
- * (decisions #29/#31/#33): transport state, the single transactional write
- * point (progress + position ring), sleep timer, speed, bookmarks. Android
- * edges (MediaSession, audio output, Compose) live in feature-player.
- */
+// T4 player domain — the pure-JVM logic half of the docked read-along player
+// (decisions #29/#31/#33): transport state, the single transactional write
+// point (progress + position ring), sleep timer, speed, bookmarks. Android
+// edges (MediaSession, audio output, Compose) live in feature-player.
 
 /**
  * A play/read pointer: passage-granular (decisions #13) plus an in-passage
@@ -51,7 +49,9 @@ sealed interface SleepTimer {
     data object EndOfChapter : SleepTimer
 
     /** Pause when the wall clock passes [endsAtEpochMillis]. */
-    data class Duration(val endsAtEpochMillis: Long) : SleepTimer
+    data class Duration(
+        val endsAtEpochMillis: Long,
+    ) : SleepTimer
 }
 
 /** Transport phase of the machine. LOADING = position committed, audio not
@@ -64,6 +64,10 @@ data class PlayerState(
     val position: PlayerPosition? = null,
     val speed: Double = 1.0,
     val sleepTimer: SleepTimer = SleepTimer.Off,
+    /** True when an undo target exists (the ring has entries). The machine
+     * owns the ring, so it owns this flag — the Android edge reads it instead
+     * of re-reading [PlayerStore] behind the machine's back. */
+    val canUndo: Boolean = false,
     /** Last typed failure, cleared on the next successful op. */
     val failure: String? = null,
 )
@@ -74,7 +78,10 @@ sealed interface PlayerEvent {
     data object PauseRequested : PlayerEvent
 
     /** Playback crossed into the next passage: the edge starts it. */
-    data class PassageAdvanced(val chapterIndex: Int, val passageIndex: Int) : PlayerEvent
+    data class PassageAdvanced(
+        val chapterIndex: Int,
+        val passageIndex: Int,
+    ) : PlayerEvent
 
     /** The book's last passage finished. */
     data object PlaybackCompleted : PlayerEvent

@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.update
  * writer; this holder is in-memory UI/edge state only.
  */
 object PlaybackStateHolder {
-
     private val _state = MutableStateFlow(PlaybackUiState())
     val state: StateFlow<PlaybackUiState> = _state
 
@@ -101,9 +100,10 @@ data class PlaybackUiState(
         get() = (generatedAheadSeconds / PREGEN_HORIZON_SECONDS).toFloat().coerceIn(0f, 1f)
 
     companion object {
-        /** Denominator of [generatedAheadFraction] (decisions #98): ~2.7× the
-         * service's 45 s look-ahead target (PREFILL_LOOKAHEAD_SECONDS), so a
-         * steady-state cushion sits ~37% into the segment and manual pregen
+        /** Denominator of [generatedAheadFraction] (decisions #98): 4× the
+         * service's 30 s look-ahead target (PREFILL_LOOKAHEAD_SECONDS, D1
+         * decisions #155 — it was 45 s when this ratio was written), so a
+         * steady-state cushion sits ~25% into the segment and manual pregen
          * can overfill visibly. */
         const val PREGEN_HORIZON_SECONDS = 120.0
 
@@ -128,4 +128,7 @@ data class PlaybackUiState(
 /** One cumulative run-length span over the spine: [endFraction] is the
  * span's end in [0..1] of total book chars; the span starts where the
  * previous ended (0 for the first). */
-data class CoverageSpan(val endFraction: Float, val generated: Boolean)
+data class CoverageSpan(
+    val endFraction: Float,
+    val generated: Boolean,
+)

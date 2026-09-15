@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.update
  * order, and passage-level navigation. The machine is bound to one book —
  * playing another book is a new machine over the same [PlayerStore].
  */
-class BookLayout(book: Book) {
-
+class BookLayout(
+    book: Book,
+) {
     /** The book the layout was built from. */
     val bookId: String = book.id
 
@@ -29,11 +30,16 @@ class BookLayout(book: Book) {
 
     fun passageCount(chapterIndex: Int): Int = passageCounts[chapterIndex]
 
-    fun isValid(chapterIndex: Int, passageIndex: Int): Boolean =
-        chapterIndex in passageCounts.indices && passageIndex in 0 until passageCounts[chapterIndex]
+    fun isValid(
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): Boolean = chapterIndex in passageCounts.indices && passageIndex in 0 until passageCounts[chapterIndex]
 
     /** The passage after [chapterIndex]/[passageIndex], or null past the book's end. */
-    fun next(chapterIndex: Int, passageIndex: Int): Pair<Int, Int>? {
+    fun next(
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): Pair<Int, Int>? {
         if (!isValid(chapterIndex, passageIndex)) return null
         if (passageIndex + 1 < passageCounts[chapterIndex]) return chapterIndex to (passageIndex + 1)
         var chapter = chapterIndex + 1
@@ -42,7 +48,10 @@ class BookLayout(book: Book) {
     }
 
     /** The passage before [chapterIndex]/[passageIndex], or null at the book's start. */
-    fun previous(chapterIndex: Int, passageIndex: Int): Pair<Int, Int>? {
+    fun previous(
+        chapterIndex: Int,
+        passageIndex: Int,
+    ): Pair<Int, Int>? {
         if (!isValid(chapterIndex, passageIndex)) return null
         if (passageIndex > 0) return chapterIndex to (passageIndex - 1)
         var chapter = chapterIndex - 1
@@ -72,8 +81,15 @@ class BookLayout(book: Book) {
 }
 
 /** Passage text lookup from a [Book] by spine indexes (the player's audio unit). */
-fun Book.passageText(chapterIndex: Int, passageIndex: Int): String? =
-    chapters.firstOrNull { it.index == chapterIndex }?.passages?.getOrNull(passageIndex)?.text
+fun Book.passageText(
+    chapterIndex: Int,
+    passageIndex: Int,
+): String? =
+    chapters
+        .firstOrNull { it.index == chapterIndex }
+        ?.passages
+        ?.getOrNull(passageIndex)
+        ?.text
 
 /**
  * The v1 player state machine (decisions #29/#33) — the single writer of
@@ -102,7 +118,6 @@ class PlayerStateMachine(
     private val ringCapacity: Int = 10,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
 
@@ -121,6 +136,7 @@ class PlayerStateMachine(
         val stored = storeOp { store.readProgress(bookId) } ?: return null
         val position = stored.toPosition()
         if (!layout.isValid(position.chapterIndex, position.passageIndex)) return null
+        val canUndo = ringHasEntries()
         _state.update {
             it.copy(
                 phase = PlayerPhase.LOADING,
@@ -130,6 +146,7 @@ class PlayerStateMachine(
                 // on the next write (the machine commits _state.value.speed).
                 speed = 1.0,
                 sleepTimer = SleepTimer.Off,
+                canUndo = canUndo,
                 failure = null,
             )
         }
@@ -142,16 +159,20 @@ class PlayerStateMachine(
         val stored = storeOp { store.readProgress(bookId) } ?: return null
         val position = stored.toPosition()
         if (!layout.isValid(position.chapterIndex, position.passageIndex)) return null
-        _state.update { it.copy(position = position, failure = null) }
+        val canUndo = ringHasEntries()
+        _state.update { it.copy(position = position, canUndo = canUndo, failure = null) }
         return position
     }
 
     /** Positions the machine for reading without starting playback: sets the
-     * position, no commit, no ring push, phase untouched (open-book mode). */
-    fun present(position: PlayerPosition) {
+     * position, no commit, no ring push, phase untouched (open-book mode).
+     * Seeds [PlayerState.canUndo] from the ring — the machine owns the ring,
+     * so no edge has to read [PlayerStore] to know whether undo is available. */
+    suspend fun present(position: PlayerPosition) {
         require(position.bookId == bookId) { "position for ${position.bookId}, machine bound to $bookId" }
         require(layout.isValid(position.chapterIndex, position.passageIndex)) { "position outside layout: $position" }
-        _state.update { it.copy(position = position, failure = null) }
+        val canUndo = ringHasEntries()
+        _state.update { it.copy(position = position, canUndo = canUndo, failure = null) }
     }
 
     /** The book's first playable passage — the fresh-start target when no
@@ -168,7 +189,8 @@ class PlayerStateMachine(
         require(layout.isValid(position.chapterIndex, position.passageIndex)) { "position outside layout: $position" }
         val stored = storeOp { store.readProgress(bookId) }
         val ringPush = stored?.takeUnless { it.samePointer(position) }?.toPosition()
-        _state.update { it.copy(phase = PlayerPhase.LOADING, position = position, failure = null) }
+        val canUndo = ringPush != null || ringHasEntries()
+        _state.update { it.copy(phase = PlayerPhase.LOADING, position = position, canUndo = canUndo, failure = null) }
         storeOp { store.commitProgress(position.toProgress(_state.value.speed), ringPush) }
     }
 
@@ -239,7 +261,7 @@ class PlayerStateMachine(
             // Book end: keep the resume row at the ending's start for undo.
             val ending = current.copy(offsetSeconds = 0.0)
             storeOp { store.commitProgress(ending.toProgress(_state.value.speed), ending) }
-            _state.update { it.copy(position = ending, phase = PlayerPhase.COMPLETED) }
+            _state.update { it.copy(position = ending, phase = PlayerPhase.COMPLETED, canUndo = true) }
             return listOf(PlayerEvent.PlaybackCompleted)
         }
 
@@ -265,8 +287,12 @@ class PlayerStateMachine(
      * intermediate passages collapses into it — for a single undo. */
     suspend fun skipChapter(direction: Int): List<PlayerEvent> {
         val current = _state.value.position ?: return emptyList()
-        val targetChapter = if (direction > 0) layout.nextChapter(current.chapterIndex)
-        else layout.previousChapter(current.chapterIndex)
+        val targetChapter =
+            if (direction > 0) {
+                layout.nextChapter(current.chapterIndex)
+            } else {
+                layout.previousChapter(current.chapterIndex)
+            }
         if (targetChapter == null) return emptyList()
         val position = PlayerPosition(bookId, targetChapter, 0)
         commitMove(position, ringPush = current)
@@ -288,12 +314,13 @@ class PlayerStateMachine(
         val popped = storeOp { store.popRing(bookId) } ?: return null
         require(layout.isValid(popped.chapterIndex, popped.passageIndex)) { "ring entry outside layout: $popped" }
         commitMove(popped, ringPush = null)
+        // The pop may have emptied the ring — re-read it (the machine owns it).
+        val canUndo = ringHasEntries()
+        _state.update { it.copy(canUndo = canUndo) }
         return popped
     }
 
-    private suspend fun moveBy(
-        target: (chapter: Int, passage: Int) -> Pair<Int, Int>?,
-    ): List<PlayerEvent> {
+    private suspend fun moveBy(target: (chapter: Int, passage: Int) -> Pair<Int, Int>?): List<PlayerEvent> {
         val current = _state.value.position ?: return emptyList()
         val moved = target(current.chapterIndex, current.passageIndex) ?: return emptyList()
         val position = PlayerPosition(bookId, moved.first, moved.second)
@@ -301,10 +328,27 @@ class PlayerStateMachine(
         return listOf(PlayerEvent.PassageAdvanced(position.chapterIndex, position.passageIndex))
     }
 
-    private suspend fun commitMove(position: PlayerPosition, ringPush: PlayerPosition?) {
+    private suspend fun commitMove(
+        position: PlayerPosition,
+        ringPush: PlayerPosition?,
+    ) {
         storeOp { store.commitProgress(position.toProgress(_state.value.speed), ringPush) }
-        _state.update { it.copy(position = position, phase = PlayerPhase.LOADING, failure = null) }
+        // A push makes undo available; a pop (ringPush == null via [undoSkip])
+        // is re-read by the caller. Readings stay exact without a query per move.
+        _state.update {
+            it.copy(
+                position = position,
+                phase = PlayerPhase.LOADING,
+                canUndo = ringPush != null || it.canUndo,
+                failure = null,
+            )
+        }
     }
+
+    /** True when the book's undo ring holds an entry. The machine is the ring's
+     * single writer (and the only reader that matters) — the Android edge reads
+     * [PlayerState.canUndo] instead. */
+    private suspend fun ringHasEntries(): Boolean = storeOp { store.readRing(bookId) }.orEmpty().isNotEmpty()
 
     // ------------------------------------------------------------------
     // Speed / sleep timer / bookmarks
@@ -321,6 +365,25 @@ class PlayerStateMachine(
 
     fun setSleepTimer(timer: SleepTimer) {
         _state.update { it.copy(sleepTimer = timer) }
+    }
+
+    /**
+     * The reader menu's single sleep button, cycled in place (decisions #29):
+     * Off → EndOfChapter → Duration([SLEEP_STEP_MILLIS] from now) → Off.
+     *
+     * The policy lives with the state it changes. It used to live in the
+     * Android edge ([com.moronigranja.localttsreader.featureplayer.playback.PlaybackService]),
+     * which kept the 30-minute product rule in service glue and left the
+     * machine exposing only a dumb setter.
+     */
+    fun cycleSleepTimer(nowEpochMillis: Long = clock()) {
+        val next =
+            when (_state.value.sleepTimer) {
+                SleepTimer.Off -> SleepTimer.EndOfChapter
+                SleepTimer.EndOfChapter -> SleepTimer.Duration(nowEpochMillis + SLEEP_STEP_MILLIS)
+                is SleepTimer.Duration -> SleepTimer.Off
+            }
+        _state.update { it.copy(sleepTimer = next) }
     }
 
     /**
@@ -347,14 +410,15 @@ class PlayerStateMachine(
     /** Bookmarks the machine's current position (long-press add). */
     suspend fun addBookmark(label: String? = null): Bookmark? {
         val position = _state.value.position ?: return null
-        val bookmark = Bookmark(
-            bookId = bookId,
-            chapterIndex = position.chapterIndex,
-            passageIndex = position.passageIndex,
-            offsetSeconds = position.offsetSeconds,
-            label = label,
-            createdAtEpochMillis = clock(),
-        )
+        val bookmark =
+            Bookmark(
+                bookId = bookId,
+                chapterIndex = position.chapterIndex,
+                passageIndex = position.passageIndex,
+                offsetSeconds = position.offsetSeconds,
+                label = label,
+                createdAtEpochMillis = clock(),
+            )
         return storeOp { store.addBookmark(bookmark) }
     }
 
@@ -372,8 +436,7 @@ class PlayerStateMachine(
             null
         }
 
-    private fun PlayerProgress.toPosition(): PlayerPosition =
-        PlayerPosition(bookId, chapterIndex, passageIndex, offsetSeconds)
+    private fun PlayerProgress.toPosition(): PlayerPosition = PlayerPosition(bookId, chapterIndex, passageIndex, offsetSeconds)
 
     private fun PlayerPosition.toProgress(speed: Double): PlayerProgress =
         PlayerProgress(bookId, chapterIndex, passageIndex, offsetSeconds, speed, clock())
@@ -387,5 +450,8 @@ class PlayerStateMachine(
     companion object {
         const val MIN_SPEED = 0.5
         const val MAX_SPEED = 3.0
+
+        /** Countdown length the sleep cycle arms (30 min, decisions #29). */
+        const val SLEEP_STEP_MILLIS = 30 * 60_000L
     }
 }

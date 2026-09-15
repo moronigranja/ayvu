@@ -15,9 +15,18 @@ import kotlinx.coroutines.flow.StateFlow
  * entry only after the durable delete succeeds.
  */
 interface LibraryStore {
-
     /** Observable library contents, in import order. */
     val books: StateFlow<List<LibraryEntry>>
+
+    /**
+     * Every book's cached parse, in import order — how a reader (the player,
+     * pre-generation, the storage estimator, the launch-time index rebuild)
+     * reads book CONTENT; [books] carries metadata only. Reading it never
+     * re-parses a source file (P2). It lives on the contract, not only on the
+     * Room implementation, so consumers depend on the abstraction instead of
+     * reaching for `RoomLibraryStore` (A6).
+     */
+    suspend fun cachedBooks(): List<CachedBook>
 
     /**
      * CR-3/A3: durable membership check — the duplicate gate for re-imports.
