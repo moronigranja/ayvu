@@ -26,21 +26,27 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `core-locate` | N-gram book/passage identification, launch-time index rebuild, `TextIndex.best` for below-threshold hints |
 | `core-tts` | TTSEngine + Kokoro-82M (onnxruntime behind a compileOnly seam), espeak-ng phonemization, pinned pack descriptors, Pt-BR voices verified; Piper engine (`piper-v1`, D4) with pinned per-voice packs — decisions #154 |
 | `core-player` | Player state machine, transactional progress + bookmarks + undo ring, sleep timer, speed; T5 pre-generation queue + PCM cache |
+| `core-translate` | Read-in-language seam: `TranslatingEngine` TTSEngine decorator (degrades to the original on any failure), language surface, translate pack descriptor + stager; model-agnostic (a suspend lambda) |
+| `core-backup` | Versioned v1 SAF backup archive: codec + DTOs — consumed by persistence + settings (E1) |
 | `core-ocr` | OCR engine seam, screenshot downscaler, six pinned legacy-traineddata packs (tess-two 9.1.0 can't init LSTM models — decisions #36) |
 
 **Live modules (Android, Docker toolchain):**
 
 | Module | What it does |
 |---|---|
-| `core-persistence` | Room schema v2 (books, cached passages, progress + offset/speed, settings, bookmarks, position_history); stores + launch-time rebuild; `BackupStore` snapshot/merge + book-file sidecars (E1) |
+| `core-persistence` | Room schema v3 (books, cached passages, progress + offset/speed, settings, bookmarks, position_history, activity_seconds); stores + launch-time rebuild; `BackupStore` snapshot/merge + book-file sidecars (E1) |
 | `feature-library` | SAF multi-file + folder import (F3 tree grant), external-file intake (F4: ACTION_VIEW / shared book files land on MainActivity), one import overlay with progress + stage (reading/parsing/saving/indexing) + typed failures, idempotent; library list UI |
-| `core-backup` | Versioned v1 SAF backup archive: codec + DTOs (pure JVM) — consumed by persistence + settings (E1) |
+| `core-ui` | AyvuTheme design tokens (brand light/dark roles, typography, shapes, spacing, motion) + shared stateless components (SectionHeader, PillButton, PlayerCard, BookCover, VoiceSelector — the one voice-picking surface); no business logic/ViewModels; depends on core-player + core-tts |
+| `core-llm` | The translate runtime's native leg: llama.cpp vendored into a gitignored build dir by `tools/fetch-llama-cpp.sh` + AGP `externalNativeBuild` (arm64-v8a only), and `LlamaTranslator` (JNI session, single-flight, greedy) |
 | `feature-settings` | Settings screen (root + Speech subscreen, Android-settings-style panes): engine/voice/OCR pack downloads (engine-agnostic rows), voice picker + favorites (collapsible by language, display names + upstream grades, decisions #143), match threshold, OCR languages, theme, offline pre-generation audio, playback volume, synthesis thread count, backup & restore (SAF export/import), About (version, GPL-3.0 source link, NOTICE, privacy); Android HTTP transport |
 | `feature-share` | ACTION_SEND gateway (text + image, plus F4 book-file routing to the import gateway), typed resolver (found / not-found with closest hint), OpenTarget contract |
 | `feature-ocr` | TessTwoOcrEngine (tess-two 9.1.0) + tessdata stager, Hilt wiring |
+| `feature-player` | PlaybackService (MediaSession, audio focus, foreground notification) + docked read-along ReaderScreen with sentence highlighting, pre-generation wiring |
+| `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
 
-Host JVM suite: **255 tests, 0 failed**. Android unit suites (Docker): green across
+Test sources: **785 `@Test` methods** (743 under `src/test`, 42 under `src/androidTest`),
+0 failed. Android unit suites (Docker): green across
 app + all features. Device instrumented set (S22 staging, see docs/build.md):
 PlaybackE2e (full-book completion + pre-generation fast path), VoiceSelectionE2e,
 PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProbe
@@ -48,7 +54,10 @@ PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProb
 
 ## Install
 
-Ayvu ships as a signed APK on this repository's [Releases](../../releases) page.
+**v0.1.1 is release-ready but not published.** The signed APK is prepared at HEAD, but
+the publish step — the GitHub release and its `v0.1.1` tag — has not been run, so there
+is nothing to download here yet; the details and the remaining gate live in
+[docs/roadmap.md](docs/roadmap.md) §Release readiness.
 
 1. Download the release APK (signed release build, unminified, **≈51 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
@@ -59,9 +68,10 @@ Ayvu ships as a signed APK on this repository's [Releases](../../releases) page.
    bundle and (optionally) OCR languages — explicitly, resumably and SHA-256-verified.
    After the TTS packs land the app is fully offline.
 
-**Updating:** the signing key is stable across releases, so a newer APK installs straight
-over this one — no uninstall, and your library, progress, bookmarks and settings are kept.
-There is no in-app update check; watch the Releases page. Pre-release builds under the old
+**Updating (when it ships):** the signing key is stable across releases, so a newer APK
+installs straight over the previous one — no uninstall, and your library, progress,
+bookmarks and settings are kept. There is no in-app update check; watch the Releases
+page. Pre-release builds under the old
 id `com.moronigranja.localttsreader` are a **different app** from
 `io.github.moronigranja.ayvu` — export a backup there and restore it here. Installing over
 a DEBUG build of the same id needs an uninstall first (different signing key).
@@ -97,9 +107,9 @@ fingerprint published with the release, and see
   word timestamps — decisions #30b).
   Model and language packs are on-demand downloads, never bundled (decisions #7). Portuguese is a
   first-class voice family (`pf_`/`pm_`, verified end-to-end, decisions #40); the
-  post-v1 translate-then-read decorator (`core-translate` — any advertised target language,
-  decisions #101; SMaLL-100 int8 adopted as the engine, decisions #114) is a separate
-  deferred slice (roadmap "Later").
+  translate-then-read decorator (`core-translate` — any advertised target language,
+  decisions #101; LFM2.5-1.2B on llama.cpp adopted as the engine, decisions #162) is
+  live and wired into app, feature-settings, feature-library and feature-player.
 - **OCR engine:** tess-two 9.1.0's native build is pre-LSTM, so the pinned language
   packs are legacy 3.04.00 tessdata (decisions #36) — accuracy upgrade waits on a
   maintained binding.
@@ -133,8 +143,12 @@ core-ebook/   parsers + segmentation + importer
 core-locate/  identification + index
 core-tts/     engine seam + Kokoro impl + pack descriptors
 core-player/  playback state machine + pre-generation
+core-translate/  read-in-language TTSEngine decorator + translate pack
+core-llm/     llama.cpp native leg for the translate runtime (arm64-v8a)
+core-ui/      design tokens + shared Compose components
 core-ocr/     OCR seam + downscaler + traineddata packs
 core-persistence/  Room stores (library, player, settings)
+core-backup/  versioned SAF backup archive codec + DTOs
 feature-library/   SAF + external-file import with in-library overlay, library UI
 feature-player/    playback service + reader UI
 feature-settings/  settings UI + pack downloads
@@ -143,7 +157,7 @@ feature-ocr/       tess-two adapter + stager
 app/          Hilt composition root (Library / Reader / Settings routes)
 spike-tts/    measurement harnesses (benchmark, grain spike, device spikes)
 tools/        docker-build.sh (containerized Android toolchain), gen_mobi_fixtures.py
-docs/         decisions (#1–#139), roadmap, conventions, build, module layout, ideas, brand
+docs/         decisions (#1–#163), roadmap, conventions, build, module layout, ideas, brand
 .github/      CI: JVM tests + Docker Android build + unit tests every push; tag-gated assemble
 agents.md     Entry point for AI agents working in this repo — read first
 ```
@@ -174,9 +188,9 @@ tools/docker-build.sh :app:assembleDebug :app:assembleDebugAndroidTest
 
 - [docs/hard-facts.md](docs/hard-facts.md) — domain constraints (ebook formats, sync, TTS engines, offline-first)
 - [docs/conventions.md](docs/conventions.md) — tech stack, do's and don'ts, definition of done
-- [docs/modules.md](docs/modules.md) — module layout (LIVE as of #118)
+- [docs/modules.md](docs/modules.md) — module layout (LIVE as of #163)
 - [docs/landscape.md](docs/landscape.md) — sherpa-onnx / candela boundary and validated patterns
-- [docs/decisions.md](docs/decisions.md) — the decision ledger (#1–#139)
+- [docs/decisions.md](docs/decisions.md) — the decision ledger (#1–#163)
 - [docs/roadmap.md](docs/roadmap.md) — forward sequencing; shipped work reference-only, open work active
 - [docs/build.md](docs/build.md) — build/run/test, Docker toolchain, device staging
 - [docs/features/share-and-identify.md](docs/features/share-and-identify.md) — the share-and-identify feature plan

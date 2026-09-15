@@ -27,6 +27,57 @@ is preference rather than dependency. This order, the release-state correction a
 D6 closure are recorded in decisions #145. Open defects and their acceptance criteria are
 authoritative in [open-bugs.md](open-bugs.md).
 
+Unqueued candidates surfaced by the 2026-09-15 architecture audit — each needs its own
+scoping before it enters the order ([review Appendix A](reviews/2026-09-15-architecture-review.md)):
+**thermal/battery-aware synthesis** (the peer cross-check below already records the gap
+and the measured follow-up rule: nothing reacts to thermal status, battery-saver or charge
+state, and the pregen queue runs flat out to budget), **resource envelopes** (index RSS vs
+library size, launch rebuild cost, PCM cache cap vs free space — the repo's own rule says
+performance work starts with a device measurement gate), **accessibility + UI language**
+(the reader is gesture-only with no stated TalkBack path; the UI is English while the
+content serves nine languages), and the **device-verification oracle** (instrumented
+suites are manual and the app ships no telemetry — accept that, or invest in ABIs/a device
+farm). These are product and measurement items, not source cleanup.
+
+**The `PregenKey.engine` dimension is inert (audit + device-confirmed, 2026-09-15).** No
+product site populates it — `PregenQueue`, `OfflinePregen`, `PregenSpaceEstimator` and the
+edge's `livePregenKey` all take `DEFAULT_ENGINE` — so every entry on disk is
+`kokoro/<voice>/…` whatever engine produced it (observed on the S22:
+`files/pregen/t4-e2e-book/kokoro/en_US-lessac-medium/...`, a Piper voice under the kokoro
+slug — see decisions #163 pass 4). Decision #77's cross-engine-collision protection is
+therefore nominal, and `PcmPassageCache`'s legacy branch is taken by every entry. Fixing it
+needs a decision, not a patch: which slug vocabulary (the setting is `kokoro-82m` /
+`piper-v1`, the key's default is `kokoro`), and acceptance that existing Piper entries
+become unreachable cache (re-synthesized, then reaped).
+
+**Next slice (owner, 2026-09-15): separate translation from TTS.** Two goals — translate
+*without* audio (or read the translated text), and reading a translation must not
+re-translate. What the current structure already gives it: `TranslatingEngine` is a
+decorator over `TTSEngine` (`core-translate`), the per-book target language already
+resolves in one place (`EngineSelector.translateLangInUse`), and the audio cache's
+identity dimensions (`x<lang>` / `t<translator>`) are exactly what a translation-text key
+needs — so the text cache must reuse that identity (one identity, two payloads) or text
+and audio hits will disagree. Three things follow:
+
+- **Cheap now, do it in the slice's favour:** `(translateLang, translator)` is threaded as
+  two loose nullable Strings through `PregenPlanner` / `PregenQueue` / `OfflinePregen` /
+  `PregenSpaceEstimator` / `PlaybackService.livePregenKey` / `PregenWorker`, always set
+  together (`translateLang?.let { PregenKey.LFM_TRANSLATOR }` at every site). Unifying them
+  into one `TranslationTarget` value type makes the slice's extra dimension (translator
+  *version*) one edit instead of six, and deletes the impossible "lang null, translator
+  set" state the key's `toString` currently defends against.
+- **Do not pre-build:** the translate dispatcher (today translation runs inside whatever
+  called `synthesize` — prefill/loop/worker — so llama decode occupies a TTS worker
+  thread; the priority/cancellation/pre-emption semantics against the TTS engine and
+  `PlaybackActive.engineInUse` are the slice's design), the translation-text store, and its
+  Room v4 migration (forward-only policy: additive migration + test).
+- **Sequencing:** the reader's text is synchronous-from-memory today —
+  `PlaybackService.stateCopy` builds `passageText`/`chapterPassages` from the in-memory
+  `Book`. "Read the translated text" makes that surface translation-backed (async or
+  pre-resolved), and it lands in the same file as cleanup pass 4's remaining work. Pass 4's
+  publication/text extraction should therefore precede the slice, so the slice edits a
+  collaborator instead of the 2,100-line service.
+
 ## Planning rules
 
 - Correctness work precedes features that build on the affected contract.
@@ -36,6 +87,29 @@ authoritative in [open-bugs.md](open-bugs.md).
 - A roadmap item is complete only after its observable acceptance scenario is run.
 - No date or total-duration forecast is maintained while the stabilization scope is
   still changing.
+
+## Source cleanup (in flight)
+
+A repo-wide architecture audit (2026-09-15) queued a source-cleanup pass that runs
+beside the feature queue and changes no product behavior except where noted
+([findings and open questions](reviews/2026-09-15-architecture-review.md)).
+Decisions #163 logs what landed; this table is the sequencing.
+
+| Pass | Scope | State |
+|---|---|---|
+| 1 — verification harness | `checkFeatureBoundaries` fixed (it read `dependencyConstraints` and could NEVER fire) + wired into CI; `:core-translate`/`:core-backup`/`:core-ui` unit tests added to the CI lanes; the 2,937-entry ktlint baseline deleted (one bulk format over 196 files, 60 hand fixes, a root `.editorconfig`, and `ktlintFormat` kept as the formatter twin) | **done** (#163) |
+| 2 — contract boundaries | `LibraryStore.cachedBooks()` on the contract (kills five concrete `RoomLibraryStore` injections); `ActivityStore` port for both halves of Phase H (service write side, library read side); `PlayerState.canUndo` owned by the state machine (edge mirror deleted, regression-tested) | **done** (#163) |
+| 3 — playback edge concurrency | **landed**: `addBookmarkAtPlayhead` serialized on the player thread inside `commandLock` (offset read at dispatch; still not a command, so the next command cannot cancel it) — it had no test at all before; the CR-2 `finalStopJob` stays uncancellable but serialized on the player thread, targets the session's own machine, and its teardown clear is generation-guarded (a superseded STOP no longer blanks a loading session); the sleep-timer cycle moved into `PlayerStateMachine` with its 30-minute constant. All four behaviours mutation-verified: reverting them fails exactly the four new tests | **done** (#163) |
+| 4 — `PlaybackService` decomposition | **mechanical half landed** (#163): one `bindBook` for the four machine-rebuild sites, one spine walk (`BookLayout.next` — the pre-arm's private copy deleted), one cache key (`livePregenKey`, pinned to the canonical `PregenPlanner.key`; the pre-arm used to drop the read-in-language dimensions and peek the original's audio). The remaining collaborator extraction (MediaSession / notification / audio-focus / coverage / probes) is still **gated on D5 + G1** — both land inside the same file — but the translate/TTS slice below argues for pulling the publication/text part forward | **open** (gated) |
+| 5a — verification floor | coverage tooling with per-module floors at today's numbers (never a target %), chosen against the test-runtime ceiling (Kover slows every Android test; `spike-tts` would build its own APK); tests for the test-free modules (`core-llm`'s `userMessage` — its own docstring claims a JVM test that does not exist — `core-model`'s store contract, `feature-ocr`'s typed failures); a dead-code/unused-symbol inventory; an invariant → enforcing-test map in `architecture.md` §6 | **open** |
+| 5b — doc reconciliation | README/agents/modules/architecture vs the code (stale "255 tests" vs 755, reversed engine primacy, duplicated `core-ocr` entry, Room v2 vs v3, the 38 of 60 undocumented build edges, and **README:51/64's false "ships as a signed APK on the Releases page" — no `v0.1.1` tag exists**); owner-approved disk hygiene (relocate the 29 GB `m/` scratch tree out of the working copy, add `.kotlin/` to `.gitignore`, move `core-tts/g0_corpus.tsv` under `src/main/resources`) | **open** |
+| 6 — build convention | `build-logic` convention plugins: `compileSdk` re-typed ×10, `minSdk` ×9, Java 17 ×18, JUnit boilerplate ×17, and `spike-tts` has already diverged (minSdk 27) | **open** (only if the churn justifies it) |
+| 7 — pre-release gate | belongs to the publish decision, not to cleanup: a **security pass over the five untrusted-input entry points** (zip/decompression bombs in EPUB and the backup archive, path traversal on restore, whether the pack registry's SHA-256 pin is enforced at install or advisory, JNI model-file paths); **licence/NOTICE completeness once bytes are distributed** (GPL-3 source offer, KindleUnpack-derived parser attribution, the CC-BY-NC voice gate); and **exercising the old-id → `io.github.moronigranja.ayvu` migration for real**. None of it is triggered until distribution — which is why it is cheap now and expensive after | **open** |
+
+Two audit findings are deliberately NOT queued: `spike-tts` stays (load-bearing —
+the ledger cites its measurements throughout — and it ships in nothing), and the
+gitignored `docs/prints/` + `m/` scratch data on disk stays out of the repo's
+concerns. Owner-approved disk hygiene is in pass 5b.
 
 ## Shipped — reference only
 

@@ -7,13 +7,22 @@ the change.
 
 ## 1. Guiding shape
 
-- **Pure core, thin edges.** All business logic lives in `core-*` modules with no
-  Android dependency — pure JVM, unit-testable in this environment. Android appears
-  only as thin adapters: activities/receivers (feature-*), Room (core-persistence),
-  SAF plumbing, Compose UI, Hilt wiring (app).
+- **Pure core, thin edges.** All business logic lives in `core-*` modules, unit-testable
+  without a device. Most are pure JVM (no Android dependency at all: `core-model`,
+  `core-ebook`, `core-locate`, `core-tts`, `core-translate`, `core-player`, `core-ocr`,
+  `core-backup`); three are `android.library` because their responsibility *is* the
+  platform edge — `core-persistence` (Room), `core-ui` (Compose), and `core-llm` (a
+  vendored llama.cpp native build). Android otherwise appears only as thin adapters:
+  activities/receivers (feature-*), SAF plumbing, Compose UI, Hilt wiring (app).
 - **One canonical domain model.** `core-model` (Book, Chapter, TextPassage,
   LibraryEntry) is the single vocabulary; no module defines its own duplicate types.
-- **Every public behavior has a test** (conventions.md §Definition of done).
+- **Behaviour coverage.** Host-testable behaviour is covered by a test that fails
+  without the change (conventions.md §Definition of done). Neither half is absolute:
+  `core-model`'s store contract and `core-llm`'s prompt shape got their first tests in
+  the 2026-09-15 cleanup (decisions #163), while `feature-ocr` (tess-two native init) and
+  `spike-tts` (device benchmarks) have no host-testable surface, and there is no coverage
+  *metric* yet — the cleanup's verification-floor pass adds per-module floors at today's
+  numbers rather than a target percentage.
 
 ## 2. Modules & dependency graph
 
@@ -26,8 +35,10 @@ core-ocr        (live) tess-two behind OcrEngine/TessTwoOcrEngine + stager; six 
 core-tts        (live) TTSEngine interface + pack registry; model/language-pack download, verify + caching
 core-player     (live) v1 player state machine: transport, transactional writes, ring, sleep timer, bookmarks; PlayerStore contract; A5 single-writer command model (generations); PregenQueue + PregenPlanner + PregenKey, PcmPassageCache (A4 LRU), PregenStorage façade
 core-persistence (live) Room v3: books, cached passages, progress (offset+speed), settings, bookmarks, position_history, activity_seconds (#157); LibraryStore + PlayerStore impls; ImportCoordinator/IndexLock boundary (A3); BackupStore snapshot/merge + BookFileStore sidecars (E1, #111)
-core-ui         (live) AyvuTheme design tokens (B1, #68): brand light/dark color roles, typography, shapes, spacing, motion, elevation; shared components (PlayerCard, BookCover, PillButton, ConfirmDialog, EmptyState, LoadingState, SectionHeader, LabeledProgress, CoverageProgress, formatPercent); no business logic/ViewModels; depends on core-player only
+core-ui         (live) AyvuTheme design tokens (B1, #68): brand light/dark color roles, typography, shapes, spacing, motion, elevation; shared components (PlayerCard, BookCover, PillButton, ConfirmDialog, EmptyState, LoadingState, SectionHeader, LabeledProgress, CoverageProgress, formatPercent); no business logic/ViewModels; depends on core-player + core-tts
 core-backup     (live) versioned v1 backup archive codec + DTOs — BackupSnapshot/BackupCodec (E1 phase 1, #89); consumed by core-persistence (BackupStore) + feature-settings (SAF edge) — E1 complete (#111)
+core-translate  (live) read-in-language seam (#114/#160/#162): TranslatingEngine TTSEngine decorator (degrades to the original audio on any failure), language surface, translate pack descriptor + TranslatePackStager; model-agnostic by construction (a suspend translate lambda); consumed by feature-player/feature-library/feature-settings/app
+core-llm        (live, android.library + vendored native) the translate runtime's native leg (#162): llama.cpp pinned by tools/fetch-llama-cpp.sh into the gitignored build/llama.cpp-src, AGP externalNativeBuild (arm64-v8a only), LlamaTranslator (JNI session, single-flight, greedy); consumed by feature-player
 feature-library (live) SAF import + library list UI (Compose, Hilt) — C5/C6, F2 search (#90), F3 folder import via SAF tree (root + one level, 200-file cap, #108); row pre-gen action + usage/estimate/delete
 feature-player (live, T4-2) PlaybackService (MediaSession, focus, foreground) + docked read-along ReaderScreen; PregenWorker/PregenManager single-mode manual pre-gen
 feature-ocr     (live) TessTwoOcrEngine (tess-two 9.1.0) + TessDataStager + Hilt; legacy-traineddata packs (#36)
@@ -36,7 +47,10 @@ feature-share   (live) ACTION_SEND gateway (text+image), typed resolver, found/n
 app             (live) Hilt composition root (app.di owns shared infrastructure, A6): PersistenceModule, import-core providers, OcrModule, BackupModule (BookFileStore + BackupStore, E1); first-run SetupScreen (C1, voice-step dropdown #112; engine-aware required packs + engine radio #159); MainActivity → LibraryScreen; checkFeatureBoundaries rejects feature-* → feature-* edges
 ```
 
-Current dependency edges:
+Current dependency edges (representative, not exhaustive — `X ← Y` means Y depends on X.
+The authoritative graph is the `project(":…")` entries in each module's
+`build.gradle.kts`; the feature-boundary rule is enforced by
+`./gradlew checkFeatureBoundaries`):
 
 ```
 core-model  ←  core-ebook  (parsers return Book)
@@ -44,7 +58,7 @@ core-model  ←  core-locate (TextIndex consumes Book)
 core-model  ←  core-persistence  (persists LibraryEntry; LibraryStore contract)
 core-locate ←  core-ebook  (BookImporter indexes into TextIndex — the import contract)
 core-persistence ←  feature-library  (Hilt provides the Room-backed LibraryStore)
-core-persistence ←  core-player  (RoomPlayerStore implements PlayerStore)
+core-player  ←  core-persistence  (RoomPlayerStore implements PlayerStore)
 core-player  ←  feature-library  (Hilt provides the PlayerStore binding)
 core-player  ←  core-ui     (tokens/components render player state; no business logic)
 core-player/tts/persistence ← feature-player (PlaybackService + ReaderScreen drive the machine+engine)
@@ -60,8 +74,10 @@ core-locate  ←  feature-settings  (post-restore index resync, E1 #111)
 
 Rules:
 - `core-*` modules contain no `android.*` imports, no framework — stdlib/JDK only.
-  Exception: `core-ui` is the shared Compose surface (tokens + stateless components);
-  it still owns no business logic, stores or ViewModels.
+  Three exceptions, each because its responsibility is the platform edge itself:
+  `core-ui` (the shared Compose surface — tokens + stateless components, still no
+  business logic, stores or ViewModels), `core-persistence` (Room), and `core-llm`
+  (a vendored llama.cpp native build).
 - Dependencies point toward `core-model`; nothing depends on `app`/`feature-*`.
 - `feature-*` never depend on each other; `app` wires them.
 - A component lives in the module of its primary responsibility. Orchestration that
@@ -102,7 +118,7 @@ shared snippet → normalize → word n-grams → recall vs every indexed passag
   cached parses by `IndexRebuilder` — never re-parses a source file; mirror-set
   semantics (ids absent from the cache are purged), idempotent under concurrent
   imports (P2).
-- OCR (live, core-ocr): tess-two behind `OCRService`, languages downloadable
+- OCR (live, core-ocr): tess-two behind `OcrEngine` (`TessTwoOcrEngine`), languages downloadable
   (`eng+spa+fra+deu+por+ita` start), screenshot downscale; feeds the same snippet path
   (S1 shipped, #36).
 

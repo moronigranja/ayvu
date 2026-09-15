@@ -54,7 +54,10 @@
 - Behavior covered by a test that fails without the change.
 - No silent fallbacks that mask failure (missing language, corrupt file → clear state).
 - No new blocking permissions or dependencies without noting the tradeoff.
-- `./gradlew ktlintCheck` and `./gradlew testDebugUnitTest` green — **ktlintCheck
-  needs a lint plugin (none configured; future slice); `testDebugUnitTest` exists
-  for `app` since F1 (2026-08-24), JVM core modules run `test`.**
+- `./gradlew ktlintCheck` and the module unit suites green. `ktlintCheck` runs the
+  pinned ktlint CLI (1.7.2) over every module's sources with **no baseline** — any
+  violation fails; `./gradlew ktlintFormat` is the formatter twin (2026-09-15
+  cleanup). Pure-JVM core modules run `test`, Android modules run
+  `testDebugUnitTest`. `./gradlew checkFeatureBoundaries` fails on any
+  `feature-* → feature-*` edge. CI runs all three (`.github/workflows/ci.yml`).
 - The relevant doc(s) updated if a convention or fact changed.

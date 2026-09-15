@@ -4,6 +4,156 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 163. Repo cleanup passes 1–4 — architecture guard, CI lanes, lint baseline, contract boundaries, playback-edge concurrency, service dedupe (2026-09-15)
+
+Three verification defects and three contract leaks surfaced by a repo-wide audit,
+fixed before any product feature work resumes. **The only app-visible behavior change
+is pass 2's `canUndo` repair** (noted there); everything else is build, test,
+wiring, and state-ownership work.
+
+- **`checkFeatureBoundaries` could never fail.** It read
+  `configuration.dependencyConstraints` (which only ever holds `constraints {}`
+  entries — this build declares none) and then compared `dep.name` against a set of
+  `project.path` values, two independent dead ends for a normal
+  `implementation(project(":feature-…"))` edge. It now scans every configuration's
+  declared dependencies and matches `ProjectDependency.path`, and it is wired into
+  CI (`ci.yml`, jvm-tests lane) — it previously ran **nowhere**. Proven both ways:
+  green on the tree; a deliberately injected `:feature-player → :feature-library`
+  edge fails with `Feature-to-feature dependencies must not exist (CR-6/A6)`.
+- **CI skipped tests that exist.** `jvm-tests` omitted `:core-translate:test` (16
+  tests) and `:core-backup:test` (8); the Android lane omitted
+  `:core-ui:testDebugUnitTest` (19). Run `test` on the JVM lane, `testDebugUnitTest`
+  on the Android lane. All three added and verified green before wiring.
+- **The ktlint baseline is deleted** (`.ktlint-baseline.xml`, 2,937 suppressed
+  violations — all cosmetic: `function-signature` 903,
+  `multiline-expression-wrapping` 613, `argument-list-wrapping` 322, … — across 207
+  files). One `ktlintFormat` run cleared the mechanical debt across 196 Kotlin
+  files; the 60 non-mechanical survivors were fixed by hand and the fixes are the
+  durable part of this entry: a root `.editorconfig` tells the standard
+  function-naming rule that Compose composables are PascalCase (51 findings), a
+  file-scoped section exempts the JNA interface in `EspeakPhonemizer.kt` whose
+  method names **are** the C ABI, five file-header KDocs became `//` blocks (a KDoc
+  may not be preceded by a KDoc), and `OpfBookReader`'s `singleQuote`/`doubleQuote`
+  consts became SCREAMING_SNAKE. `ktlintCheck` now runs with no baseline: a
+  violation fails. `ktlintFormat` is kept as the formatter twin so a baseline never
+  needs to come back.
+
+**Pass 2 — contract boundaries (same date).** Three abstractions were too thin to
+be used, so consumers reached past them by injecting the implementation. Each was a
+DIP/ISP piercing, not a taste call:
+
+- **`LibraryStore.cachedBooks()`.** The contract carried metadata only
+  (`books`/`contains`/`add`/`delete`), so every reader injected the CONCRETE
+  `RoomLibraryStore` to reach `cachedBooks()`: `PlaybackService`, `PregenWorker`,
+  `PregenStorage`, `BackupViewModel`, and the app's own index rebuild — five
+  persistence implementations inside feature code. The method is on the contract
+  now (the flattening lives ONCE, as `Book.toCachedBook()` in core-model),
+  `RoomLibraryStore` overrides it and `InMemoryLibraryStore` implements it, and DI
+  binds **only** the interface (`provideLibraryStore` returns `LibraryStore`; the
+  separate concrete provider is gone, so the concrete type cannot be injected
+  again).
+- **`ActivityStore` (core-player).** Both halves of Phase H reached into Room from
+  feature modules: `PlaybackService` wrote `ActivitySecondsDao.accumulate`, and
+  `LibraryViewModel` read `.observeSince`/`.observeActiveDays` and mapped rows to
+  `ActivityRow` itself. The port owns both directions now; `RoomActivityStore`
+  (core-persistence) is the adapter and does the row mapping, the app binds it, and
+  the service's `activitySink` seam (plus its teardown test) goes through the port.
+- **Undo availability is machine state.** The edge kept a `ringHasEntries` mirror
+  refreshed only in navigate/seek/undo — so opening a book that already carried
+  undo history published `canUndo = false` until the first skip (a disabled undo
+  button over an available undo). `PlayerState.canUndo` is now owned and exact at
+  the ring's owner: `present`/`resume`/`openPosition`/`playFrom` seed it from the
+  ring, pushes set it, `undoSkip` re-reads after the pop, and `onPassageFinished`'s
+  completion push sets it. The edge reads `state.canUndo` and no longer touches
+  `PlayerStore`. Making `present` suspend was the enabling change — all four call
+  sites already ran inside command coroutines. Regression coverage:
+  `PlayerStateMachineTest`'s `canUndo tracks the ring across open, user move and
+  undo` + the book-completion case, and `PlaybackServicePublishGuardTest`'s
+  `opening a book with existing undo history publishes canUndo`, which was verified
+  to FAIL when the published flag is reverted to the old mirror behaviour.
+
+**Pass 3 — playback-edge concurrency (same date).** The audit's highest-severity code
+finding: two machine writes ran outside the serializations the machine's own contract
+assumes (the loop and ticker share the dedicated player thread; transport commands hold
+`commandLock`; the machine documents "the edge serializes calls").
+
+- **The bookmark write** ([PlaybackService.addBookmarkAtPlayhead]) was a bare
+  `scope.launch` on `Dispatchers.Default` — concurrent with the loop, invisible to
+  `commandLock`, able to publish over a newer command. It now runs on the player thread
+  INSIDE `commandLock`, with the playhead read at dispatch (the write can queue behind a
+  command, and a bookmark must record the playhead the user pointed at). It is
+  deliberately NOT a `launchCommand` command: claiming ownership would let the next
+  command's `stopEverything` cancel the write.
+- **The CR-2 final STOP write** stays uncancellable (owner call 2026-09-15) but is now
+  serialized on the player thread, targets the machine the session ENDED with (a later
+  command rebuilds `machine`, and writing through the field committed this session's
+  offset to the next book's row), and its deferred `PlaybackStateHolder.reset()` is
+  generation-guarded — a superseded STOP must not blank a session that is already
+  loading (the CR-5 unpublish class).
+- **The sleep cycle moved into the machine** (`PlayerStateMachine.cycleSleepTimer` +
+  `SLEEP_STEP_MILLIS`): Off → EndOfChapter → 30 min → Off was a product rule living in
+  Android glue, which left the machine exposing only a dumb setter.
+
+**Coverage that fails without the fixes** (verified by reverting each behaviour and
+watching exactly that test fail — four mutations, four failures, nothing else):
+`PlaybackServiceBookmarkTest` is new (the bookmark path had no test at all) and pins the
+player-thread serialization plus the no-teardown contract; `PlaybackServiceCr2Test` gains
+the player-thread assertion, the superseded-stop guard, and the rebuilt-machine target
+check — an occupied player thread (a counting-down latch) makes that ordering
+deterministic instead of a scheduling race; `PlayerStateMachineTest` pins the cycle and
+its 30-minute arming.
+
+**Pass 4 — the mechanical half of the `PlaybackService` decomposition (same date).** The
+three dedupes, plus two defects they exposed. No state model, no cache-format change.
+
+- **One book bind.** `machine = PlayerStateMachine(store, BookLayout(book))` + the
+  same-passage audio reset + the queue rebuild stood at **four** call sites (openBook,
+  openChapter, openPosition, startPlayback — the audit said five; measured four). Now one
+  `bindBook(loaded, layout)`.
+- **One spine walk.** The pre-arm's private `nextPosition` re-implemented `BookLayout.next`
+  — the geometry the machine already owns, empty-chapter skipping included. The service
+  keeps the machine's layout and calls it.
+- **One cache key.** The loop built its own `PregenKey`; the pre-arm built a *second* one
+  with only 5 of the 8 fields, dropping the read-in-language pair — so in a translated
+  session the pre-arm peeked the **original** language's audio. Both now call
+  `livePregenKey(...)`, pinned against the canonical `PregenPlanner.key` by
+  `PlaybackServicePregenKeyTest`: the edge invents no key of its own.
+- **The in-memory `LibraryStore` double disagreed with the contract** (surfaced by the new
+  contract suite): `add` kept the FIRST entry on a same-id add where the interface says
+  "replaces" and `RoomLibraryStore` upserts, and it emitted insertion order where Room
+  emits `importedAtEpochMillis` order. Aligned, and the contract suite now asserts both —
+  the divergence was documented in the suite as "left unasserted on purpose", which is how
+  a trap becomes permanent.
+
+**Finding — device-confirmed, deliberately NOT fixed (it is a design decision):** the
+`PregenKey.engine` dimension is never populated by any product site (`PregenQueue`,
+`OfflinePregen`, `PregenSpaceEstimator` and `livePregenKey` all take its default), so
+every entry the app writes is `kokoro/<voice>/…` whatever engine produced it. Device
+evidence (S22, 2026-09-15): `files/pregen/t4-e2e-book/kokoro/en_US-lessac-medium/1/…` — a
+**Piper** voice's audio under the `kokoro` slug. Decision #77's "cross-engine collision
+prevented" is therefore nominal today, and `PcmPassageCache`'s legacy branch
+(`key.engine == DEFAULT_ENGINE`) is taken by every entry. Fixing it means choosing the
+slug vocabulary (the setting is `kokoro-82m`/`piper-v1`; the key default is `kokoro`) and
+accepting that existing Piper entries become unreachable cache — queued, not guessed.
+
+**Device verification (S22 Ultra, wireless adb, debug APK installed over the existing one
+with data and packs intact):** `OpenChapterE2eTest` + `PlayPositionE2eTest` green (78 s);
+`PlaybackE2eTest` (full-book completion, read-along anchors, pregen fast path) +
+`PregenE2eTest` green (190 s). The first `PlaybackE2eTest` run FAILED, and the cause was a
+**test defect, not this pass**: the class asserts Kokoro's sentence anchors but never
+pinned the engine, so a device left on Piper (`segments = null` by design, #30b) failed it
+for a reason unrelated to the code under test. Both classes now pin engine + voice in
+`setUp` (the `EsVoiceE2eTest` idiom) and the rerun is green. Owner note: those classes
+write through the shared settings table, so a device run leaves the app on
+`kokoro-82m`/`af_heart`.
+
+Audit findings **not** yet acted on: the god-class decomposition proper (pass 4's
+collaborator extraction, still gated on the roadmap's D5 + G1), `feature-ocr`/`spike-tts`
+(no host-testable surface), no coverage tooling, and the doc drift
+(README/agents/modules/architecture). The full findings, the method's limits, and the
+questions the audit did not settle live in
+[docs/reviews/2026-09-15-architecture-review.md](reviews/2026-09-15-architecture-review.md).
+
 ## 162. Read-in-language translator swapped to LFM2.5-1.2B on llama.cpp; SMaLL-100 deleted (2026-09-15)
 
 Cuts #161's locked runtime into the product (owner decision this session):

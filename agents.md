@@ -7,8 +7,12 @@ reading the code and updating the doc (not by contradicting it silently).
 ## What this is
 
 A **greenfield Android app** that reads the user's book library aloud using **on-device
-text-to-speech** from an **open-weight model** (primary target: Fun-CosyVoice3-0.5B, fallback: Kokoro-82M). Everything
-runs offline. No cloud, no account, no telemetry.
+text-to-speech** from an **open-weight model**: **Kokoro-82M is the v1 primary engine and
+Piper (`piper-v1`) is a second primary** — both `EngineTier.PRIMARY`, registered with
+pinned packs and selectable for playback (`core-tts/.../DefaultEngines.kt`).
+Fun-CosyVoice3-0.5B is metadata-only and gated behind the fallback tier (CPU RTF 14.7–17.5
+on the S22 Ultra, decisions #21); there is no auto-fallback — the playback seam chooses an
+engine explicitly. Everything runs offline. No cloud, no account, no telemetry.
 
 Three capabilities, one pipeline:
 
@@ -37,5 +41,9 @@ Three capabilities, one pipeline:
 - [docs/features/](docs/features/) — feature plans (share-and-identify; player/TTS/settings pending).
 - [docs/brand.md](docs/brand.md) — brand identity: name (Ayvu), tagline, icon timeline, poem plan.
 - [docs/decisions.md](docs/decisions.md) — decision log (why things are the way they are).
+- [docs/roadmap.md](docs/roadmap.md) — forward sequencing, queue order, and the
+  authoritative release state (§Release readiness).
+- [docs/open-bugs.md](docs/open-bugs.md) — the authoritative open-defect list.
+- [docs/reviews/](docs/reviews/) — dated review passes (architecture, peer cross-checks).
 - [docs/features/share-and-identify.md](docs/features/share-and-identify.md) — the
   share-and-identify (resume-from-share) feature plan and status.
