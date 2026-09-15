@@ -408,8 +408,10 @@ the title; boundary-pause family). From the 2026-09-15 continuation of the pass:
 [break] five per cent", `99.5` → "ninety-nine [break] five" — while `3.14159` and
 `12.50` in the same corpus say "point" correctly, so the fix is the separator's
 punctuation role, not the word), and `roman-numeral-regnal-not-ordinal` (regnal
-numerals read ordinally — "Isabel segunda", not "Isabel dois"; pt confirmed, it
-already ordinalizes, the es call is open) — plus a **scope extension** to the
+numerals read ordinally — "Isabel segunda", not "Isabel dois"; **boundary settled
+2026-09-15: ordinals from I to X, cardinals from XI onward, identical for pt and
+es**; it ordinalizes throughout per its own convention and needs no rule) — plus a
+**scope extension** to the
 existing `measurement-unit-not-expanded`: espeak-es/fr also spell single-letter
 metric symbols and imperial abbreviations as letters (`8 m` → "ocho eme"), so the
 G1 dictionary needs all six Latin-script languages, not en/it/pt.

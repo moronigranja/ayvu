@@ -338,24 +338,35 @@ Template:
   observava." → "Isabel **dois**" (`ˌizabˈɛʊ dˈoɪs`), "Pio **doze**" (`pˈiʊ dˈozy`).
   Expected: the ordinal — "Isabel **segunda**", i.e. the numeral on a person's name is a
   regnal number, not a count.
-- Scope: **pt confirmed** (0233 "D. Pedro II", 0235). `it` needs **no** rule — espeak-it
-  already ordinalizes ("Pio **dodicesimo**", "Elisabetta **seconda**"). `es` shows the same
-  cardinal behaviour (0110–0112: "Isabel **dos**", "Felipe **vi**") and needs its own owner
-  call. `fr` is subsumed by the confirmed `roman-numeral-read-with-label`.
-- Open sub-question (owner call): **which magnitudes take the ordinal.** pt usage is
-  II → "segunda/segundo" ✓ but XIV → "Luís catorze" (cardinal) is the common reading, so
-  the rule needs a boundary — a per-language ordinal table plus a threshold, not a blanket
-  ordinalizer. Suggested default to confirm: ordinal up to X in a regnal context, cardinal
-  above.
+- Scope: **es and pt, one rule** (owner, 2026-09-15): identical behaviour in both.
+  `it` needs **no** rule — espeak-it ordinalizes throughout and that is grammatical
+  Italian ("Pio **dodicesimo**", "Elisabetta **seconda**", "Luigi XIV" →
+  *quattordicesimo*), which is its own convention, not a defect. `fr` is subsumed by the
+  confirmed `roman-numeral-read-with-label`.
+- **Settled (owner, 2026-09-15): ordinals from I to X, cardinals from XI onward — the
+  same for Portuguese and Spanish.** So the corpus defect is narrower than the class name
+  suggests: today's renderings are wrong only where the numeral is I–X (0233 "D. Pedro
+  **dois**" → *segundo*, 0235 "Isabel **dois**" → *segunda*, es 0112 "Isabel **dos**" →
+  *segunda*, es 0110 "Felipe VI"), while XI+ already reads as the cardinal the rule wants
+  ("Pio **doze**", "Luís **catorze**").
 - G1 rule: **context-sensitive — the first finding that is not a literal dictionary.**
-  `(<Capitalized name>)\s+(II|III|IV|…)` → the ordinal from a per-language table, with a
-  negative guard for structural contexts (`chapter`/`part`/`section`/`appendix`/`table`/
-  `figure`/`book`/`volume`/`act`/`scene`) so "Chapter IV" stays "capítulo quatro". Bounded
-  pattern, still testable — but it is the case the doc's "an unbounded rule can silently
-  rewrite a whole book" warning is about, so it lands with its negative tests.
-- Frequency: pt 0233/0235 (2/377) plus the analogous es rows under their own call.
+  `(<Capitalized name>)\s+(I|II|…|X)\b` → the ORDINAL from a per-language table; XI and
+  above are left alone (they already read as cardinals). With a negative guard for
+  structural contexts (`chapter`/`part`/`section`/`appendix`/`table`/`figure`/`book`/
+  `volume`/`act`/`scene`) so "Chapter IV" stays "capítulo quatro". Two implementation
+  details the rule must carry, neither expressible as a bare literal replacement:
+  (a) a **roman→value** table, since the threshold needs the numeral's value; (b)
+  **grammatical gender** — the owner's example is feminine ("Isabel segunda") while a
+  king takes the masculine ("Pedro segundo"), so the table needs both forms and the rule
+  needs the name's gender (a small regnal-name lexicon, or masculine as the default when
+  unknown). Bounded pattern, still testable — but it is the case the doc's "an unbounded
+  rule can silently rewrite a whole book" warning is about, so it lands with its negative
+  tests.
+- Frequency: 4/377 rows carry an I–X regnal numeral and read it wrongly (pt 0233/0235,
+  es 0110/0112). es 0111 and it 0192–0194 read correctly and need no rule.
 - Status: **owner-confirmed (2026-09-15)** — "some roman numerals should read as ordinal:
-  'Isabel segunda', not 'Isabel dois'."
+  'Isabel segunda', not 'Isabel dois'", with the boundary settled the same day:
+  **"ordinals from I to X, cardinals from XI onward" — identical for pt and es.**
 
 ### hyphen-read-as-dash (numeric range/score hyphen spoken as "dash")
 - Category: `number`, `page-furniture`
