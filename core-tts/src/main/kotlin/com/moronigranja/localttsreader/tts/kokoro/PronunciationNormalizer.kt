@@ -61,11 +61,70 @@ object PronunciationNormalizer {
         expansion: String,
     ): Rule = Regex("(?<=\\d)[ \\u00A0]?${Regex.escape(symbol)}(?![\\p{L}\\p{N}])") to { expansion }
 
-    /** A pattern whose replacement needs the matched groups (digit separators). */
+    /** A pattern whose replacement needs the matched groups (separators, decades, signs). */
     private fun transform(
         pattern: String,
         replacement: (MatchResult) -> String,
     ): Rule = Regex(pattern) to replacement
+
+    /** Language-independent rules (script furniture, not words). */
+    private val common: List<Rule> =
+        listOf(
+            // Footnote reference markers are page furniture, not text: strip the
+            // superscript digits and the bracketed form (G0
+            // `footnote-reference-marker-read-aloud`, confirmed across all six
+            // Latin-script languages). The dagger/cross forms are already silent
+            // upstream and need no rule.
+            transform("[¹²³⁴⁵⁶⁷⁸⁹⁰]+") { "" },
+            transform("\\[\\d{1,3}]") { "" },
+        )
+
+    /** Century words for the decade rules; an unmapped century is left alone. */
+    private val centuryWords =
+        mapOf(
+            "17" to "seventeen",
+            "18" to "eighteen",
+            "19" to "nineteen",
+            "20" to "twenty",
+            "21" to "twenty-one",
+        )
+
+    /** Tens words used by "1910s" → "nineteen-tens" and "'90s" → "nineties". */
+    private val tensWords =
+        listOf("tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties")
+
+    private fun tensWord(digit: String): String? = digit.toIntOrNull()?.takeIf { it in 1..9 }?.let { tensWords[it - 1] }
+
+    /**
+     * The decade rules (G0 `decade-trailing-s-read-literally`): "1800s" is the
+     * eighteen hundreds, "1910s" the nineteen-tens, "the '90s" the nineties.
+     * Unmapped centuries return the original text untouched rather than a guess.
+     */
+    private fun englishDecades(): List<Rule> =
+        listOf(
+            transform("\\b(\\d{2})00s\\b") { m ->
+                centuryWords[m.groupValues[1]]?.let { "$it hundreds" } ?: m.value
+            },
+            transform("\\b(\\d{2})(\\d)0s\\b") { m ->
+                val century = centuryWords[m.groupValues[1]]
+                val tens = tensWord(m.groupValues[2])
+                if (century != null && tens != null) "$century-$tens" else m.value
+            },
+            transform("'(\\d{2})s\\b") { m ->
+                // "'90s" → "nineties": the TENS digit is the first of the pair,
+                // and the apostrophe goes with it.
+                tensWord(m.groupValues[1].take(1)) ?: m.value
+            },
+        )
+
+    /**
+     * The minus sign (G0 `negative-sign-english-injection`): espeak-ng injects an
+     * ENGLISH "minus" into es/fr and drops the sign entirely in pt. The sign is
+     * only a negative when it is not a range hyphen (a preceding figure) and
+     * introduces a figure; the following space is consumed so the spoken word and
+     * the number stay separate tokens.
+     */
+    private fun minus(spoken: String): Rule = transform("(?<![\\d\\p{L}])\\s?[-−]\\s?(?=\\d)") { "$spoken " }
 
     /**
      * The token is only an honorific when it does not sit inside a name: an
@@ -146,8 +205,16 @@ object PronunciationNormalizer {
                 unit("W", " watts"),
                 unit("L", " liters"),
                 unit("m", " meters"),
+                // A hyphen between figures is a range or a score, not punctuation:
+                // espeak says "dash" (G0 `hyphen-read-as-dash` — "2-1" → "two dash
+                // one", "lines 8-19" → "eight dash nineteen"). "to" is the owner's
+                // call for English.
+                transform("(?<=\\d)\\s?-\\s?(?=\\d)") { " to " },
+                // Decades (G0 `decade-trailing-s-read-literally`).
+                *englishDecades().toTypedArray(),
                 // Deliberately NOT expanded: U.S./U.K./a.m./p.m./ET/GMT are
                 // initialisms — espeak reads them as letters, which is correct.
+                // (The minus sign needs no rule in en: espeak already says "minus".)
             )
 
     private val es: List<Rule> =
@@ -187,6 +254,7 @@ object PronunciationNormalizer {
                 unit("L", " litros"),
                 unit("l", " litros"),
                 unit("m", " metros"),
+                minus("menos"),
             )
 
     private val fr: List<Rule> =
@@ -212,6 +280,7 @@ object PronunciationNormalizer {
                 unit("l", " litres"),
                 unit("°C", " degrés Celsius"),
                 unit("°F", " degrés Fahrenheit"),
+                minus("moins"),
             )
 
     private val it: List<Rule> =
@@ -279,6 +348,7 @@ object PronunciationNormalizer {
                 unit("L", " litros"),
                 unit("l", " litros"),
                 unit("m", " metros"),
+                minus("menos"),
             )
 
     /** Rule sets by base language tag (`en-us`/`en-gb` → `en`, `pt-br` → `pt`). */
@@ -297,6 +367,7 @@ object PronunciationNormalizer {
         language: String,
     ): String {
         var out = text
+        for ((re, rep) in common) out = re.replace(out) { m -> rep(m) }
         for ((re, rep) in byLanguage[language.substringBefore('-').lowercase()].orEmpty()) {
             out = re.replace(out) { m -> rep(m) }
         }

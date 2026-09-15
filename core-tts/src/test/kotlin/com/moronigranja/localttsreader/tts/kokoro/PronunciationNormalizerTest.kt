@@ -189,6 +189,62 @@ class PronunciationNormalizerTest {
     }
 
     // ------------------------------------------------------------------
+    // Signs, hyphen ranges, footnote markers, decades (G0 number/date/footnote)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `the minus sign gets a native word instead of the English loanword`() {
+        assertEquals(
+            "La temperatura bajó a menos 5 grados",
+            spoken("La temperatura bajó a −5 grados", "es"),
+        )
+        assertEquals(
+            "La température est tombée à moins 5 degrés",
+            spoken("La température est tombée à −5 degrés", "fr-fr"),
+        )
+        // pt dropped the sign entirely before this rule.
+        assertEquals("A temperatura caiu a menos 5 graus", spoken("A temperatura caiu a −5 graus", "pt-br"))
+        // English already says "minus", and a range hyphen is not a minus.
+        assertEquals("hit -40 degrees", spoken("hit -40 degrees", "en-us"))
+        assertEquals("3 to 1", spoken("3 to 1", "es"))
+    }
+
+    @Test
+    fun `an English hyphen between figures becomes the range word`() {
+        assertEquals(
+            "The match ended 2 to 1 before 76,212 fans.",
+            spoken("The match ended 2-1 before 76,212 fans.", "en-gb"),
+        )
+        assertEquals("lines 8 to 19", spoken("lines 8-19", "en-us"))
+        // A hyphen inside a word is not a range.
+        assertEquals("a well-known writer", spoken("a well-known writer", "en-us"))
+    }
+
+    @Test
+    fun `footnote reference markers are stripped in every language`() {
+        assertEquals(
+            "The claim is disputed. Other scholars disagree.",
+            spoken("The claim is disputed.² Other scholars disagree.³", "en-us"),
+        )
+        // "note 1" is content; only the bracketed marker is furniture.
+        assertEquals("See note 1 for details.", spoken("See note 1 for details.[3]", "en-us"))
+        assertEquals("Como se ve en el texto.", spoken("Como se ve en el texto.¹", "es"))
+        assertEquals("veja o texto.", spoken("veja o texto.²", "pt-br"))
+    }
+
+    @Test
+    fun `decades are named instead of read with a dangling s`() {
+        assertEquals(
+            "The eighteen hundreds, the nineties, and 2024 C.E.",
+            spoken("The 1800s, the '90s, and 2024 C.E.", "en-us"),
+        )
+        assertEquals("the nineteen-tens", spoken("the 1910s", "en-gb"))
+        assertEquals("the twenty hundreds", spoken("the 2000s", "en-us"))
+        // An unmapped century is left alone rather than guessed.
+        assertEquals("the 1500s", spoken("the 1500s", "en-us"))
+    }
+
+    // ------------------------------------------------------------------
     // Scoping
     // ------------------------------------------------------------------
     @Test

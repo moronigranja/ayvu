@@ -63,6 +63,7 @@ class G1ListeningHarnessTest {
         val voice: String,
         val text: String,
         val expectWords: List<String>,
+        val expectAbsent: List<String> = emptyList(),
         val expectPhoneme: String? = null,
         val expectUnchangedPhonemes: Boolean = false,
     )
@@ -117,8 +118,9 @@ class G1ListeningHarnessTest {
                 "He scored 99.5 per cent and lost 8 of 9 frames in the snooker.",
                 listOf("99 point 5"),
             ),
-            // The known gap, kept visible: batch 3 owns the minus sign, so this
-            // case must still say the English "minus" while the decimal is fixed.
+            // English reads the minus natively ("minus forty"), so no rule fires
+            // here and this case must stay as-is in both passes — the control
+            // that tells a listener a pair apart from an inert one.
             Case(
                 "07-en-minus",
                 "en-us",
@@ -185,6 +187,20 @@ class G1ListeningHarnessTest {
                 "A sala tinha 12 pés por 8 m; pesava 2,5 kg e cabiam 3 l.",
                 listOf("metros", "quilogramas", "litros", "vírgula"),
             ),
+            // Batch 3: signs, ranges, footnote markers, decades.
+            Case("18-en-hyphen", "en-us", "af_heart", "The match ended 2-1 before 76,212 fans; a 4th straight win.", listOf("2 to 1")),
+            Case("19-en-decades", "en-us", "af_heart", "The 1800s, the '90s, and 2024 C.E. were all busy.", listOf("eighteen hundreds", "nineties")),
+            Case(
+                "20-en-footnotes",
+                "en-us",
+                "af_heart",
+                "The claim is disputed.² Other scholars disagree.³",
+                emptyList(),
+                expectAbsent = listOf("²", "³"),
+            ),
+            Case("21-es-minus", "es", "ef_dora", "La temperatura bajó a −5 grados y subió 2,5 grados hacia las 9:45.", listOf("menos 5", "coma")),
+            Case("22-fr-minus", "fr-fr", "ff_siwis", "La température est tombée à −5 degrés, puis montée de 2,5 degrés.", listOf("moins 5", "virgule")),
+            Case("23-pt-minus", "pt-br", "pf_dora", "A temperatura caiu a −5 graus e subiu 2,5 graus por volta das 9h45.", listOf("menos 5", "vírgula", "9 e 45")),
         )
 
     @Test
@@ -210,6 +226,12 @@ class G1ListeningHarnessTest {
                 assertTrue(
                     "${case.slug}: normalized text must contain \"$word\" — was \"$normalized\"",
                     normalized.contains(word),
+                )
+            }
+            for (gone in case.expectAbsent) {
+                assertTrue(
+                    "${case.slug}: normalized text must not contain \"$gone\" — was \"$normalized\"",
+                    !normalized.contains(gone),
                 )
             }
         }

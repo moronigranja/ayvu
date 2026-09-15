@@ -131,6 +131,37 @@ class PronunciationNormalizerEspeakTest {
                         "A sala tinha 12 pés por 8 m; pesava 2,5 kg e cabiam 3 l." to
                             "A sala tinha 12 pés por 8 metros; pesava 2 vírgula 5 quilogramas e cabiam 3 litros."
                     ),
+                // Signs, ranges, footnotes, decades (G0 number/date/footnote rows).
+                "es" to
+                    (
+                        "La temperatura bajó a −5 grados y subió 2,5 grados hacia las 9:45." to
+                            "La temperatura bajó a menos 5 grados y subió 2 coma 5 grados hacia las 9:45."
+                    ),
+                "fr-fr" to
+                    (
+                        "La température est tombée à −5 degrés, puis montée de 2,5 degrés." to
+                            "La température est tombée à moins 5 degrés, puis montée de 2 virgule 5 degrés."
+                    ),
+                "pt-br" to
+                    (
+                        "A temperatura caiu a −5 graus e subiu 2,5 graus por volta das 9h45." to
+                            "A temperatura caiu a menos 5 graus e subiu 2 vírgula 5 graus por volta das 9 e 45."
+                    ),
+                "en-gb" to
+                    (
+                        "The match ended 2-1 before 76,212 fans; a 4th straight win." to
+                            "The match ended 2 to 1 before 76,212 fans; a 4th straight win."
+                    ),
+                "en-us" to
+                    (
+                        "The 1800s, the '90s, and 2024 C.E. were all busy." to
+                            "The eighteen hundreds, the nineties, and 2024 C.E. were all busy."
+                    ),
+                "en-us" to
+                    (
+                        "The claim is disputed.² Other scholars disagree.³" to
+                            "The claim is disputed. Other scholars disagree."
+                    ),
             )
 
         for ((language, pair) in cases) {
