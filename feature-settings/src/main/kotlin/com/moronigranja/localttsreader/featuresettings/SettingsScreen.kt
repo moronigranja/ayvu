@@ -348,9 +348,9 @@ private fun SpeechPane(
                 modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
             )
         }
-        // Read-in-language (decisions #114): the SMaLL-100 translate pack —
-        // one all-language bundle, never an engine row (the pseudo-engine is
-        // not selectable). The per-book control lives in the reader voice
+        // Read-in-language (decisions #114/#161): the LFM2.5-1.2B translate
+        // pack — one all-language GGUF, never an engine row (the pseudo-engine
+        // is not selectable). The per-book control lives in the reader voice
         // sheet and the library menus.
         item {
             SectionHeader("Translation", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS))

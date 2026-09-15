@@ -4,6 +4,161 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 162. Read-in-language translator swapped to LFM2.5-1.2B on llama.cpp; SMaLL-100 deleted (2026-09-15)
+
+Cuts #161's locked runtime into the product (owner decision this session):
+LFM2.5-1.2B-Instruct Q4_K_M on llama.cpp replaces the shipped SMaLL-100 int8
+ONNX pipeline as the read-in-language translator. **Clean cutover, no fallback
+mode** — SMaLL-100 is deleted entirely: the port (Small100Lang /
+Small100Tokenizer / Sm100Translator / SentencePieceBpe), its tests + fixtures,
+`TranslationChunker` (the 512-token encoder chunker: LFM's context is 2048 and
+passages measure ≤419 chars, so the window it existed for is gone), the pack
+descriptor, and the staged/cached artifacts.
+
+- **New module `:core-llm`** (exported to `feature-player`): llama.cpp vendored
+  at `b75ecd1971bf2d3f29d5d334520868a01942cbc6` (the measured revision) by
+  `tools/fetch-llama-cpp.sh` into the gitignored `build/llama.cpp-src`, built
+  through AGP `externalNativeBuild` with `GGML_CPU_ALL_VARIANTS=ON` +
+  `GGML_BACKEND_DL=ON` — one CPU backend per arm64 kernel variant, chosen at
+  runtime by ggml's feature probe (the measured config). Verified along the
+  way: **AGP packages MODULE libraries** (that is how the dl-loaded backends
+  are built), so the variant `.so` files ship in the APK and the JNI hands
+  ggml `applicationInfo.nativeLibraryDir` to search. A single `-march=
+  armv8.2-a+i8mm` binary (the fallback the plan allowed) was rejected: it
+  SIGILLs on every pre-2021 arm64 device. `arm64-v8a` only — a 32-bit device
+  degrades through the existing missing-prerequisite path (original audio).
+- **Prompt parity was measured, not assumed.** `llama_chat_apply_template`
+  (libllama) renders this model's template **byte-identically** to the jinja
+  engine `llama-server` used in the gate (76-byte render compared); `llama-
+  common` is therefore NOT linked. A host harness replaying the exact JNI call
+  sequence (template → `llama_tokenize(add_special=true, parse_special=true)`
+  → greedy, 400 tokens) reproduced the device run's **prompt token counts
+  44/68/55/82/60/53 token-for-token** and the gate's hypotheses (residual text
+  differences are greedy numeric divergence: host-GPU vs host-CPU differ the
+  same way). Template application lives in C++ over the model's own template;
+  the **user message is built in Kotlin** (`LlamaTranslator.userMessage`,
+  JVM-tested) — the gate's verbatim shape with the language name substituted.
+- **Pack `translate-lfm12b-v1`**: `translate-lfm12b-q4-v1.zip`
+  (730,895,330 B, sha256 `a701827a…`, STORED like `translate-small100-v1`)
+  from `LiquidAI/LFM2.5-1.2B-Instruct-GGUF` @
+  `6767265158422fb8a19c62ceb45f16f05363615b`, file `LFM2.5-1.2B-Instruct-
+  Q4_K_M.gguf` (730,895,168 B, sha256 `b1b3de11…`) — **byte-identical to the
+  artifact measured on the S22** (verified twice: the on-device file hashed
+  against the HF LFS oid). Staged under `files/translate-lfm/`;
+  `TranslatePackStager.MODEL_FILE` keeps the upstream file name.
+- **Language surface**: a name table (`LfmLang`), not M2M tokens — the 9
+  voicable app codes map to English language names, `pt-BR` → "Brazilian
+  Portuguese" (the only gate-measured pair); `it`/`hi` ride generalization
+  (the model advertises en/ar/zh/fr/de/ja/ko/es). A bare `pt` is deliberately
+  NOT mapped (never guessed). The "Read in" sheet keeps all 9 languages.
+- **`PregenKey` v2b**: a `t<translator>` segment after `x<lang>`
+  (`<bookId>/<engine>/<voice>/<speed>/x<lang>/t<translator>/c<ch>p<passage>`),
+  threaded through planner/queue/offline/estimator and passed as
+  `PregenKey.LFM_TRANSLATOR` wherever a target is in force. A 6-segment (v2a)
+  key parses as `translator = "small100"` — that default is exactly what stops
+  an LFM run from treating small-100-era audio as a cache hit (they differ in
+  quality and wording). `CoverageEncoder`/`PcmPassageCache` needed no change
+  (they treat the key as opaque).
+- **Runtime policy unchanged in shape**: lazy open, 60 s idle close
+  (`TranslateRuntime`), 3-attempt open cap, degrade-to-original on any failure
+  (#101). The guard is now sized by the measured ~1.6 GB RSS leg (llama-server
+  RSS 1.63 GB) instead of ~1.06 GB PSS. Added: an idempotent cleanup deleting
+  the retired `files/translate-small100/` + `files/packs/translate-small100/`
+  (~1.8 GB) — the pack cache has no registry-reconciliation pass of its own.
+  `ttsThreads` now seeds the llama.cpp thread count.
+
+Consequence: the shipped translator is #161's measured model end-to-end. Any
+future llama.cpp revision bump invalidates the measured claim (re-run
+`docs/prints/beam-spike/lfm12_gate.py` on-device first); translate on 32-bit
+devices and any "low-memory fallback" translator are explicit non-goals here
+(#161's 350M fallback is moot — nothing is below the shipped model now).
+
+### As executed (2026-09-15)
+
+Four findings the plan did not have, all load-bearing:
+
+- **`useLegacyPackaging = true` is REQUIRED** (app module): AGP packages the
+  dl-loaded ggml backends fine (they are MODULE libraries — verified in the
+  AAR), but with the modern default (`extractNativeLibs=false`) the .so files
+  live inside the APK and `applicationInfo.nativeLibraryDir` is EMPTY, so
+  ggml's directory scan finds no CPU backend and the model cannot load. With
+  legacy packaging the libs are extracted (verified on the S22) and the scan
+  works. Cost: the extracted copy on disk; the debug APK got smaller
+  (264 → 114 MB) because the .so files are compressed in the archive.
+- **`feature-player` exposes `core-llm` as `api`, not `implementation`**:
+  `TranslateRuntime.translator()` names `LlamaTranslator` in its public
+  signature.
+- **`TranslationChunker` was deleted too** (it was not in the plan's deletion
+  list): it is typed to `Small100Tokenizer` and exists solely to fit the
+  retired 512-token encoder window — LFM's context is 2048 and passages
+  measure ≤419 chars.
+- **`llama-common` is NOT linked** (the plan assumed it would be): the
+  template applier lives in libllama, and the byte-identical-render check above
+  made it unnecessary — ~80 MB and a large dependency tail avoided.
+
+On-device verification (S22, arm64, `LfmTranslateE2eTest` +
+`LfmTranslatedPlaybackE2eTest` instrumentation; artifacts in the app's files
+dir inspected over `run-as`):
+
+- Pack: the descriptor's URL downloads from the release, sha256
+  (`a701827a…`) and size (730,895,330 B) verify, the stager extracts
+  `LFM2.5-1.2B-Instruct-Q4_K_M.gguf` (730,895,168 B) to
+  `files/translate-lfm/`.
+- Translation: the model loads, and the FLORES sentences come back as
+  Portuguese at **1,694 / 2,421 / 1,824 ms** (4 threads — the default
+  `ttsThreads`; #161's 2.7 s/passage used 6). Two of the three outputs are
+  byte-identical to the recorded on-device gate hypotheses
+  (`lfm_ondevice.json`), the third differs only in a near-tie ("não-diabéticos"
+  vs "não diabéticos" — the same variation the host runs show).
+- Playback loop: a book with "Read in" = pt-BR plays to COMPLETED under the
+  auto-picked Kokoro `pf_dora`, and the queue's disk tier holds the render at
+  `files/pregen/<bookId>/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0.pcm` — i.e. the
+  translator dimension reaches the real cache path (the untranslated key is a
+  distinct entry).
+- Idle close: `session closed` + `idle close after 60000 ms` in logcat.
+- Retired artifacts: `files/translate-small100/` + `files/packs/
+  translate-small100/` are reclaimed (verified with a synthetic leftover on
+  device; the S22 also still carries pre-#162 `xpt-BR` keys WITHOUT a `t`
+  segment from the #160 Piper pass — those parse as `small100` and are
+  correctly no longer hits).
+- Host suites: `:core-translate:test` (16), `:core-player:test` (160),
+  `:feature-player:test` (64) green + `ktlintCheck` clean + `:app:assembleDebug`
+  and `:app:assembleDebugAndroidTest` build.
+
+Still open (explicitly not claimed): a full "Pre-generate (≈1.7 GB)"
+whole-book run under the new translator (the library action exists and the
+queue's own writes are verified — a complete Jumper run is a ~2 h job,
+deliberately not attempted), and the HiBreak co-residency check.
+
+### UI pass (2026-09-15, S22 unlocked)
+
+- **Speech subscreen** renders the new row: "LFM2.5-1.2B translate model
+  (Q4_K_M) — ready · installed" under a "Translation" header, with the
+  model-agnostic helper sentence unchanged.
+- **Read-in dialog** (library ⋮ → "Read in language…") offers exactly the
+  catalog-voicable set — Off, English, Spanish, French, Hindi, Italian,
+  Japanese, Portuguese (Brazil), Chinese — with the book's stored `pt-BR`
+  selected, matching `TranslateLanguages.codes` in the unit test.
+- **Not-downloaded state**: with the staged bundle + cached zip removed the
+  dialog shows both rows verbatim — "Playing original — translator not ready"
+  and "Download translation pack (~730 MB)" / "LFM2.5-1.2B, all supported
+  languages. Sizes and status come from the Speech settings section."
+- **Download through that row works**: 730,895,330 B fetched and `.ready`-marked
+  (the app's own sha256/size verification). Staging stays a Settings-flow
+  action (`autoStageTranslate` on opening Speech) — the same shape the
+  SMaLL-100 flow had, untouched by this swap: tapping the row in the library
+  dialog alone leaves `files/translate-lfm/` empty until Speech is opened.
+- **Playback on the real book** (Jumper, stored `pt-BR`): per-passage
+  `Translate` timings 2,172–6,754 ms (typical 133–208-char passages 2.2–4.9 s
+  at the default 4 threads while Kokoro synthesizes concurrently; the gate's
+  2.7 s/passage used 6 threads and no concurrent TTS). The 14.5 MB of
+  pre-#162 small-100 audio under `kokoro/en_US-lessac-medium/1/xpt-BR/` is
+  **correctly not a hit** — the run re-translated and wrote fresh entries under
+  `kokoro/pf_dora/1/xpt-BR/tlfm12b/` (15 passages on disk after the pass).
+- **No memory pressure**: zero lmkd kills during the pass, app pid stable
+  across all translates, `TOTAL PSS 2,400,817 KB` with LFM + Kokoro + ORT
+  co-resident (`TOTAL RSS 2,507,192 KB`).
+
 ## 161. Offline pre-translation model: LFM2.5-1.2B-Instruct on llama.cpp-android — RUNTIME LOCKED (2026-09-14)
 
 Model-search closure after the beam-spike exploration (full measurements in

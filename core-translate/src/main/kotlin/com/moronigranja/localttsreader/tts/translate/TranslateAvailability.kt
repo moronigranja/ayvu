@@ -27,7 +27,7 @@ object TranslateAvailability {
         translatorFailure: String?,
     ): String? {
         target ?: return null
-        if (Small100Lang.toSmall100(target) == null) return "language $target not supported"
+        if (LfmLang.toPromptLanguage(target) == null) return "language $target not supported"
         val voice =
             TranslateLanguages.firstVoiceFor(catalog, target)
                 ?: return "no $target voice for the active engine"

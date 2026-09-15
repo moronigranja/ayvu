@@ -81,6 +81,19 @@ android {
         }
     }
 
+    // Llama.cpp's CPU backends are dl-loaded MODULE libraries (decisions #162:
+    // GGML_CPU_ALL_VARIANTS + GGML_BACKEND_DL picks the best arm64 kernel
+    // variant at runtime), and ggml finds them by scannng a directory on the
+    // FILESYSTEM. With the modern default (extractNativeLibs=false) the .so
+    // files live inside the APK and `nativeLibraryDir` is empty, so the scan
+    // finds nothing. Legacy packaging extracts them — the price is the
+    // extracted copy on disk, ~13 MB of llama.cpp libs plus the rest.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

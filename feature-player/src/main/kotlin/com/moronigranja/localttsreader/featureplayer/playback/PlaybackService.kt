@@ -921,6 +921,7 @@ class PlaybackService : Service() {
             // overnight plays without synthesis; a cold/jumped passage falls
             // back to a synchronous synthesize.
             val voice = activeVoice()
+            val translateLang = selector.translateLangInUse(activeBook.id)
             val key =
                 PregenKey(
                     activeBook.id,
@@ -928,7 +929,10 @@ class PlaybackService : Service() {
                     position.passageIndex,
                     voice,
                     current.speed,
-                    translateLang = selector.translateLangInUse(activeBook.id),
+                    translateLang = translateLang,
+                    // The translator that renders that language (decisions #162):
+                    // only an LFM render is a hit for this key.
+                    translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
                 )
             // Deterministic re-seek (layer 2): in-flight first-listen persists
             // land before any re-fetch, so a played passage is always on disk.
@@ -1606,6 +1610,7 @@ class PlaybackService : Service() {
         val active = machine ?: return null
         val activeBook = book ?: return null
         val speed = active.state.value.speed
+        val translateLang = selector.translateLangInUse(activeBook.id)
         // A queue rebuild is a voice/speed/book change — the coverage key
         // changes with it; force a recompute and re-arm the manual-pregen
         // observer on the new book (it cancels its predecessor).
@@ -1617,8 +1622,10 @@ class PlaybackService : Service() {
             speed = speed,
             // The queue's keys carry the book's translate target so the
             // translated audio cannot collide with the original's (the
-            // `x<lang>` path segment, decisions #114).
-            translateLang = selector.translateLangInUse(activeBook.id),
+            // `x<lang>` path segment, decisions #114), plus which translator
+            // rendered it (`t<translator>`, decisions #162).
+            translateLang = translateLang,
+            translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
             synthesize = { text ->
                 val (engine, voice) = selector.resolve(activeBook.id)
                 engine?.synthesize(SynthesisRequest(text, voice, speed = speed))

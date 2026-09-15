@@ -1,7 +1,6 @@
 package com.moronigranja.localttsreader.player.pregen
 
 import com.moronigranja.localttsreader.tts.SegmentAnchor
-import java.io.File
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -9,21 +8,24 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 /** T5-core disk tier: round-trip, LRU eviction, book deletion, atomicity. */
 class PcmPassageCacheTest {
-
     @TempDir
     lateinit var tempDir: File
 
-    private fun audio(seed: Int) = PregenAudio(
-        pcm = ByteArray(2_000 + seed) { ((it + seed) % 256).toByte() },
-        sampleRateHz = 24_000,
-        segments = listOf(SegmentAnchor(0.5, 1.5)),
-    )
+    private fun audio(seed: Int) =
+        PregenAudio(
+            pcm = ByteArray(2_000 + seed) { ((it + seed) % 256).toByte() },
+            sampleRateHz = 24_000,
+            segments = listOf(SegmentAnchor(0.5, 1.5)),
+        )
 
-    private fun key(chapter: Int, passage: Int) =
-        PregenKey("book-$chapter-$passage", chapter, passage, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE)
+    private fun key(
+        chapter: Int,
+        passage: Int,
+    ) = PregenKey("book-$chapter-$passage", chapter, passage, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE)
 
     @Test
     fun `put and get round-trip pcm and anchors`() {
@@ -100,8 +102,9 @@ class PcmPassageCacheTest {
         val usage = cache.usageByBook()
         assertEquals(setOf("b1", "b2"), usage.keys)
         // pcm bytes + the meta sidecars (small, counted but not bit-pinned).
-        val b1Pcm = cache.sizeOf(PregenKey("b1", 0, 0, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE))!! +
-            cache.sizeOf(PregenKey("b1", 0, 1, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE))!!
+        val b1Pcm =
+            cache.sizeOf(PregenKey("b1", 0, 0, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE))!! +
+                cache.sizeOf(PregenKey("b1", 0, 1, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE))!!
         val b2Pcm = cache.sizeOf(PregenKey("b2", 0, 0, "af_heart", 1.0, engine = PregenKey.DEFAULT_ENGINE))!!
         assertTrue(usage["b1"]!! > b1Pcm && usage["b1"]!! - b1Pcm in 2..200, "b1 includes sidecars")
         assertTrue(usage["b2"]!! > b2Pcm && usage["b2"]!! - b2Pcm in 2..200, "b2 includes sidecars")
@@ -126,7 +129,10 @@ class PcmPassageCacheTest {
         )
     }
 
-    private fun age(key: PregenKey, epochMillis: Long) {
+    private fun age(
+        key: PregenKey,
+        epochMillis: Long,
+    ) {
         assertTrue(pcmPath(key).setLastModified(epochMillis), "test controls on-disk age")
     }
 
@@ -325,5 +331,36 @@ class PcmPassageCacheTest {
             cache.generatedKeys("b1", "af_heart", 1.0),
             "the evicted entry is not on disk anymore",
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Translator dimension (decisions #161/#162)
+    // ------------------------------------------------------------------
+
+    /** An LFM render must never be served for the same passage translated by
+     * another engine — different engines produce different audio for identical
+     * text, so a shared path would play the wrong language variant. */
+    @Test
+    fun `a translated key is isolated by its translator`() {
+        val cache = PcmPassageCache(tempDir, maxBytes = Long.MAX_VALUE)
+        val lfm =
+            PregenKey(
+                "b1",
+                0,
+                0,
+                "pf_dora",
+                1.0,
+                engine = PregenKey.DEFAULT_ENGINE,
+                translateLang = "pt-BR",
+                translator = PregenKey.LFM_TRANSLATOR,
+            )
+        val small100 = lfm.copy(translator = PregenKey.SMALL100_TRANSLATOR)
+        cache.put(small100, audio(3))
+
+        assertNull(cache.get(lfm), "the small-100-era entry is not an LFM hit")
+        assertArrayEquals(audio(3).pcm, cache.get(small100)?.pcm, "the entry itself is intact")
+        cache.put(lfm, audio(9))
+        assertArrayEquals(audio(9).pcm, cache.get(lfm)?.pcm)
+        assertArrayEquals(audio(3).pcm, cache.get(small100)?.pcm, "both variants coexist")
     }
 }

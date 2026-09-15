@@ -337,10 +337,10 @@ class SettingsViewModel
                 .onFailure { errors.update(packId, "staging failed: ${it.message}") }
         }
 
-        /** Read-in-language (decisions #114): extracts the verified ~916 MB
-         * zip under `files/translate-small100/` so the runtime can open the
-         * sessions ([TranslatePackStager]): the pack artifact in the cache is
-         * the zip; the staged bundle is what the translator loads. */
+        /** Read-in-language (decisions #114/#162): extracts the verified
+         * ~730 MB zip under `files/translate-lfm/` so the runtime can open the
+         * GGUF ([TranslatePackStager]): the pack artifact in the cache is the
+         * zip; the staged bundle is what the translator loads. */
         private suspend fun stageTranslate(packId: String) {
             val pack =
                 registry.packs.value

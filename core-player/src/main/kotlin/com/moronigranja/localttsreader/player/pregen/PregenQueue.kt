@@ -52,8 +52,11 @@ class PregenQueue(
     /** Read-in-language target code for this queue's keys (decisions #114);
      * null = the book's original language. */
     private val translateLang: String? = null,
+    /** Translator identity for this queue's keys (decisions #162) — see
+     * [PregenKey.translator]. Only meaningful with [translateLang]. */
+    private val translator: String? = null,
 ) {
-    private val planner = PregenPlanner(book, voice, speed, engine, translateLang)
+    private val planner = PregenPlanner(book, voice, speed, engine, translateLang, translator)
     private val lock = Object()
     private val entries = LinkedHashMap<PregenKey, PregenAudio>()
     private val inFlight = mutableSetOf<PregenKey>()

@@ -5,7 +5,7 @@ import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
-import com.moronigranja.localttsreader.tts.translate.Small100Lang
+import com.moronigranja.localttsreader.tts.translate.LfmLang
 import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
 import com.moronigranja.localttsreader.tts.translate.TranslatingEngine
 import dagger.Lazy
@@ -146,7 +146,7 @@ class EngineSelector
 
         /** The canonical target app codes the ACTIVE engine can voice (the
          * "Read in" picker rows; catalog order, deduplicated), restricted to
-         * languages SMaLL-100 supports. */
+         * languages the translator can be prompted for. */
         fun availableTranslateLanguages(): List<String> = TranslateLanguages.codes(activeCatalog())
 
         /**
@@ -163,7 +163,7 @@ class EngineSelector
             val voice = if (bookId == null) resolveVoice(settings.state.value.voice) else effectiveVoice(bookId)
             val base = engineFor(voice) ?: return null to voice
             val target = bookId?.let { translateTarget(it) }
-            val modelLang = target?.let { Small100Lang.toSmall100(it) }
+            val modelLang = target?.let { LfmLang.toPromptLanguage(it) }
             val targetVoice = target?.let { bestVoiceFor(it) }
             // The resolved target voice must actually be servable: Piper is
             // one-voice-per-instance over downloaded packs, so a catalog name

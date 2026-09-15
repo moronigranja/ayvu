@@ -6,30 +6,33 @@ import java.io.File
 import java.util.zip.ZipInputStream
 
 /**
- * Stages the verified translate zip under `files/translate-small100/` — the
- * layout the [Sm100Translator]/[TranslateRuntime] open (the espeak precedent:
- * a separate bundle root from the pack cache, extracted from the verified
- * pack artifact, idempotent).
+ * Stages the verified translate zip under `files/translate-lfm/` — the layout
+ * the [com.moronigranja.localttsreader.llm.LlamaTranslator]/[TranslateRuntime]
+ * open (the espeak precedent: a separate bundle root from the pack cache,
+ * extracted from the verified pack artifact, idempotent).
  *
- * The zip is 916 MB of dense int8 graphs, so extraction is a long file copy;
- * [stage] swaps bundle→backup→tmp like [com.moronigranja.localttsreader.player.EspeakStager],
+ * The zip is 730 MB of GGUF, so extraction is a long file copy; [stage] swaps
+ * bundle→backup→tmp like [com.moronigranja.localttsreader.player.EspeakStager],
  * and [isStaged] is the readiness gate the runtime polls after a download.
  */
 object TranslatePackStager {
-    /** The unpack root: `files/translate-small100/` (sibling of the espeak
-     * bundle; the pack-cache artifact itself stays at
-     * `files/packs/translate-small100/translate-small100-int8-v1`). */
-    fun bundleDir(filesDir: File): File = File(filesDir, "translate-small100")
+    /** The unpack root: `files/translate-lfm/` (sibling of the espeak bundle;
+     * the pack-cache artifact itself stays at
+     * `files/packs/translate-lfm12b/translate-lfm12b-q4-v1`). */
+    fun bundleDir(filesDir: File): File = File(filesDir, "translate-lfm")
 
-    private val REQUIRED = listOf("encoder_model.onnx", "decoder_model.onnx", "decoder_with_past_model.onnx")
+    /** The GGUF's file name inside the bundle — the artifact's upstream name
+     * (`LiquidAI/LFM2.5-1.2B-Instruct-GGUF`), kept verbatim so a staged file is
+     * traceable back to the release it came from. */
+    const val MODEL_FILE = "LFM2.5-1.2B-Instruct-Q4_K_M.gguf"
 
-    /** Ready = the three graphs + tokenizer files extracted. */
+    private val REQUIRED = listOf(MODEL_FILE)
+
+    /** Ready = the GGUF extracted. */
     fun isStaged(filesDir: File): Boolean {
         val dir = bundleDir(filesDir)
         if (!dir.isDirectory) return false
-        return REQUIRED.all { File(dir, it).isFile } &&
-            File(dir, "sentencepiece.bpe.model").isFile &&
-            File(dir, "vocab.json").isFile
+        return REQUIRED.all { File(dir, it).isFile }
     }
 
     /** Extracts the verified zip into [bundleDir] (idempotent, replaces an old bundle). */
@@ -42,7 +45,7 @@ object TranslatePackStager {
         val source = cache.targetFile(pack)
         if (!source.isFile || !cache.isVerified(pack)) return false
 
-        val tmp = File(filesDir, "translate-small100-tmp")
+        val tmp = File(filesDir, "translate-lfm-tmp")
         tmp.deleteRecursively()
         tmp.mkdirs()
         ZipInputStream(source.inputStream().buffered()).use { zip ->
@@ -63,7 +66,7 @@ object TranslatePackStager {
         }
 
         val target = bundleDir(filesDir)
-        val backup = File(filesDir, "translate-small100-bak")
+        val backup = File(filesDir, "translate-lfm-bak")
         backup.deleteRecursively()
         if (target.isDirectory && !target.renameTo(backup)) return false
         if (!tmp.renameTo(target)) {

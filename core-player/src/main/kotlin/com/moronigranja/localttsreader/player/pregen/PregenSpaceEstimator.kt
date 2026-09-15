@@ -40,6 +40,9 @@ class PregenSpaceEstimator(
         /** Read-in-language target code (decisions #114); the translated audio
          * lives under its own `x<lang>` cache segment. */
         translateLang: String? = null,
+        /** Translator identity (decisions #162) — see [PregenKey.translator];
+         * part of the `t<translator>` cache segment. */
+        translator: String? = null,
     ): PregenSpaceEstimate {
         require(speed > 0) { "speed must be positive" }
         val bytesPerSecond = bytesPerSecond(engine)
@@ -47,7 +50,17 @@ class PregenSpaceEstimator(
         var cached = 0L
         for (chapter in book.chapters) {
             for ((passageIndex, passage) in chapter.passages.withIndex()) {
-                val key = PregenKey(book.id, chapter.index, passageIndex, voice, speed, engine, translateLang)
+                val key =
+                    PregenKey(
+                        book.id,
+                        chapter.index,
+                        passageIndex,
+                        voice,
+                        speed,
+                        engine,
+                        translateLang,
+                        translator,
+                    )
                 val exact = cache.sizeOf(key)
                 if (exact != null) {
                     total += exact

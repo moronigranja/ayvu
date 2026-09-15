@@ -103,7 +103,7 @@ Logged 2026-08-25. Sources:
 | Read log: per-book position ring + undo-skip | Folded into T4 (v1); full session log = post-v1 marker (feeds TODAY stats) |
 | Theme-follows-system; voice picker + favorites | Theme folded into V1; Settings voice picker/favorites shipped; guided first-run + primary-listening selector scheduled as roadmap C2 (decisions #59) |
 | Offline chapter pre-generation | **Shipped** (2026-08-26, decisions #42) |
-| Translation decorator (any advertised target language) | **Promoted — roadmap "Later"** (2026-09-10); engine adopted: SMaLL-100 int8, one 916 MB all-language pack (decisions #114). Scope widened from pt-BR 2026-08-31 (decisions #101) |
+| Translation decorator (any advertised target language) | **Shipped** (decisions #160; engine swapped to LFM2.5-1.2B on llama.cpp, decisions #162). Scope widened from pt-BR 2026-08-31 (decisions #101) |
 | App export/backup + restore (positions, library, settings, optional books) | Post-v1 — new `core-backup` slice marker |
 | Kindle export/highlights sync | Post-v1 (already deferred by decision) |
 | RSVP, classics bundle, auto language detection | Stays in the pool (no v1 dependency) |

@@ -10,6 +10,10 @@
 build/
 **/build/
 
+# AGP externalNativeBuild intermediates (core-llm: CMake/ninja scratch inside
+# the module dir, not under build/)
+.cxx/
+
 # Android Studio / IntelliJ
 .idea/
 *.iml

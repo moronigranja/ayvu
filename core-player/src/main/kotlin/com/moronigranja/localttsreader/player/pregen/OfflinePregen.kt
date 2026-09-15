@@ -122,6 +122,9 @@ class OfflinePregen(
     /** Read-in-language target code for this run's keys (decisions #114);
      * null = the book's original language. */
     private val translateLang: String? = null,
+    /** Translator identity for this run's keys (decisions #162) — see
+     * [PregenKey.translator]. Only meaningful with [translateLang]. */
+    private val translator: String? = null,
 ) {
     init {
         require(consecutiveFailureCap > 0) { "consecutiveFailureCap must be positive" }
@@ -167,7 +170,7 @@ class OfflinePregen(
             return final
         }
 
-        PregenPlanner(book, voice, speed, engine, translateLang).walk(
+        PregenPlanner(book, voice, speed, engine, translateLang, translator).walk(
             from = startAt?.let { inclusiveFrom(book, it) },
             onChapter = { chapterIndex ->
                 // Chapter-boundary gates: maxChapters and the caller's yield.

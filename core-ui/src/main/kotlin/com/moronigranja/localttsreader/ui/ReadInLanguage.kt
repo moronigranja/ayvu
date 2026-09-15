@@ -22,8 +22,8 @@ import com.moronigranja.localttsreader.ui.AyvuSpacing
  *
  * [ReadInLanguageUiState] is presentation data: the target is the book's
  * per-book APP language code (`pt-BR`), languages are canonical codes from
- * the active engine's catalog filtered to SMaLL-100 support; the VM owns
- * persistence + the playback rebuild.
+ * the active engine's catalog filtered to what the translator can be prompted
+ * for (decisions #162); the VM owns persistence + the playback rebuild.
  */
 data class ReadInLanguageUiState(
     val bookId: String? = null,
@@ -100,9 +100,9 @@ fun ReadInLanguagePicker(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = false, onClick = { onDownload() })
                     Column {
-                        Text("Download translation pack (~916 MB)", style = MaterialTheme.typography.bodyMedium)
+                        Text("Download translation pack (~730 MB)", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "SMaLL-100, all languages. Sizes and status come from the Speech settings section.",
+                            "LFM2.5-1.2B, all supported languages. Sizes and status come from the Speech settings section.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

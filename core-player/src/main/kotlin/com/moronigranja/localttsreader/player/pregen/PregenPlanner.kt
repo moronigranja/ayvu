@@ -28,6 +28,9 @@ class PregenPlanner(
     /** Read-in-language target code for this walk's keys (decisions #114);
      * null = the book's original language. */
     private val translateLang: String? = null,
+    /** Translator identity for this walk's keys (decisions #162) — see
+     * [PregenKey.translator]. Only meaningful with [translateLang]. */
+    private val translator: String? = null,
 ) {
     /** The book's first passage (spine start). */
     val first: Pair<Int, Int> get() = 0 to 0
@@ -49,7 +52,7 @@ class PregenPlanner(
     fun key(
         chapterIndex: Int,
         passageIndex: Int,
-    ): PregenKey = PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine, translateLang)
+    ): PregenKey = PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine, translateLang, translator)
 
     /**
      * Non-suspend spine walk for plan-building phases (the queue's

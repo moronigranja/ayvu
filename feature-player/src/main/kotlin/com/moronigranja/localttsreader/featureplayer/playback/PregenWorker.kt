@@ -19,6 +19,7 @@ import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.player.pregen.OfflinePregen
 import com.moronigranja.localttsreader.player.pregen.PregenBudget
+import com.moronigranja.localttsreader.player.pregen.PregenKey
 import com.moronigranja.localttsreader.player.pregen.PregenProgress
 import com.moronigranja.localttsreader.player.pregen.PregenTerminal
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
@@ -234,6 +235,9 @@ class PregenWorker
                         cache = pregenCache.cache,
                         synthesize = { text -> engineForBook.synthesize(SynthesisRequest(text, voice, speed)) },
                         translateLang = translateLang,
+                        // Which translator rendered the target's audio: the
+                        // `t<translator>` key dimension (decisions #162).
+                        translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
                         // G2: yield to an engaged playback session (manual runs too).
                         shouldContinue = { !PlaybackActive.engineInUse },
                     )

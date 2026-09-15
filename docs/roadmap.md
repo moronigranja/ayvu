@@ -163,10 +163,10 @@ D7 legs.
 | Model | Verdict |
 |---|---|
 | M2M-100-418M | DEFER — fp32 fails the memory gate; int8 24–31 ms/token, lower chr-F than SMaLL-100 |
-| SMaLL-100 int8 | ADOPTED for translate-then-read — one 915 MB pack, 8.9–9.9 ms/token, chr-F 51.9–63.2 |
+| SMaLL-100 int8 | RETIRED (#162) — was the translate-then-read engine (one 915 MB pack, 8.9–9.9 ms/token, chr-F 51.9–63.2); deleted with the LFM2.5 swap, no fallback |
 | OPUS-MT per-pair | measured record; specialist alternative (tc-big int8 speed-disqualified; fp32 quality fallback) |
-| LFM2.5-1.2B-Instruct | SELECTED for offline whole-book pregen (#161, runtime locked) — llama.cpp-android on S22: 22.3 tok/s, chrF 67.37, 730 MB, co-residency passed; LiteRT-LM deadlocks on the S22 (all 3 profiles), host-measured 6.4-6.5× slower — exception closed |
-| LFM2.5-350M | REJECTED as fallback — chrF 59.11 below shipped SMaLL-100 (62.77); drops content, code-switches to English; low-memory fallback stays SMaLL-100 |
+| LFM2.5-1.2B-Instruct | **SHIPPED as the read-in-language translator (#162)** — llama.cpp-android on S22: 22.3 tok/s, chrF 67.37, 730 MB, co-residency passed; LiteRT-LM deadlocks on the S22 (all 3 profiles), host-measured 6.4-6.5× slower — exception closed |
+| LFM2.5-350M | REJECTED — chrF 59.11 below the retired incumbent (62.77); drops content, code-switches to English; there is no low-memory translator fallback (#162) |
 | Gemma-4-E2B QAT / LFM2.5-2.6B-Base | measured ceiling, not selected — higher chrF (68.8/68.3) at 2.4-2.3× memory and slower on-device |
 
 ## Active work
@@ -516,7 +516,7 @@ docs (open-bugs.md, decisions #156) now record it.
 | Item | Gate / reason for position |
 |---|---|
 | Pitch-preserving speed | WSOLA/phase-vocoder DSP and cache-key compatibility; measure CPU/battery before replacing hardware rate conversion. |
-| Translate-then-read (`core-translate`) | **LANDED 2026-09-14, decisions #160** — implemented end-to-end and DEVICE-VERIFIED on the S22 (pt-BR playback under the auto-picked voice at 121–1352 ms per passage, `x<lang>` cache separation incl. the Off toggle, offline pregen under translation, idle-close logcat-verified with PSS 1,803,052 KB resident → 1,744,016 KB after close, three defects found and fixed: firstVoiceFor case mismatch, target-voice pack-readiness gate, render-truth cache keys). The remaining gate is the HiBreak co-residency check (not attached). Engine decision stands: SMaLL-100 int8, one 916 MB pack, output-side only, degrade on failure (#114/#101). |
+| Translate-then-read (`core-translate`) | **LANDED 2026-09-14, decisions #160; ENGINE SWAPPED 2026-09-15, decisions #162** — implemented end-to-end and DEVICE-VERIFIED on the S22 under SMaLL-100 (pt-BR playback under the auto-picked voice at 121–1352 ms per passage, `x<lang>` cache separation incl. the Off toggle, offline pregen under translation, idle-close logcat-verified; three defects found and fixed: firstVoiceFor case mismatch, target-voice pack-readiness gate, render-truth cache keys). The translator is now **LFM2.5-1.2B-Instruct on llama.cpp** (`:core-llm`, #162): chrF 67.37 vs 62.77, ~730 MB pack, `pregen` keys carry a `t<translator>` segment, SMaLL-100 deleted with no fallback. **DEVICE-VERIFIED 2026-09-15, instrumentation + UI pass** (`LfmTranslateE2eTest`, `LfmTranslatedPlaybackE2eTest`, then the S22's own screens): sha-verified download through the Read-in dialog, Speech subscreen showing "LFM2.5-1.2B translate model — ready · installed", pt-BR playback on a real book at 2.2–4.1 s/passage under concurrent Kokoro synthesis, renders cached under `xpt-BR/tlfm12b/` (pre-#162 small-100 audio correctly not a hit), retired small-100 artifacts reclaimed, zero lmkd kills. Remaining: a full whole-book pre-gen run under the new translator (~2 h on Jumper) and the HiBreak co-residency check (not attached). |
 | High-end cloned-voice pre-generation (engine chosen by D5) | Ships only after D5 (Active work) picks the engine and clears the G0 blind read — Chatterbox Multilingual, CosyVoice3 or Pocket TTS (added 2026-09-11, decisions #149); the incumbent is DiT-gated (decisions #21/#23) and D3-quality-flagged (duplicated honorific probes; RTF 12.5–31.1), disk-only playback. A1/A4 long satisfied. Distinct from D5 itself: that item *selects*, this row *ships*. |
 | Kindle official export/API sync | External API/export contract and account UX; manual share/resume already covers the core use case. |
 | Word-level highlighting | Requires a stable word/phoneme timing contract beyond current sentence anchors. |

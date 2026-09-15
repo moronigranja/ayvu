@@ -31,12 +31,12 @@ object TranslateLanguages {
         }
 
     /** The canonical codes a catalog can voice (catalog order, deduplicated),
-     * restricted to languages SMaLL-100 supports. */
+     * restricted to languages the translator can be prompted for. */
     fun codes(metas: List<KokoroVoiceMeta>): List<String> {
         val seen = LinkedHashSet<String>()
         for (meta in metas) {
             val code = langCode(meta.language) ?: continue
-            if (code !in seen && Small100Lang.toSmall100(code) != null) seen.add(code)
+            if (code !in seen && LfmLang.toPromptLanguage(code) != null) seen.add(code)
         }
         return seen.toList()
     }

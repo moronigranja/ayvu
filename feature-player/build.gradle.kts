@@ -68,6 +68,9 @@ dependencies {
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
     implementation(project(":core-tts")) { exclude(group = "net.java.dev.jna") }
     implementation(project(":core-translate")) // TranslatingEngine decorator + TranslateRuntime (read-in-language)
+    // `api`: TranslateRuntime.translator() names LlamaTranslator in its public
+    // signature (and the on-device E2E drives it directly).
+    api(project(":core-llm")) // LlamaTranslator: the translate runtime's llama.cpp session
     // KokoroRuntime's sessionFactory lambda names OrtSession.SessionOptions
     // (decisions #137). Same contract as core-tts: the platform AAR ships
     // app-side; feature-player compiles against the API jar only.

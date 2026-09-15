@@ -651,6 +651,26 @@ host installation) — the flat pack for the phonemizer adapter.
 tools/build-espeak-android.sh   # outputs build/espeak-ng-152/{lib,espeak-ng-data}
 ```
 
+## llama.cpp source for :core-llm (decisions #162)
+
+`core-llm` compiles llama.cpp through AGP `externalNativeBuild`, so the pinned tree
+must exist before any Android build that includes it. The source is gitignored
+(`build/`, like the espeak bundle); the script fetches the exact revision:
+
+```bash
+tools/fetch-llama-cpp.sh   # -> build/llama.cpp-src @ b75ecd1971bf (shallow, ~200 MB)
+```
+
+- The revision is the one the translate model was MEASURED against on the S22
+  (#161: 22.3 tok/s, chrF 67.37). Bumping it invalidates that claim — re-run
+  `docs/prints/beam-spike/lfm12_gate.py` on the device first.
+- CMake is fetched by AGP (`cmake;3.22.1`, pinned in the module), no host cmake needed.
+- Build flags live in `core-llm/src/main/cpp/CMakeLists.txt` (Release forced,
+  `GGML_CPU_ALL_VARIANTS` + `GGML_BACKEND_DL` = the measured runtime-selected kernel
+  variant, arm64-v8a only). The ggml CPU backends are dl-loaded MODULE libraries;
+  the JNI hands `ggml_backend_load_all_from_path` the app's `nativeLibraryDir`.
+- The first build of the module compiles nine kernel variants (~5-8 min cold).
+
 ## Android toolchain in Docker (recommended)
 
 The Android SDK + NDK is tens of thousands of files. Baking it into an image keeps the
