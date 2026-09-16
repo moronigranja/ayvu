@@ -60,7 +60,11 @@ fun main(args: Array<String>) {
     }
     check(rows.isNotEmpty()) { "g0-corpus source ${source.absolutePath} produced no rows" }
 
-    val outFile = File("g0_corpus.tsv")
+    // Written beside the module's test data, derived from the root the source was
+    // found under so the task works from either CWD (pass 5b: it used to land in
+    // the module root). NOT src/main/resources — a main resource ships in the app.
+    val outFile = File(source.parentFile.parentFile, "core-tts/src/test/resources/g0_corpus.tsv")
+    outFile.parentFile.mkdirs()
     outFile.writeText(rows.joinToString("\n") + "\n")
     println("g0 corpus: ${rows.size} entries -> ${outFile.absolutePath}")
 }

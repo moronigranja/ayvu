@@ -80,7 +80,7 @@ tasks.register<JavaExec>("piperSmoke") {
     }
 }
 tasks.register<JavaExec>("g0Corpus") {
-    description = "G0: phonemize the narration corpus into g0_corpus.tsv (five columns) with the production EspeakPhonemizer"
+    description = "G0: phonemize the narration corpus into src/test/resources/g0_corpus.tsv (five columns) with the production EspeakPhonemizer"
     group = "verification"
     classpath = sourceSets.test.get().runtimeClasspath
     mainClass.set("com.moronigranja.localttsreader.tts.kokoro.G0CorpusGenKt")

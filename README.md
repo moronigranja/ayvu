@@ -45,7 +45,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
 
-Test sources: **785 `@Test` methods** (743 under `src/test`, 42 under `src/androidTest`),
+Test sources: **816 `@Test` methods** (773 under `src/test`, 43 under `src/androidTest`),
 0 failed. Android unit suites (Docker): green across
 app + all features. Device instrumented set (S22 staging, see docs/build.md):
 PlaybackE2e (full-book completion + pre-generation fast path), VoiceSelectionE2e,

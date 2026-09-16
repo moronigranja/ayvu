@@ -57,10 +57,18 @@ Thumbs.db
 *.swp
 
 # Phase J NMT models + corpora — runtime downloads, never committed (decisions
-# #7/#114); the pinned manifest IS committed (m/nmt/manifest.json)
-m/nmt/*/*
-m/nmt_stage/
-m/flores/
+# #7/#114); the pinned manifest IS committed (m/nmt/manifest.json). Pass 5b moved
+# the ~29 GB of bytes OUT of the working copy (one rename away at
+# ../_ayvu-scratch/local-tts-reader/) and left symlinks behind, so the documented
+# paths and the tools' defaults keep working; the symlinks themselves stay
+# untracked, which is what these rules now cover.
+m/nmt/*
+__omp_shell("m/nmt/manifest.json")
+m/nmt_stage
+m/flores
+
+# Gradle's Kotlin DSL session state, created at the repo root on every build
+.kotlin/
 
 # Python bytecode
 __pycache__/

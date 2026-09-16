@@ -11,7 +11,7 @@ recorded as a limitation, not attempted by a non-native ear.
 
 Artifacts:
 - Corpus source: `tools/g0-corpus.tsv` (lang ␥ category ␥ text)
-- Device corpus: `core-tts/g0_corpus.tsv` (id ␥ lang ␥ category ␥ text ␥ phonemes),
+- Device corpus: `core-tts/src/test/resources/g0_corpus.tsv` (id ␥ lang ␥ category ␥ text ␥ phonemes),
   produced by `./gradlew :core-tts:g0Corpus` through the production
   `NormalizingPhonemizer → EspeakPhonemizer` stack
 - Device results: `build/g0-device/` — `g0_results.json` + one
