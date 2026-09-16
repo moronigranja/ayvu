@@ -42,6 +42,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # `build/llama.cpp-src` is gitignored and materialized by this script; the
+      # Android build aborts without it (core-llm's CMakeLists FATAL_ERRORs on the
+      # missing vendored tree — that is what kept this lane red since #162).
+      - name: Fetch the vendored llama.cpp (pinned revision)
+        run: tools/fetch-llama-cpp.sh
       - name: Build the Android toolchain image
         run: docker build -t localtts-android .
       - name: Assemble both APKs + every Android unit test (Docker)
@@ -59,6 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Fetch the vendored llama.cpp (pinned revision)
+        run: tools/fetch-llama-cpp.sh
       - name: Build the Android toolchain image
         run: docker build -t localtts-android .
       - name: Debug + release assemble gate
