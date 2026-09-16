@@ -7,8 +7,11 @@
 # that touches Android modules
 ```
 
-No ktlint/detekt plugins are configured yet — those lint/format tasks arrive with the
-CI slice (roadmap V2).
+`./gradlew ktlintCheck` runs the pinned ktlint 1.7.2 CLI over every module's Kotlin
+sources with no baseline — any violation fails, in CI and locally — and
+`./gradlew ktlintFormat` is its formatter twin (the documented way to clear
+violations, so no baseline ever comes back; `.editorconfig` holds the two rule
+adjustments).
 
 Four pure-JVM modules (`core-model`, `core-ebook`, `core-locate`, `core-tts`)
 build and test without the Android SDK — `./gradlew :core-locate:test
@@ -706,7 +709,9 @@ tools/docker-build.sh assembleDebug      # full APK
   playback and UI flows that unit tests cannot reach.
 - CI must be green before a change is considered complete (roadmap V2, decisions
   #41): `.github/workflows/ci.yml` runs the JVM suite + Docker Android build and
-  unit tests on every push/PR and assembles debug+release on tags.
+  unit tests on every push/PR and assembles debug+release on tags. Both Android
+  lanes run `tools/fetch-llama-cpp.sh` first: `build/llama.cpp-src` is gitignored,
+  and `core-llm`'s CMakeLists fails the native build without it.
 
 ## Release APK (manual sign + publish, decisions #126)
 
