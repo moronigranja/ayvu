@@ -24,7 +24,11 @@ not a spec (specs live in architecture.md / feature docs).
 > 0.45 — int8-kernel ISA drift through the stateful decoder; NOT sample-exact,
 > stronger than #153's claim). Live-cloning NO on both devices stands;
 > pregen-viable at ~2× the Kokoro fp32 RTF. Pocket's native output is quiet
-> (-30 dBFS); gain handling stays on the integration-cost audit.
+> (-30 dBFS); gain handling stays on the integration-cost audit. **Owner
+> listen on the corrected S22 renders (2026-09-16): "both intelligible; p2 is
+> a little flat"** — intelligibility disqualifier cleared; the flat prosody is
+> an engine-level trait recorded as a reservation (D4 Piper precedent), not a
+> blocker. Pocket's S22 quality listen is closed.
 
 Two G0-gate device sessions on the S22 (SM-S908U1), both through production or
 spike harnesses, artifacts in `docs/prints/d5/` and `docs/prints/ptbr-blind-read/`.
