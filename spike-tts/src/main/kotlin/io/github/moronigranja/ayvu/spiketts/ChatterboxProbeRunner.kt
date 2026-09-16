@@ -172,7 +172,19 @@ class ChatterboxProbeRunner(
                 val passage = passages.getJSONObject(p)
                 val res =
                     try {
-                        synthesize(passage, exaggeration, audioFeatures, audioTokens, speakerEmbeddings, speakerFeatures, embed, lm, dec, outDir, log)
+                        synthesize(
+                            passage,
+                            exaggeration,
+                            audioFeatures,
+                            audioTokens,
+                            speakerEmbeddings,
+                            speakerFeatures,
+                            embed,
+                            lm,
+                            dec,
+                            outDir,
+                            log,
+                        )
                     } catch (e: Throwable) {
                         log("passage ${passage.optString("id")} FAILED: ${e.stackTraceToString()}")
                         Log.e(TAG, "passage failed", e)
@@ -237,12 +249,15 @@ class ChatterboxProbeRunner(
             val t = OnnxTensor.createTensor(env, LongBuffer.wrap(tokenIds), longArrayOf(1, tokenIds.size.toLong()))
             val p = OnnxTensor.createTensor(env, LongBuffer.wrap(pos), longArrayOf(1, pos.size.toLong()))
             val e = OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(exaggeration)), longArrayOf(1))
-            val emb = try {
-                f32Of(embed.run(mapOf("input_ids" to t, "position_ids" to p, "exaggeration" to e))[0] as OnnxTensor)
-            } catch (ex: Throwable) {
-                throw RuntimeException("embedTokens: $ex", ex)
-            }
-            t.close(); p.close(); e.close()
+            val emb =
+                try {
+                    f32Of(embed.run(mapOf("input_ids" to t, "position_ids" to p, "exaggeration" to e))[0] as OnnxTensor)
+                } catch (ex: Throwable) {
+                    throw RuntimeException("embedTokens: $ex", ex)
+                }
+            t.close()
+            p.close()
+            e.close()
             stage.put("emb_ms", stage.getLong("emb_ms") + System.currentTimeMillis() - m0)
             return emb
         }
@@ -257,6 +272,7 @@ class ChatterboxProbeRunner(
 
         val kv = Array(2 * N_LAYERS) { FloatArray(0) }
         var kvFrames = 0
+
         fun kvGrow(neededFrames: Int) {
             if (neededFrames <= kvFrames) return
             for (i in kv.indices) {
@@ -276,7 +292,11 @@ class ChatterboxProbeRunner(
             val lm0 = System.currentTimeMillis()
             val feeds = HashMap<String, OnnxTensor>()
             feeds["inputs_embeds"] =
-                OnnxTensor.createTensor(env, FloatBuffer.wrap(inputsEmbeds), longArrayOf(1, (inputsEmbeds.size / COND_DIM).toLong(), COND_DIM.toLong()))
+                OnnxTensor.createTensor(
+                    env,
+                    FloatBuffer.wrap(inputsEmbeds),
+                    longArrayOf(1, (inputsEmbeds.size / COND_DIM).toLong(), COND_DIM.toLong()),
+                )
             feeds["attention_mask"] = OnnxTensor.createTensor(env, LongBuffer.wrap(mask), longArrayOf(1, mask.size.toLong()))
             // Device GQA kernel (the export ships GroupQueryAttention): the past
             // buffer must be PRE-GROWN to past+current (validated seqlens_k <=
@@ -287,13 +307,18 @@ class ChatterboxProbeRunner(
             kvGrow(bufferFrames)
             for (i in kv.indices) {
                 feeds[pastName(i)] =
-                    OnnxTensor.createTensor(env, FloatBuffer.wrap(kv[i], 0, bufferFrames * N_KV_HEADS * HEAD_DIM), longArrayOf(1, N_KV_HEADS.toLong(), bufferFrames.toLong(), HEAD_DIM.toLong()))
+                    OnnxTensor.createTensor(
+                        env,
+                        FloatBuffer.wrap(kv[i], 0, bufferFrames * N_KV_HEADS * HEAD_DIM),
+                        longArrayOf(1, N_KV_HEADS.toLong(), bufferFrames.toLong(), HEAD_DIM.toLong()),
+                    )
             }
-            val out = try {
-                lm.run(feeds)
-            } catch (ex: Throwable) {
-                throw RuntimeException("lm step=$step kvFrames=$kvFrames inputsEmb=${inputsEmbeds.size / COND_DIM}: $ex", ex)
-            }
+            val out =
+                try {
+                    lm.run(feeds)
+                } catch (ex: Throwable) {
+                    throw RuntimeException("lm step=$step kvFrames=$kvFrames inputsEmb=${inputsEmbeds.size / COND_DIM}: $ex", ex)
+                }
             val logits = f32Of(out[0] as OnnxTensor)
             stage.put("lm_ms", stage.getLong("lm_ms") + System.currentTimeMillis() - lm0)
 
@@ -312,8 +337,11 @@ class ChatterboxProbeRunner(
             val lastLogits = logits.copyOfRange(logits.size - VOCAB, logits.size)
             repetitionPenaltyInPlace(lastLogits, generated)
             val next =
-                if (temperature != null) topPSample(lastLogits, temperature, topP, rng)
-                else argmax(lastLogits)
+                if (temperature != null) {
+                    topPSample(lastLogits, temperature, topP, rng)
+                } else {
+                    argmax(lastLogits)
+                }
             generated.add(next.toLong())
             if (next == STOP_SPEECH_TOKEN.toInt()) {
                 stopped = true
@@ -333,9 +361,16 @@ class ChatterboxProbeRunner(
         val wavOut =
             dec.run(
                 mapOf(
-                    "speech_tokens" to OnnxTensor.createTensor(env, LongBuffer.wrap(speechTokens), longArrayOf(1, speechTokens.size.toLong())),
-                    "speaker_embeddings" to OnnxTensor.createTensor(env, FloatBuffer.wrap(speakerEmbeddings), longArrayOf(1, speakerEmbeddings.size.toLong())),
-                    "speaker_features" to OnnxTensor.createTensor(env, FloatBuffer.wrap(speakerFeatures), longArrayOf(1, speakerFeatures.size / 80.toLong(), 80.toLong())),
+                    "speech_tokens" to
+                        OnnxTensor.createTensor(env, LongBuffer.wrap(speechTokens), longArrayOf(1, speechTokens.size.toLong())),
+                    "speaker_embeddings" to
+                        OnnxTensor.createTensor(env, FloatBuffer.wrap(speakerEmbeddings), longArrayOf(1, speakerEmbeddings.size.toLong())),
+                    "speaker_features" to
+                        OnnxTensor.createTensor(
+                            env,
+                            FloatBuffer.wrap(speakerFeatures),
+                            longArrayOf(1, speakerFeatures.size / 80.toLong(), 80.toLong()),
+                        ),
                 ),
             )
         val pcm = f32Of(wavOut[0] as OnnxTensor)
