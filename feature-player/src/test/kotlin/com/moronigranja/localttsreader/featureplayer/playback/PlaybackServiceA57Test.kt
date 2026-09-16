@@ -175,6 +175,7 @@ class PlaybackServiceA57Test {
                     TranslateRuntime(context, this.settings),
                     onUnusedSystemTts,
                     this.settings,
+                    FakeTranslationService(),
                 )
         }
 
@@ -394,6 +395,7 @@ class PlaybackServiceA57Test {
                         TranslateRuntime(context, this.settings),
                         onUnusedSystemTts,
                         this.settings,
+                        FakeTranslationService(),
                     )
             }
         PlaybackStateHolder.reset()
@@ -503,6 +505,7 @@ class PlaybackServiceA57Test {
                         TranslateRuntime(context, this.settings),
                         onUnusedSystemTts,
                         this.settings,
+                        FakeTranslationService(),
                     )
             }
         PlaybackStateHolder.reset()

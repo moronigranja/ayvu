@@ -1,5 +1,6 @@
 package com.moronigranja.localttsreader.persistence
 
+import com.moronigranja.localttsreader.player.DisplayMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +50,18 @@ class AppSettings
              * target APP language code. The mirror of `book.translate.<bookId>`
              * rows; absent = read in the book's original language. */
             val bookTranslate: Map<String, String> = emptyMap(),
+            /** Per-book DISPLAY languages (read-in-language display): bookId →
+             * the app language code whose translation the reader SHOWS. The
+             * mirror of `book.display.<bookId>` rows; absent = show the
+             * original language. */
+            val bookDisplays: Map<String, String> = emptyMap(),
+            /** The reader's display MODE (a reading STYLE, global): interleaved
+             * default, translated-only shows the translation alone. */
+            val displayMode: DisplayMode = DisplayMode.INTERLEAVED,
+            /** The global target-language voice for read-in-language speech;
+             * null = automatic (the catalog's first voice for the book's
+             * target language). */
+            val translateVoice: String? = null,
         )
 
         private val _state = MutableStateFlow(Snapshot())
@@ -67,6 +80,9 @@ class AppSettings
                     ttsThreads = store.ttsThreads(),
                     bookVoices = store.bookVoices(),
                     bookTranslate = store.bookTranslates(),
+                    bookDisplays = store.bookDisplays(),
+                    displayMode = store.displayMode(),
+                    translateVoice = store.translateVoice(),
                     realtimeCapable = deriveRtf(store.rtfWallMs(), store.rtfAudioMs()),
                 )
         }
@@ -121,6 +137,58 @@ class AppSettings
         suspend fun setThemeMode(value: ThemeMode) {
             store.setThemeMode(value)
             _state.value = _state.value.copy(theme = value)
+        }
+
+        /** The DISPLAY language for [bookId] (read-in-language display) — a
+         * non-suspend read for the reader's projection. */
+        fun bookDisplay(bookId: String): String? = _state.value.bookDisplays[bookId]
+
+        /** Writes or clears [bookId]'s display language and mirrors it. The
+         * store normalizes the speech target (a mismatched speech language is
+         * cleared — the display and speech name ONE translation), so the
+         * mirror must re-read both keys from the store, not copy locally. */
+        suspend fun setBookDisplay(
+            bookId: String,
+            lang: String?,
+        ) {
+            store.setBookDisplay(bookId, lang)
+            // The store NORMALIZES the speech target on a non-null display
+            // write (a mismatched speech language is cleared) — mirror the
+            // post-normalization state read back from the store, so the mirror
+            // never disagrees with truth (the caller rebuilds the session only
+            // when the speech target actually changed).
+            val speechAfter = store.bookTranslate(bookId)
+            _state.value =
+                if (lang == null) {
+                    _state.value.copy(bookDisplays = _state.value.bookDisplays - bookId)
+                } else {
+                    _state.value.copy(
+                        bookDisplays = _state.value.bookDisplays + (bookId to lang),
+                        bookTranslate =
+                            if (speechAfter == null) {
+                                _state.value.bookTranslate - bookId
+                            } else {
+                                _state.value.bookTranslate + (bookId to speechAfter)
+                            },
+                    )
+                }
+        }
+
+        /** The reader's display mode (global reading style). */
+        fun displayMode(): DisplayMode = _state.value.displayMode
+
+        suspend fun setDisplayMode(value: DisplayMode) {
+            store.setDisplayMode(value)
+            _state.value = _state.value.copy(displayMode = value)
+        }
+
+        /** The global target-language voice for read-in-language speech (null
+         * = automatic) — a non-suspend read for the playback hot path. */
+        fun translateVoice(): String? = _state.value.translateVoice
+
+        suspend fun setTranslateVoice(value: String?) {
+            store.setTranslateVoice(value)
+            _state.value = _state.value.copy(translateVoice = value?.takeIf { it.isNotBlank() })
         }
 
         suspend fun setMatchThreshold(value: Double) {

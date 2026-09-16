@@ -34,7 +34,7 @@ import javax.inject.Singleton
  * [MAX_FAILED_OPEN_ATTEMPTS] per process until an idle close resets the window.
  */
 @Singleton
-class TranslateRuntime
+open class TranslateRuntime
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
@@ -153,6 +153,27 @@ class TranslateRuntime
         }
 
         val failureReason: String? get() = failure
+
+        /** Non-arming availability read: the pack is staged and the session is
+         * not stuck in a failed-open state — a decode could start right now.
+         * Unlike [translator()] this never opens the model nor re-arms the
+         * idle-close timer (the reader's Pending-vs-Unavailable split must not
+         * keep the ~1.6 GB leg resident during original-language reading). */
+        open val canOpen: Boolean
+            get() = TranslatePackStager.isStaged(context.filesDir) && failure == null
+
+        /**
+         * Translates [text] into [promptLanguage] through the shared session —
+         * opens the session on demand (arming the idle close) and serializes
+         * on the session mutex (the LLM is single-flight). Null when the
+         * session cannot open or the result is blank. OPEN for host tests: a
+         * fake subclass counts calls without ever opening the model (the
+         * KokoroRuntime engine()/failureReason seam pattern).
+         */
+        open suspend fun translate(
+            text: String,
+            promptLanguage: String,
+        ): String? = translator()?.translate(text, promptLanguage)?.takeIf { it.isNotBlank() }
 
         companion object {
             /** Per-process retry cap for genuine open failures (corrupt pack). */

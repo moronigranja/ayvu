@@ -8,6 +8,7 @@ import com.moronigranja.localttsreader.backup.BackupHistory
 import com.moronigranja.localttsreader.backup.BackupPassage
 import com.moronigranja.localttsreader.backup.BackupProgress
 import com.moronigranja.localttsreader.backup.BackupSnapshot
+import com.moronigranja.localttsreader.backup.BackupTranslation
 
 /**
  * E1: the Room ↔ backup-archive boundary. [snapshot] is one consistent read
@@ -42,6 +43,7 @@ class BackupStore(
                 progress = database.progressDao().all().map { it.toBackupProgress() },
                 bookmarks = database.bookmarkDao().all().map { it.toBackupBookmark() },
                 positionHistory = database.historyDao().all().map { it.toBackupHistory() },
+                translations = database.translationDao().all().map { it.toBackupTranslation() },
                 bookFiles = if (includeBooks) bookFileStore?.all().orEmpty() else emptyMap(),
             )
         }
@@ -120,6 +122,11 @@ class BackupStore(
             // 6. Settings — restored keys overwrite local; absent keys keep local.
             database.settingsDao().putAll(snapshot.settings.map { (key, value) -> SettingEntity(key, value) })
 
+            // 6b. Translations — restored rows overwrite local on the natural
+            // (bookId, chapter, passage, lang, translator) key: [put] is REPLACE
+            // on that PK, so the settings precedence falls out of the DAO.
+            snapshot.translations.forEach { database.translationDao().put(it.toEntity()) }
+
             // 7. Book files — opt-in sidecar copy.
             bookFileStore?.let { store ->
                 snapshot.bookFiles.forEach { (name, bytes) -> store.save(name, bytes) }
@@ -186,6 +193,17 @@ class BackupStore(
             createdAtEpochMillis = createdAtEpochMillis,
         )
 
+    private fun TranslationEntity.toBackupTranslation() =
+        BackupTranslation(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            lang = lang,
+            translator = translator,
+            text = text,
+            createdAtEpochMillis = createdAtEpochMillis,
+        )
+
     // ------------------------------------------------------------------
     // Merge mappings
     // ------------------------------------------------------------------
@@ -233,6 +251,17 @@ class BackupStore(
             chapterIndex = chapterIndex,
             passageIndex = passageIndex,
             offsetSeconds = offsetSeconds,
+            createdAtEpochMillis = createdAtEpochMillis,
+        )
+
+    private fun BackupTranslation.toEntity() =
+        TranslationEntity(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            passageIndex = passageIndex,
+            lang = lang,
+            translator = translator,
+            text = text,
             createdAtEpochMillis = createdAtEpochMillis,
         )
 

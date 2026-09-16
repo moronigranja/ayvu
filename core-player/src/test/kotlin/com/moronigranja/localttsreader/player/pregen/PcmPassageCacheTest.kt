@@ -351,10 +351,9 @@ class PcmPassageCacheTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                translateLang = "pt-BR",
-                translator = PregenKey.LFM_TRANSLATOR,
+                target = TranslationTarget("pt-BR"),
             )
-        val small100 = lfm.copy(translator = PregenKey.SMALL100_TRANSLATOR)
+        val small100 = lfm.copy(target = TranslationTarget("pt-BR", PregenKey.SMALL100_TRANSLATOR))
         cache.put(small100, audio(3))
 
         assertNull(cache.get(lfm), "the small-100-era entry is not an LFM hit")

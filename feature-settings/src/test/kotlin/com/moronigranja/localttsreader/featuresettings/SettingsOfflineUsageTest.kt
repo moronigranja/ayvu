@@ -66,6 +66,10 @@ class SettingsOfflineUsageTest {
         override suspend fun delete(key: String) {
             rows.remove(key)
         }
+
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
+        }
     }
 
     /** Disk tier that changes between reads — what a pre-generation run does

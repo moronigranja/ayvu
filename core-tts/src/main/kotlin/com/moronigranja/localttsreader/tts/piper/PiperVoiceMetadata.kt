@@ -6,10 +6,11 @@ import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta
  * Static voice metadata for the piper-v1 voices (D4 selection wiring,
  * decisions #154 addendum): presentation data for "choose a voice before
  * download" — the engine instance is the contract (its config json carries
- * the real phoneme map/scales); this table only feeds the ONE shared voice
- * selector. [KokoroVoiceMeta] is the shared presentation row shape of
- * `buildVoiceSelectorState` (renaming it is the K2 engine-agnostic-rows
- * refactor, deliberately out of scope). Gender is the rhasspy/piper-voices
+ * the real phoneme map/scales); this table only feeds the ONE shared
+ * engine+voice picker. [KokoroVoiceMeta] is the shared presentation row
+ * shape of `buildEngineVoiceState` (renaming it is the K2
+ * engine-agnostic-rows refactor, deliberately out of scope). Gender is the
+ * rhasspy/piper-voices
  * voice-card presentation (lessac f, thorsten m); Piper has no upstream
  * grade, so [KokoroVoiceMeta.grade] stays null.
  */

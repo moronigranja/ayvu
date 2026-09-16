@@ -100,6 +100,10 @@ class KokoroRuntimeRetryTest {
         override suspend fun delete(key: String) {
             rows.remove(key)
         }
+
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
+        }
     }
 
     private fun settings(): AppSettings = AppSettings(SettingsStore(FakeSettingsDao()))

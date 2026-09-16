@@ -179,6 +179,7 @@ class PlaybackServiceRevivalTest {
                 TranslateRuntime(context, service.settings),
                 onUnusedSystemTts,
                 service.settings,
+                FakeTranslationService(),
             )
         return service
     }

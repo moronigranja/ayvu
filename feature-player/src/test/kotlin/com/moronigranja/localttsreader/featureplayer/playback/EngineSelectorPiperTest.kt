@@ -108,7 +108,7 @@ class EngineSelectorPiperTest {
     private fun selector(
         kokoro: FakeKokoroRuntime,
         piper: FakePiperRuntime,
-    ): EngineSelector = EngineSelector(kokoro, piper, translateRuntime, onUnusedSystemTts, settings)
+    ): EngineSelector = EngineSelector(kokoro, piper, translateRuntime, onUnusedSystemTts, settings, FakeTranslationService())
 
     @Test
     fun `piper-v1 routes the engine through PiperRuntime and never touches Kokoro`() {

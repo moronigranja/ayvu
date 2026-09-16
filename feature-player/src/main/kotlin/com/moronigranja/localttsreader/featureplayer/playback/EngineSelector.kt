@@ -2,6 +2,8 @@ package com.moronigranja.localttsreader.featureplayer.playback
 
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.player.pregen.TranslationService
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.TTSEngine
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
@@ -37,6 +39,7 @@ class EngineSelector
         private val translate: TranslateRuntime,
         @Named("system_tts") private val systemTts: Lazy<TTSEngine>,
         private val settings: AppSettings,
+        private val translationService: TranslationService,
     ) {
         private val selected: String
             get() = settings.state.value.ttsEngine
@@ -104,9 +107,24 @@ class EngineSelector
 
         // ---- read-in-language (decisions #114) ----
 
-        /** The book's per-book translate target (app language code), or null
-         * when it reads in the original language. */
-        fun translateTarget(bookId: String): String? = settings.bookTranslate(bookId)
+        /**
+         * The book's in-force SPEECH target (app language code), or null when
+         * it reads in the original language. THE single resolution choke
+         * point of the speech-vs-display constraint: a passage is translated
+         * at most once — with a display language set, the spoken language is
+         * either the original (Off) or that SAME translation, so a stored
+         * mismatch (speech != display) degrades to original audio rather than
+         * starting a second translation. [translateLangInUse],
+         * [translateDegradeReason] and [resolve] all read through here.
+         */
+        fun translateTarget(bookId: String): String? {
+            val speech = settings.bookTranslate(bookId)
+            val display = settings.bookDisplay(bookId)
+            // At most one translation per passage: with a display language set,
+            // the spoken language is either the original (Off) or that same
+            // translation.
+            return if (display != null && speech != display) null else speech
+        }
 
         /**
          * The translate lang the resolved engine actually renders for [bookId]
@@ -144,6 +162,28 @@ class EngineSelector
          */
         fun bestVoiceFor(target: String): String? = TranslateLanguages.firstVoiceFor(activeCatalog(), target)
 
+        /** The ACTIVE engine's voice metadata catalog (empty for the degraded
+         * voice). */
+        fun voiceCatalog(): List<com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta> = activeCatalog()
+
+        /** The stored target-language voice, validated against the book's
+         * in-force target and the active engine's catalog; null = automatic. */
+        fun translateVoice(bookId: String): String? =
+            storedTranslateVoice(bookId) ?: translateTarget(bookId)?.let { bestVoiceFor(it) }
+
+        /** The voice the book's audio is CONFIGURED under — the cache-key
+         * voice. The request voice (the original's, see [resolve]) never
+         * changes; an EXPLICIT target voice must name the render in the key
+         * (the auto-picked one is deterministic from the language, hence
+         * byte-identical to today — no cache invalidation for users who
+         * never pick one). */
+        fun renderVoice(bookId: String): String = storedTranslateVoice(bookId) ?: effectiveVoice(bookId)
+
+        private fun storedTranslateVoice(bookId: String): String? =
+            translateTarget(bookId)?.let { lang ->
+                settings.translateVoice()?.takeIf { it in TranslateLanguages.voicesFor(activeCatalog(), lang) }
+            }
+
         /** The canonical target app codes the ACTIVE engine can voice (the
          * "Read in" picker rows; catalog order, deduplicated), restricted to
          * languages the translator can be prompted for. */
@@ -164,7 +204,10 @@ class EngineSelector
             val base = engineFor(voice) ?: return null to voice
             val target = bookId?.let { translateTarget(it) }
             val modelLang = target?.let { LfmLang.toPromptLanguage(it) }
-            val targetVoice = target?.let { bestVoiceFor(it) }
+            val targetVoice =
+                target?.let {
+                    TranslateLanguages.resolvedVoiceFor(activeCatalog(), it, settings.translateVoice())
+                }
             // The resolved target voice must actually be servable: Piper is
             // one-voice-per-instance over downloaded packs, so a catalog name
             // whose pack is missing fails synthesis — the decorated attempt
@@ -173,9 +216,22 @@ class EngineSelector
             val voiceServable =
                 targetVoice != null &&
                     (selected != SettingsStore.PIPER_ENGINE || piper.voicePackReady(targetVoice))
-            val translator = translate.translator()
+            // The translator session is touched ONLY when a target is in
+            // force: `translator()` opens the ~1.6 GB LLM and arms the idle
+            // timer, so the original-language path must never call it (the
+            // degrade log below is non-arming — canOpen — for the same
+            // reason: a missing precondition is diagnosable without lodging
+            // the model). Resolve runs on EVERY synthesis, cold and
+            // warm — an unconditional touch would keep the leg resident
+            // while reading untranslated books.
             val decorated =
-                if (target != null && modelLang != null && targetVoice != null && voiceServable && translator != null) {
+                if (
+                    target != null &&
+                    modelLang != null &&
+                    targetVoice != null &&
+                    voiceServable &&
+                    translate.translator() != null
+                ) {
                     // The translated render needs an instance that SERVES the
                     // target voice: Piper is one-voice-per-instance, so the
                     // base (original-voice) instance fails typed on the
@@ -187,15 +243,18 @@ class EngineSelector
                     TranslatingEngine(
                         delegate = base,
                         targetEngine = targetEngine,
-                        translate = { text ->
-                            val startedAt = System.currentTimeMillis()
-                            val translated = translator.translate(text, modelLang)
-                            android.util.Log.d(
-                                "Translate",
-                                "translate: lang=$modelLang chars=${text.length} " +
-                                    "ms=${System.currentTimeMillis() - startedAt}",
-                            )
-                            translated
+                        // The audio path shares the SAME stored artifact as the
+                        // reader's display: the service is cache-first, joins
+                        // the keyed in-flight decode, and stores before returning
+                        // — speech never causes a second translation of a passage
+                        // the display already rendered (at most once).
+                        translate = { text, chapterIndex, passageIndex ->
+                            val id = bookId
+                            if (id == null) {
+                                null
+                            } else {
+                                translationService.translate(id, chapterIndex, passageIndex, TranslationTarget(target))
+                            }
                         },
                         targetVoice = targetVoice,
                         targetLang = target,
@@ -205,7 +264,7 @@ class EngineSelector
                         android.util.Log.w(
                             "Translate",
                             "degrade: target=$target modelLang=$modelLang " +
-                                "targetVoice=$targetVoice translator=${translator != null} " +
+                                "targetVoice=$targetVoice translatorOpenable=${translate.canOpen} " +
                                 "(${translate.failureReason ?: "open otherwise"})",
                         )
                         if (targetVoice == null) {

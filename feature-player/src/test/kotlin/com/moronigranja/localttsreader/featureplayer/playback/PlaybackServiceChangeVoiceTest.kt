@@ -153,6 +153,7 @@ class PlaybackServiceChangeVoiceTest {
                         override fun get(): TTSEngine = error("system tts unused")
                     },
                     settings,
+                    FakeTranslationService(),
                 )
         } to settings
     }

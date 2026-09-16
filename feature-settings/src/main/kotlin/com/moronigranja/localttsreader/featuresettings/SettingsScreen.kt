@@ -123,7 +123,7 @@ fun SettingsScreen(
                         // voice selector outgrew the root's one-flick budget.
                         SpeechEntryRow(
                             engineLabel = speechEngineLabel(state.ttsEngine),
-                            summary = state.voiceSelector.summary,
+                            summary = state.engineVoice.summary,
                             onClick = { pane = SettingsPane.Speech },
                         )
                     }
@@ -248,79 +248,6 @@ private fun SpeechPane(
         contentPadding = PaddingValues(AyvuSpacing.LG),
         verticalArrangement = Arrangement.spacedBy(AyvuSpacing.SM),
     ) {
-        item {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
-                            ).padding(vertical = AyvuSpacing.XS),
-                ) {
-                    RadioButton(
-                        selected = state.ttsEngine == SettingsStore.DEFAULT_TTS_ENGINE,
-                        onClick = { viewModel.setEngine(SettingsStore.DEFAULT_TTS_ENGINE) },
-                    )
-                    Column {
-                        Text("Kokoro-82M (downloaded)", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "High-quality offline voices — download required.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
-                            ).padding(vertical = AyvuSpacing.XS),
-                ) {
-                    RadioButton(
-                        selected = state.ttsEngine == SettingsStore.PIPER_ENGINE,
-                        onClick = { viewModel.setEngine(SettingsStore.PIPER_ENGINE) },
-                    )
-                    Column {
-                        Text("Piper (downloaded)", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "Compact open-weight voices — English (US) and German. Download required; no read-along highlights.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
-                                onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
-                            ).padding(vertical = AyvuSpacing.XS),
-                ) {
-                    RadioButton(
-                        selected = state.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
-                        onClick = { viewModel.setEngine(SettingsStore.SYSTEM_TTS_ENGINE) },
-                    )
-                    Column {
-                        Text("Device voice (system)", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "Zero-download fallback — degraded quality, no read-along highlights.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
         // C1.5: with the degraded voice active but the open-weight upgrade
         // packs missing, the section IS the install plan the setup flow shows
         // — the same rows once, never a second copy beside the plain rows.
@@ -389,17 +316,21 @@ private fun SpeechPane(
                 }
             }
         }
-        // C2 shared selector: persistent "Selected voice:" summary, one
-        // radio indicator, favorites independent, per-row Preview/Stop,
-        // missing packs → the explicit download action.
+        // Shared engine+voice picker (decisions #166 follow-up): engine and
+        // voice dropdowns, persistent "Selected voice:" summary, favorites
+        // independent, Preview/Stop, missing packs → the explicit download
+        // action with per-voice sizes.
         item {
-            com.moronigranja.localttsreader.ui.VoiceSelector(
-                state = state.voiceSelector,
+            com.moronigranja.localttsreader.ui.EngineVoicePicker(
+                state = state.engineVoice,
+                voiceLabel = "Voice",
+                onEngineSelect = viewModel::setEngine,
                 onSelect = viewModel::selectVoice,
                 onToggleFavorite = viewModel::toggleFavorite,
                 onPreview = viewModel::previewVoice,
                 onStopPreview = viewModel::stopPreview,
-                onDownload = { viewModel.downloadVoicePacks() },
+                onDownload = viewModel::downloadVoice,
+                onOpenSettings = null,
             )
         }
         item {

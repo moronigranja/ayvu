@@ -189,6 +189,7 @@ class PlaybackServicePiperSelectTest {
                         TranslateRuntime(context, this.settings),
                         onUnusedSystemTts,
                         this.settings,
+                        FakeTranslationService(),
                     )
             }
         PlaybackStateHolder.reset()

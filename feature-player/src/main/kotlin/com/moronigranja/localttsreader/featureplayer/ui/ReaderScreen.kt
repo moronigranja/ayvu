@@ -62,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -75,9 +76,14 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import com.moronigranja.localttsreader.player.ChapterDisplay
+
+import com.moronigranja.localttsreader.player.DisplayBlock
+import com.moronigranja.localttsreader.player.DisplayKind
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -95,6 +101,7 @@ import com.moronigranja.localttsreader.player.chapterMenuLabel
 import com.moronigranja.localttsreader.ui.AyvuSpacing
 import com.moronigranja.localttsreader.ui.CoverageProgress
 import com.moronigranja.localttsreader.ui.EmptyState
+import com.moronigranja.localttsreader.ui.LoadingState
 import com.moronigranja.localttsreader.ui.PlayerCard
 import com.moronigranja.localttsreader.ui.SectionHeader
 import kotlinx.coroutines.delay
@@ -122,14 +129,19 @@ import kotlin.math.ceil
 fun ReaderScreen(
     bookId: String,
     onClose: () -> Unit,
+    onOpenSettings: () -> Unit,
     startAt: PlayerPosition? = null,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    // The projected chapter (original passages + the reader-owned translation
+    // map — never interleaves the published list, so the bookmark/resume
+    // invariant holds by construction).
+    val chapterDisplay by viewModel.chapterDisplay.collectAsState()
     var chapterMenu by remember { mutableStateOf(false) }
     var bookmarkMenu by remember { mutableStateOf(false) }
     var voiceSheet by remember { mutableStateOf(false) }
-    val voiceSelector by viewModel.voiceSelector.collectAsState()
+    val engineVoice by viewModel.engineVoice.collectAsState()
     // Immersive chrome (item 1): rememberSaveable so rotation keeps the
     // choice; the system bar controller re-hides the bars on the new window.
     var immersive by rememberSaveable { mutableStateOf(false) }
@@ -331,11 +343,20 @@ fun ReaderScreen(
             ) {
                 when {
                     state.failure != null -> EmptyState(state.failure!!)
+                    // An open is in flight and there is nothing to render yet:
+                    // the holder still carries the previous book (or the
+                    // process default with bookId == null), so the text is not
+                    // absent, it is not here yet. Without this branch the
+                    // IDLE-empty case below shows "Tap play…" over every cold
+                    // start and every drift recovery (#130), while the open
+                    // command is still doing its disk I/O.
+                    state.chapterPassages.isEmpty() && state.bookId != bookId -> LoadingState("Opening book…", Modifier.fillMaxSize())
                     state.chapterPassages.isEmpty() && state.phase == PlayerPhase.IDLE ->
                         EmptyState("Tap play to start listening from this book.")
                     else ->
                         PaginatedChapter(
                             state = state,
+                            display = chapterDisplay,
                             bookId = bookId,
                             viewModel = viewModel,
                             pageStartPassage = pageStartPassage,
@@ -388,7 +409,14 @@ fun ReaderScreen(
                         playheadFraction = state.playheadFraction,
                         modifier = Modifier.weight(1f),
                     )
-                    val passageLabel = PlaybackUiState.passageIndicatorLabel(state.bookPassageIndex, state.bookPassageCount)
+                    // Same source as the in-body footer: the visible page's
+                    // first passage, book-wide (pageStartPassage is published by
+                    // PaginatedChapter for play-from-view).
+                    val passageLabel =
+                        PlaybackUiState.passageIndicatorLabel(
+                            chapterPrefix(state) + pageStartPassage.value,
+                            state.bookPassageCount,
+                        )
                     Text(
                         text = passageLabel ?: "",
                         style = MaterialTheme.typography.labelSmall,
@@ -415,12 +443,10 @@ fun ReaderScreen(
                             .fillMaxWidth()
                             .verticalScroll(androidx.compose.foundation.rememberScrollState()),
                 ) {
-                    // Read-in-language (decisions #114): per-book target above
-                    // the voice rows; the pack download row shows until staged.
-                    com.moronigranja.localttsreader.ui.SectionHeader(
-                        "Read in",
-                        Modifier.padding(vertical = AyvuSpacing.SM),
-                    )
+                    // Read-in-language (decisions #114): the picker's own
+                    // sections — "Show translation in" (+ mode) and "Read
+                    // aloud in" — render above the voice rows; the pack
+                    // download row shows until staged.
                     com.moronigranja.localttsreader.ui.ReadInLanguagePicker(
                         state = translate,
                         onSelect = {
@@ -428,17 +454,30 @@ fun ReaderScreen(
                             voiceSheet = false
                         },
                         onDownload = viewModel::downloadTranslatePack,
+                        // A display change re-projects the text — the sheet
+                        // stays open so the mode toggle can follow; it does
+                        // NOT dispatch a session rebuild (no changeVoice).
+                        onDisplaySelect = { viewModel.setDisplayTarget(it) },
+                        onModeSelect = { viewModel.setDisplayMode(it) },
+                        onTranslateVoiceSelect = viewModel::setTranslateVoice,
+                        onDownloadVoice = viewModel::downloadVoicePacks,
                     )
-                    com.moronigranja.localttsreader.ui.VoiceSelector(
-                        state = voiceSelector,
-                        onSelect = {
-                            viewModel.selectVoice(it)
-                            voiceSheet = false
-                        },
+                    com.moronigranja.localttsreader.ui.EngineVoicePicker(
+                        state = engineVoice,
+                        voiceLabel = "Voice",
+                        onEngineSelect = viewModel::setEngine,
+                        onSelect = viewModel::selectVoice,
                         onToggleFavorite = viewModel::toggleFavorite,
                         onPreview = viewModel::previewVoice,
                         onStopPreview = viewModel::stopPreview,
-                        onDownload = { viewModel.downloadVoicePacks() },
+                        onDownload = viewModel::downloadVoicePacks,
+                        // Missing packs leave the reader for the Settings
+                        // pane (decisions #166 follow-up) — the sheet closes
+                        // itself, the host navigates.
+                        onOpenSettings = {
+                            voiceSheet = false
+                            onOpenSettings()
+                        },
                     )
                 }
             },
@@ -478,6 +517,7 @@ private val PlaybackUiState.sleepLabel: String
 @Composable
 private fun PaginatedChapter(
     state: PlaybackUiState,
+    display: ChapterDisplayState,
     bookId: String,
     viewModel: ReaderViewModel,
     pageStartPassage: MutableState<Int>,
@@ -485,11 +525,15 @@ private fun PaginatedChapter(
     onToggleImmersive: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    if (state.chapterPassages.isEmpty()) return
+    if (display.blocks.isEmpty()) return
 
     val textMeasurer = rememberTextMeasurer()
     val highlightColor = MaterialTheme.colorScheme.tertiaryContainer
     val pressedColor = MaterialTheme.colorScheme.surfaceVariant
+    // Differentiation of translations and placeholders — colour + paragraph
+    // indent, never font size (the line grid is a uniform pitch sampled from
+    // lines 0→1, so a differently-pitched block would corrupt linesPerPage).
+    val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -535,17 +579,39 @@ private fun PaginatedChapter(
         val longPressTimeoutMs = LocalViewConfiguration.current.longPressTimeoutMillis
         val pageWidth = (constraints.maxWidth - horizontalPadPx * 2).coerceAtLeast(1)
         val chapterTitle = state.chapters.getOrNull(state.chapterIndex).orEmpty()
-        val chapterText =
-            remember(state.chapterIndex, state.chapterPassages) {
-                state.chapterPassages.joinToString("\n\n")
+        // The projected chapter: original blocks + the reader-owned
+        // translation map (Pending/Unavailable render their placeholders).
+        val blocks = display.blocks
+        val chapterText = remember(blocks) { ChapterDisplay.join(blocks) }
+        val passageOffsets = remember(blocks) { ChapterDisplay.offsets(blocks) }
+        val firstBlockOfPassage =
+            remember(blocks, state.chapterPassages.size) {
+                ChapterDisplay.firstBlockOfPassage(blocks, state.chapterPassages.size)
             }
-        val passageOffsets = remember(state.chapterPassages) { computePassageOffsets(state.chapterPassages) }
-        val activeSpan = activeSentenceRange(passageOffsets, state.passageIndex, state.passageText, state.activeSentenceIndex)
+        // The block whose text is the utterance being narrated — the
+        // read-along highlight anchor (F.5 highlight ownership).
+        val highlightBlock = highlightBlockOf(display, state, firstBlockOfPassage, blocks)
+        val activeSpan =
+            highlightBlock?.let { (blockIndex, text) ->
+                activeSentenceRange(passageOffsets, blockIndex, text, state.activeSentenceIndex)
+            }
         val bodyLayout =
-            remember(chapterText, pageWidth, bodyStyle, activeSpan) {
+            remember(chapterText, pageWidth, bodyStyle, activeSpan, blocks, passageOffsets) {
                 val annotated =
                     buildAnnotatedString {
                         append(chapterText)
+                        // The full text carries the block styles EARLY so the
+                        // measured layout's paragraph structure (the
+                        // translation indent) IS the render's — pagination
+                        // measures what the page draws.
+                        applyBlockStyles(
+                            blocks = blocks,
+                            offsets = passageOffsets,
+                            muted = mutedColor,
+                            startOffset = 0,
+                            rangeStart = 0,
+                            rangeEnd = chapterText.length,
+                        )
                         if (activeSpan != null) {
                             addStyle(SpanStyle(fontWeight = FontWeight.Bold), activeSpan.first, activeSpan.second)
                         }
@@ -631,39 +697,87 @@ private fun PaginatedChapter(
             )
         val fullPageLines =
             TextPagination.linesPerPage(viewportHeight, lineHeightPx, reservedPx = bottomReservePx + titleOverlayReservedPx)
-        val totalPages = TextPagination.totalPages(totalLines, firstPageLines, fullPageLines)
         // Chrome-toggle reflow (item 1): dropping the bottom PlayerCard grows
         // the viewport, so pages re-derive. Keep the reading place by
         // re-deriving the page from the top visible line of the OLD page
         // (geometry remembered across the toggle). Runs when the settled
         // layout actually changes (the toggle, or a rotation re-measure).
         var lastGeometry by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-        LaunchedEffect(immersive, viewportHeight) {
+        var lastBlocks by remember { mutableStateOf<List<DisplayBlock>?>(null) }
+        // The identity of the page the reader is LOOKING at: its first
+        // passage (the indicator's own value). Reflows re-anchor on THIS —
+        // not on the audio passage, which can lag a hand-turned paused page.
+        var anchorPassage by remember { mutableIntStateOf(0) }
+        // Line each PASSAGE begins on — tap-mapping. Original-keyed: the line
+        // of each passage's FIRST block (the Original in interleaved mode, the
+        // translation in translated-only), so a tap and the long-press menu
+        // keep naming the ORIGINAL passage.
+        val passageStartLines =
+            remember(bodyLayout, passageOffsets, firstBlockOfPassage, chapterText.length) {
+                firstBlockOfPassage.map { blockIndex ->
+                    val offset = passageOffsets.getOrNull(blockIndex) ?: 0
+                    bodyLayout.getLineForOffset(offset.coerceAtMost(maxOf(0, chapterText.length - 1)))
+                }
+            }
+        // Keep-together pagination (decisions #166 follow-up): a passage's
+        // Original and its Translation must never be split across a page
+        // break. Translation-passage groups feed TextPagination.layout — the
+        // break lands after such a group, never inside it.
+        val translationPassages =
+            remember(blocks) { blocks.filter { it.kind != DisplayKind.Original }.map { it.passageIndex }.toSet() }
+        val keepTogether =
+            remember(translationPassages, passageStartLines, totalLines) {
+                translationPassages.sorted().mapNotNull { p ->
+                    val start = passageStartLines.getOrNull(p) ?: return@mapNotNull null
+                    val end = passageStartLines.getOrNull(p + 1) ?: totalLines
+                    if (end > start) start until end else null
+                }
+            }
+        val pages =
+            remember(bodyLayout, totalLines, firstPageLines, fullPageLines, keepTogether) {
+                TextPagination.layout(totalLines, firstPageLines, fullPageLines, keepTogether)
+            }
+        val totalPages = pages.pageCount
+        // Fires on ANY reflow — the chrome/geometry AND the projection (a
+        // landing translation or a display-mode switch re-paginates the
+        // chapter). The reading place is the PAGE's first passage: every
+        // reflow re-anchors on the pre-reflow anchor passage's page. Keeping
+        // a top LINE instead lets the page START drift backwards when the
+        // geometry grows (the immersive toggle: a larger page starts
+        // earlier, so the indicator dropped 3 passages backwards while the
+        // line stayed put — the reported bug); keeping a page NUMBER drifts
+        // dozens of passages on a mode switch.
+        LaunchedEffect(immersive, viewportHeight, blocks) {
             val current = firstPageLines to fullPageLines
             val old = lastGeometry
-            if (old != null && old != current) {
-                val line = TextPagination.pageStartLine(page, old.first, old.second)
-                val targetPage = TextPagination.pageOf(line, current.first, current.second)
-                if (targetPage != page) page = targetPage.coerceIn(0, totalPages - 1)
+            val blocksChanged = lastBlocks != null && lastBlocks != blocks
+            if (blocksChanged || (old != null && old != current)) {
+                val anchor = firstBlockOfPassage.getOrNull(anchorPassage)?.let { anchorPassage }
+                    ?: firstBlockOfPassage.getOrNull(state.passageIndex)?.let { state.passageIndex }
+                val offset = anchor?.let { passageOffsets.getOrNull(firstBlockOfPassage[it]) }
+                val line =
+                    offset?.let {
+                        bodyLayout.getLineForOffset(it.coerceAtMost(maxOf(0, chapterText.length - 1)))
+                    }
+                val targetPage = line?.let { pages.pageOf(it) }
+                if (targetPage != null && targetPage != page) page = targetPage.coerceIn(0, totalPages - 1)
             }
             lastGeometry = current
+            lastBlocks = blocks
         }
         val range =
-            remember(page, totalLines, firstPageLines, fullPageLines) {
-                val start = TextPagination.pageStartLine(page.coerceIn(0, totalPages - 1), firstPageLines, fullPageLines)
+            remember(page, totalLines, pages) {
+                val p = page.coerceIn(0, totalPages - 1)
+                val start = pages.startLine(p)
+                val end = if (p + 1 < totalPages) pages.startLine(p + 1) else totalLines
                 if (start >= totalLines) {
                     start until start
                 } else {
-                    start until (start + if (page <= 0) firstPageLines else fullPageLines).coerceAtMost(totalLines)
+                    start until end.coerceAtMost(totalLines)
                 }
             }
         val startChar = if (page <= 0 || range.isEmpty()) 0 else bodyLayout.multiParagraph.getLineStart(range.first)
         val endChar = if (range.isEmpty()) startChar else bodyLayout.multiParagraph.getLineEnd(range.last)
-        // Line each passage begins on — tap-mapping.
-        val passageStartLines =
-            remember(bodyLayout, passageOffsets, totalLines) {
-                passageOffsets.map { bodyLayout.getLineForOffset(it.coerceAtMost(maxOf(0, chapterText.length - 1))) }
-            }
         // The passage the current page starts at (item 3): the first passage
         // whose start line lies on the page, or the passage containing the
         // page's first line when the whole page sits inside one long
@@ -677,16 +791,24 @@ private fun PaginatedChapter(
                 .takeIf { it >= 0 }
                 ?: passageStartLines.indexOfLast { it <= range.first }.coerceAtLeast(0)
         SideEffect { pageStartPassage.value = firstPassageOnPage }
+        // Track the page's first passage across every page change (follow,
+        // manual turns, reflow snaps) — the next reflow's anchor.
+        LaunchedEffect(page, firstPassageOnPage) {
+            anchorPassage = firstPassageOnPage
+        }
 
         // The page holding the ACTIVE sentence's first char — ONE shared
-        // source for both follow effects (item 3). Null when there is no
-        // active sentence to anchor on.
+        // source for both follow effects (item 3). When the highlight is
+        // suppressed (original audio in translated-only mode — no block
+        // matches the utterance), the page-follow anchors on the passage's
+        // FIRST block so playback still turns pages.
         fun activeSentencePage(): Int? {
-            val span =
-                activeSentenceRange(passageOffsets, state.passageIndex, state.passageText, state.activeSentenceIndex)
-                    ?: return null
-            val line = bodyLayout.getLineForOffset(span.first.coerceAtMost(maxOf(0, chapterText.length - 1)))
-            return TextPagination.pageOf(line.coerceAtMost(maxOf(0, totalLines - 1)), firstPageLines, fullPageLines)
+            val anchor =
+                activeSpan?.first
+                    ?: passageOffsets.getOrNull(firstBlockOfPassage.getOrNull(state.passageIndex) ?: return null)
+                        ?: return null
+            val line = bodyLayout.getLineForOffset(anchor.coerceAtMost(maxOf(0, chapterText.length - 1)))
+            return pages.pageOf(line.coerceAtMost(maxOf(0, totalLines - 1)))
         }
 
         // Playback turns the page when the ACTIVE SENTENCE leaves it
@@ -737,11 +859,102 @@ private fun PaginatedChapter(
             }
         }
 
+        // Prefetch (F.2): every page entry fills the current + next page's
+        // passages at display priority — the background decode lands the
+        // translation blocks progressively (the keep-place effect above holds
+        // the reading place while the page re-paginates). The service dedupes
+        // by passage, so repeated entries are cheap.
+        LaunchedEffect(bookId, state.chapterIndex, page, totalPages, pages, passageStartLines) {
+            fun passagesIn(lineStart: Int, lineEnd: Int): List<Int> =
+                passageStartLines.indices.filter { passageStartLines[it] in lineStart until lineEnd }
+            val currentStart = pages.startLine(page)
+            val currentEnd = if (page + 1 < totalPages) pages.startLine(page + 1) else totalLines
+            val current =
+                passagesIn(
+                    currentStart,
+                    currentEnd,
+                )
+            val next =
+                if (page + 1 < totalPages) {
+                    val start = pages.startLine(page + 1)
+                    val end = if (page + 2 < totalPages) pages.startLine(page + 2) else totalLines
+                    passagesIn(start, end)
+                } else {
+                    emptyList()
+                }
+            viewModel.prefetchChapter(bookId, state.chapterIndex, current + next)
+        }
+
         val pageSlice = chapterText.substring(startChar.coerceIn(0, chapterText.length), endChar.coerceIn(startChar, chapterText.length))
+        // Live loading dots (2-3 per second): a Pending block's placeholder
+        // is one fixed-length line, so the animated replacement — dots added
+        // one at a time, padded to the SAME length — never changes the wrap
+        // or the line count (the measured full layout stays static).
+        var pendingDots by remember { mutableIntStateOf(1) }
+        val hasPendingOnPage =
+            blocks.indices.any { i ->
+                val b = blocks[i]
+                if (b.kind != DisplayKind.Pending) {
+                    false
+                } else {
+                    val bs = passageOffsets.getOrNull(i) ?: return@any false
+                    bs < endChar && bs + ChapterDisplay.renderedLength(b) > startChar
+                }
+            }
+        LaunchedEffect(blocks, startChar, endChar, hasPendingOnPage) {
+            if (!hasPendingOnPage) return@LaunchedEffect
+            while (true) {
+                delay(PENDING_DOTS_TICK_MS)
+                pendingDots = if (pendingDots >= PENDING_DOTS_MAX) 1 else pendingDots + 1
+            }
+        }
+        val pendingDotsText =
+            remember(pendingDots, blocks) {
+                val length =
+                    blocks.firstOrNull { it.kind == DisplayKind.Pending }?.let { ChapterDisplay.renderedLength(it) } ?: 0
+                animatedPendingDots(pendingDots, length)
+            }
         val pageText =
-            remember(pageSlice, startChar, endChar, activeSpan, highlightColor, pressedPassage, pressedColor) {
+            remember(pageSlice, startChar, endChar, activeSpan, highlightColor, pressedPassage, pressedColor, blocks, passageOffsets, mutedColor, pendingDotsText) {
                 buildAnnotatedString {
-                    append(pageSlice)
+                    // The page's text, rebuilt from the block chunks inside
+                    // [startChar, endChar): non-pending content is the exact
+                    // chapter substring (the same chars as [pageSlice], so
+                    // the slice re-wraps identically); a FULLY-contained
+                    // Pending block renders the animated dots instead —
+                    // SAME total length: offsets are +2-separated ("\n\n"),
+                    // so a chunk spans through the NEXT block's offset and
+                    // the dots cover the block text with the separator
+                    // appended verbatim. A mismatched length would shift
+                    // every later style span past the text end.
+                    for (i in blocks.indices) {
+                        val block = blocks[i]
+                        val bs = passageOffsets.getOrNull(i) ?: continue
+                        // The chunk INCLUDES the "\n\n" separator: the next
+                        // block's offset (the chapter end for the last).
+                        val be = passageOffsets.getOrNull(i + 1) ?: chapterText.length
+                        if (be <= startChar || bs >= endChar) continue
+                        val from = maxOf(bs, startChar)
+                        val to = minOf(be, endChar)
+                        if (block.kind == DisplayKind.Pending && pendingDotsText.isNotEmpty() && from == bs && to == be) {
+                            append(pendingDotsText)
+                            append(chapterText.substring(bs + ChapterDisplay.renderedLength(block), be))
+                        } else {
+                            append(chapterText.substring(from, to))
+                        }
+                    }
+                    // The page render carries the SAME block styles as the
+                    // measured full layout (color + paragraph indent) — the
+                    // slice re-wraps greedily like the measured chapter, so
+                    // pagination measures what the page draws.
+                    applyBlockStyles(
+                        blocks = blocks,
+                        offsets = passageOffsets,
+                        muted = mutedColor,
+                        startOffset = startChar,
+                        rangeStart = startChar,
+                        rangeEnd = endChar,
+                    )
                     if (activeSpan != null) {
                         val from = maxOf(activeSpan.first, startChar)
                         val to = minOf(activeSpan.second, endChar)
@@ -755,10 +968,15 @@ private fun PaginatedChapter(
                     }
                     // Pressed-passage feedback (decisions #94): surfaceVariant
                     // fill, no bold — distinct from the read-along highlight.
+                    // Pressed keys the ORIGINAL passage index, so the pressed
+                    // range is the passage's FIRST block through the start of
+                    // the next passage (the whole displayed passage).
                     val pressed = pressedPassage
                     if (pressed != null) {
-                        val passageStart = passageOffsets.getOrNull(pressed) ?: 0
-                        val passageEnd = passageOffsets.getOrNull(pressed + 1) ?: chapterText.length
+                        val passageStartBlock = firstBlockOfPassage.getOrNull(pressed) ?: return@buildAnnotatedString
+                        val passageStart = passageOffsets.getOrNull(passageStartBlock) ?: return@buildAnnotatedString
+                        val nextPassageBlock = firstBlockOfPassage.getOrNull(pressed + 1)
+                        val passageEnd = nextPassageBlock?.let { passageOffsets.getOrNull(it) } ?: chapterText.length
                         val from = maxOf(passageStart, startChar)
                         val to = minOf(passageEnd, endChar)
                         if (from < to) {
@@ -795,7 +1013,7 @@ private fun PaginatedChapter(
                     // padding places it.
                     .padding(top = if (immersive) with(density) { titleOverlayReservedPx.toDp() } else 0.dp)
                     .clipToBounds()
-                    .pointerInput(state.bookId, totalPages, state.chapterPassages, immersive, longPressTarget == null) {
+                    .pointerInput(state.bookId, totalPages, blocks, immersive, longPressTarget == null) {
                         // The context menu is open: the page is inert — an
                         // outside tap dismisses the menu (G2), it must not
                         // turn the page. Opening the menu restarts this block
@@ -966,12 +1184,24 @@ private fun PaginatedChapter(
                 if (immersive) {
                     null
                 } else {
+                    // The page's FIRST passage, book-wide — not the played one
+                    // (item 4 follow-up): a manual page turn stops playback, so
+                    // bookPassageIndex stays on the last played passage while
+                    // the page moves, and the indicator went stale until
+                    // playback resumed. firstPassageOnPage is the chapter-local
+                    // value this composition already computed for play-from-view.
                     PlaybackUiState.passageIndicatorLabel(
-                        state.bookPassageIndex,
+                        chapterPrefix(state) + firstPassageOnPage,
                         state.bookPassageCount,
                     )
                 }
             if (passageLabel != null) {
+                // Pin the indicator to the viewport bottom. Pagination already
+                // reserves its band (bottomReservePx), but as the Column's last
+                // child in normal flow it floated up wherever a page filled
+                // fewer lines than the viewport allows — most visibly on a
+                // chapter's short last page.
+                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     passageLabel,
                     style = indicatorStyle,
@@ -1032,15 +1262,81 @@ private fun PaginatedChapter(
     }
 }
 
-/** Char offset of each passage's start in the joined chapter text. */
-private fun computePassageOffsets(passages: List<String>): IntArray {
-    val offsets = IntArray(passages.size)
-    var acc = 0
-    for ((index, passage) in passages.withIndex()) {
-        offsets[index] = acc
-        acc += passage.length + 2 // "\n\n"
+/**
+ * Book-wide index of the current chapter's FIRST passage. `stateCopy` builds
+ * [PlaybackUiState.bookPassageIndex] as the chapter prefix sum plus
+ * `passageIndex`, so the prefix alone is the difference — no per-chapter
+ * counts have to be published for the reader to convert a chapter-local
+ * passage index into a book-wide one.
+ */
+private fun chapterPrefix(state: PlaybackUiState): Int = (state.bookPassageIndex - state.passageIndex).coerceAtLeast(0)
+
+/**
+ * The block whose text is the utterance being narrated — the read-along
+ * highlight anchor (F.5 highlight ownership). Returns the block INDEX and
+ * the TEXT to split into sentence spans:
+ * - speech == display language → the TRANSLATION block (the anchors come
+ *   from the translated render, so they match);
+ * - original audio (or an audio-only translation with no displayed
+ *   translation) → the passage's FIRST block when it is an Original
+ *   (interleaved: today's behavior, the audio-only highlight drift is
+ *   recorded degradation #101);
+ * - translated-only mode with original audio → null: no displayed block
+ *   matches the utterance, so the highlight is suppressed (page-follow
+ *   stays anchored on the passage's first block).
+ */
+private fun highlightBlockOf(
+    display: ChapterDisplayState,
+    state: PlaybackUiState,
+    firstBlockOfPassage: IntArray,
+    blocks: List<DisplayBlock>,
+): Pair<Int, String>? {
+    val speech = display.speechTarget
+    if (speech != null && speech == display.displayTarget) {
+        for (i in blocks.indices) {
+            val block = blocks[i]
+            if (block.passageIndex == state.passageIndex && block.kind == DisplayKind.Translation) {
+                return i to block.text
+            }
+        }
     }
-    return offsets
+    val firstBlockIndex = firstBlockOfPassage.getOrNull(state.passageIndex) ?: return null
+    val first = blocks.getOrNull(firstBlockIndex) ?: return null
+    return if (first.kind == DisplayKind.Original) firstBlockIndex to state.passageText else null
+}
+
+/**
+ * Applies the per-block display styles (muted translation colour, paragraph
+ * indent, the Pending dots and the Unavailable note — italic) to the
+ * annotated builder, clipped to [rangeStart, rangeEnd) — the SAME rule for
+ * the measured full layout and the page render, so pagination (fixed line
+ * pitch) measures what the page draws. Color never changes measurement; the
+ * paragraph indent does, which is why the measured bodyLayout carries it.
+ */
+internal fun AnnotatedString.Builder.applyBlockStyles(
+    blocks: List<DisplayBlock>,
+    offsets: IntArray,
+    muted: Color,
+    startOffset: Int,
+    rangeStart: Int,
+    rangeEnd: Int,
+) {
+    for (i in blocks.indices) {
+        val block = blocks[i]
+        val blockStart = offsets.getOrNull(i) ?: continue
+        // Pending/Unavailable render placeholders, not their empty block text.
+        val blockEnd = blockStart + ChapterDisplay.renderedLength(block)
+        if (blockEnd <= rangeStart || blockStart >= rangeEnd) continue
+        val from = maxOf(blockStart, rangeStart) - startOffset
+        val to = minOf(blockEnd, rangeEnd) - startOffset
+        if (from >= to) continue
+        when (block.kind) {
+            DisplayKind.Original -> Unit
+            DisplayKind.Translation -> addStyle(SpanStyle(color = muted), from, to)
+            DisplayKind.Pending -> addStyle(SpanStyle(color = muted), from, to)
+            DisplayKind.Unavailable -> addStyle(SpanStyle(color = muted, fontStyle = FontStyle.Italic), from, to)
+        }
+    }
 }
 
 private data class SentenceSpan(
@@ -1090,6 +1386,21 @@ private fun activeSentenceRange(
 
 /** Horizontal drag distance that turns a page. */
 private val SWIPE_PAGE_THRESHOLD = 64.dp
+
+/** The live-dots cycle: one new dot every ~350 ms (≈ 3/s), up to 8, then
+ * restart — the Pending placeholder reads as "loading", not as a static
+ * ellipsis row. */
+private const val PENDING_DOTS_TICK_MS = 350L
+private const val PENDING_DOTS_MAX = 8
+
+/** The animated Pending placeholder: [count] dots added one at a time,
+ * padded to the FIXED placeholder length — the rendered line never changes
+ * its char count, so the wrap and the line grid stay identical to the
+ * measured layout (a differently-long line would corrupt pagination). */
+private fun animatedPendingDots(
+    count: Int,
+    length: Int,
+): String = if (length <= 0) "" else ("⋯ ".repeat(count).trimEnd()).padEnd(length)
 
 /** Walks Context wrappers (ContextThemeWrapper, …) to the host [Activity] —
  * the immersive system-bar controller needs the window (item 1). First

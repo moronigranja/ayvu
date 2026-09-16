@@ -214,6 +214,7 @@ class PlaybackServicePublishGuardTest {
                     TranslateRuntime(context, this.settings),
                     onUnusedSystemTts,
                     this.settings,
+                    FakeTranslationService(),
                 )
         }
 

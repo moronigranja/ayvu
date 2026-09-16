@@ -1,65 +1,31 @@
 package com.moronigranja.localttsreader.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-
-/** Language → flag glyph for the section headers (presentation only). */
-private val LANGUAGE_FLAGS: Map<String, String> =
-    mapOf(
-        "English (US)" to "🇺🇸",
-        "English (UK)" to "🇬🇧",
-        "Spanish" to "🇪🇸",
-        "French" to "🇫🇷",
-        "Hindi" to "🇮🇳",
-        "Italian" to "🇮🇹",
-        "Japanese" to "🇯🇵",
-        "Portuguese (Brazil)" to "🇧🇷",
-        "Chinese" to "🇨🇳",
-    )
+import com.moronigranja.localttsreader.player.AuditionStage
+import com.moronigranja.localttsreader.player.AuditionUiState
+import com.moronigranja.localttsreader.player.formatBytes
+import com.moronigranja.localttsreader.tts.DefaultEngines
+import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta
+import com.moronigranja.localttsreader.ui.AyvuSpacing
 
 /**
- * C2 (roadmap): the ONE voice-selection surface, reused across first-run
- * setup, Settings and the reader/player voice sheet — decisions #102.4 ("the
- * voice selector is built once as shared groundwork so C2 reuses it instead
- * of growing a second convention"). Pure presentation: selection, favorites,
- * preview and download actions come from the host screen; the composable
- * renders the C2 contract verbatim:
- *
- * - a persistent **Selected voice: _name_** summary;
- * - exactly one row carries the selection indicator (the radio); the star is
- *   a SEPARATE favorite action and never implies or changes selection —
- *   tapping the row selects, tapping the star only toggles the favorite;
- * - every ready row exposes **Preview/Stop**; slow synthesis shows
- *   cancellable **Generating sample…** feedback (static text — reduced-motion
- *   safe by construction);
- * - missing engine assets replace Preview with the same explicit download
- *   action used elsewhere (never silence, never an unannounced fallback);
- * - a saved voice absent from the catalog renders as unavailable with a
- *   download/reselect action instead of leaving every row unselected.
+ * The shared voice row presentation (decisions #166 follow-up — the compact
+ * replacement for the C2 radio list): one voice's name, language/gender and
+ * required-pack size, plus selection/favorite/preview/download markers. Purely
+ * presentation data; the host derives it through [buildEngineVoiceState].
  */
 data class VoiceRowUi(
     val name: String,
@@ -70,9 +36,12 @@ data class VoiceRowUi(
     /** Upstream data-grade ("A"…"F+"); null for the ungraded es/pt families. */
     val grade: String? = null,
     val favorite: Boolean = false,
-    /** Whether the voice's pack is ready; false → the row's [VoiceSelector]
-     * [downloadLabel]/Download action replaces Preview. */
+    /** Whether the voice's pack is ready; false → the row's download action
+     * replaces Preview. */
     val ready: Boolean = true,
+    /** The voice's required-pack size (0 when no pack is needed) — the
+     * "needs download · N MiB" marker on the compact picker. */
+    val bytes: Long = 0L,
     val selected: Boolean = false,
     val preview: VoicePreviewUi = VoicePreviewUi.Idle,
 )
@@ -89,243 +58,85 @@ sealed interface VoicePreviewUi {
     ) : VoicePreviewUi
 }
 
-data class VoiceSelectorUiState(
+/** One engine row of the engine dropdown. */
+data class EngineOptionUi(
+    val id: String,
+    val displayName: String,
+    val description: String,
+    val ready: Boolean,
+)
+
+data class EngineVoiceUiState(
+    val engineId: String = DefaultEngines.kokoro.id,
+    val engines: List<EngineOptionUi> = emptyList(),
     val rows: List<VoiceRowUi> = emptyList(),
-    /** Persistent summary — "Selected voice: X" (C2 acceptance). */
+    /** Persistent summary — "Selected voice: X (name)" for the settings row. */
     val summary: String = "",
     /** A persisted voice absent from the static catalog (e.g. from a pack the
      * current build does not know): shown as unavailable with a download /
      * reselect action, never as an all-unselected list. */
     val unavailableSavedVoice: String? = null,
+    /** The SELECTED voice's required packs are ready. */
+    val ready: Boolean = false,
 )
 
-@Composable
-fun VoiceSelector(
-    state: VoiceSelectorUiState,
-    onSelect: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit,
-    onPreview: (String) -> Unit,
-    onStopPreview: () -> Unit,
-    onDownload: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        if (state.summary.isNotBlank()) {
-            Text(
-                text = state.summary,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = AyvuSpacing.XS),
-            )
-        }
-        if (state.unavailableSavedVoice != null) {
-            UnavailableVoiceRow(
-                name = state.unavailableSavedVoice,
-                onDownload = { onDownload(state.unavailableSavedVoice) },
-            )
-        }
-        // Language sections, collapsed by default except the ones holding the
-        // selected voice or a favorite — a 54-row flat list was a wall (the
-        // Phase K feedback). User toggles persist across recomposition only.
-        var expanded by rememberSaveable {
-            mutableStateOf(defaultExpanded(state))
-        }
-        state.rows.groupBy { it.language }.forEach { (language, rows) ->
-            val open = language in expanded
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            expanded =
-                                if (language in expanded) {
-                                    expanded - language
-                                } else {
-                                    expanded + language
-                                }
-                        }.padding(top = AyvuSpacing.MD, bottom = AyvuSpacing.XS),
-            ) {
-                Text(
-                    text =
-                        listOfNotNull(
-                            LANGUAGE_FLAGS[language],
-                            language,
-                            "(${rows.size})",
-                        ).joinToString(" "),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.weight(1f))
-                Icon(
-                    imageVector =
-                        if (language in expanded) {
-                            Icons.Filled.KeyboardArrowUp
-                        } else {
-                            Icons.Filled.KeyboardArrowDown
-                        },
-                    contentDescription =
-                        if (language in expanded) "Collapse $language voices" else "Expand $language voices",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (language in expanded) {
-                rows.forEach { row ->
-                    VoiceSelectorRow(
-                        row = row,
-                        onSelect = onSelect,
-                        onToggleFavorite = onToggleFavorite,
-                        onPreview = onPreview,
-                        onStopPreview = onStopPreview,
-                        onDownload = onDownload,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Sections to open on first composition: the selected voice's language and
- * every favorited voice's language — a collapsed section must never hide the
- * selection or a favorite from the first frame. */
-private fun defaultExpanded(state: VoiceSelectorUiState): List<String> =
-    state.rows
-        .filter { it.selected || it.favorite }
-        .map { it.language }
-        .distinct()
-
-@Composable
-private fun VoiceSelectorRow(
-    row: VoiceRowUi,
-    onSelect: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit,
-    onPreview: (String) -> Unit,
-    onStopPreview: () -> Unit,
-    onDownload: (String) -> Unit,
-) {
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = row.selected,
-                        onClick = { onSelect(row.name) },
-                    ).padding(vertical = AyvuSpacing.XS),
-        ) {
-            // The radio is an indicator only — selecting happens on the row
-            // tap, so the star stays an independent favorite action.
-            RadioButton(selected = row.selected, onClick = null)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    row.displayName.ifEmpty { row.name },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    listOfNotNull(
-                        row.name,
-                        row.gender,
-                        row.grade?.let { "grade $it" },
-                    ).joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = { onToggleFavorite(row.name) }) {
-                Icon(
-                    imageVector = Icons.Filled.Star,
-                    contentDescription = if (row.favorite) "Remove ${row.name} from favorites" else "Favorite ${row.name}",
-                    tint =
-                        if (row.favorite) {
-                            MaterialTheme.colorScheme.tertiary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 48.dp), // under the name column, clear of the radio
-        ) {
-            when {
-                !row.ready ->
-                    TextButton(onClick = { onDownload(row.name) }) {
-                        Text("Download this voice's pack")
-                    }
-                row.preview is VoicePreviewUi.Generating ->
-                    Text(
-                        "Generating sample…",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = AyvuSpacing.SM),
-                    )
-                row.preview is VoicePreviewUi.Playing ->
-                    TextButton(onClick = onStopPreview) {
-                        Text("Stop")
-                    }
-                row.preview is VoicePreviewUi.Failed ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            row.preview.reason,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        TextButton(onClick = { onPreview(row.name) }) { Text("Retry") }
-                    }
-                else ->
-                    TextButton(onClick = { onPreview(row.name) }) {
-                        Text("Preview")
-                    }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UnavailableVoiceRow(
-    name: String,
-    onDownload: (String) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "Selected voice: $name (unavailable)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            "This voice is not in the current catalog — download its pack or choose another.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextButton(onClick = { onDownload(name) }) { Text("Download / choose again") }
-    }
-}
+/**
+ * Mirrors `SettingsStore.SYSTEM_TTS_ENGINE` — core-ui cannot see the
+ * settings store, so the degraded engine's id is mirrored here.
+ */
+private const val SYSTEM_ENGINE_ID = "system-tts"
 
 /**
- * The ONE selector-state builder (C2, decisions #102.4): Setup, Settings and
- * the reader voice sheet all derive [VoiceSelectorUiState] through this
- * function — never a second convention. Rows come from the static
- * [com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta] catalog,
- * readiness from the Kokoro pack states, selection/favorites from the
- * [com.moronigranja.localttsreader.persistence.AppSettings] snapshot,
- * audition stage from the shared coordinator.
+ * Fixed engine order: Kokoro (default), Piper, Device voice (system). Labels
+ * and subs mirror the Settings SpeechPane's engine rows verbatim.
  */
-fun buildVoiceSelectorState(
-    voices: List<com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta>,
+fun engineOptions(engineId: String, readyFor: (String) -> Boolean): List<EngineOptionUi> =
+    listOf(
+        EngineOptionUi(
+            id = DefaultEngines.kokoro.id,
+            displayName = "Kokoro-82M",
+            description = "High-quality offline voices — download required.",
+            ready = readyFor(DefaultEngines.kokoro.id),
+        ),
+        EngineOptionUi(
+            id = DefaultEngines.piper.id,
+            displayName = "Piper",
+            description =
+                "Compact open-weight voices — English (US) and German. Download required; no read-along highlights.",
+            ready = readyFor(DefaultEngines.piper.id),
+        ),
+        EngineOptionUi(
+            id = SYSTEM_ENGINE_ID,
+            displayName = "Device voice (system)",
+            description = "Zero-download fallback — degraded quality, no read-along highlights.",
+            ready = readyFor(SYSTEM_ENGINE_ID),
+        ),
+    )
+
+/**
+ * The ONE engine+voice picker-state builder (decisions #102.4 + #166
+ * follow-up): Settings, first-run setup and the reader voice sheet all derive
+ * [EngineVoiceUiState] through this function — never a second convention.
+ * Rows come from the active engine's static catalog, readiness/bytes from the
+ * required-pack table ([com.moronigranja.localttsreader.tts.setup.SetupEnginePacks]),
+ * selection/favorites from the settings snapshot, audition stage from the
+ * shared coordinator.
+ */
+fun buildEngineVoiceState(
+    engineId: String,
+    engines: List<EngineOptionUi>,
+    voices: List<KokoroVoiceMeta>,
     selectedVoice: String,
     favorites: Set<String>,
-    ready: Boolean,
-    audition: com.moronigranja.localttsreader.player.AuditionUiState,
-): VoiceSelectorUiState {
-    val known = voices.map(com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta::name).toSet()
+    readyFor: (String) -> Boolean,
+    bytesFor: (String) -> Long,
+    audition: AuditionUiState,
+): EngineVoiceUiState {
+    val known = voices.map(KokoroVoiceMeta::name).toSet()
     val unavailable = selectedVoice.takeIf { it !in known }
-    return VoiceSelectorUiState(
+    return EngineVoiceUiState(
+        engineId = engineId,
+        engines = engines,
         rows =
             voices.map { meta ->
                 VoiceRowUi(
@@ -335,7 +146,8 @@ fun buildVoiceSelectorState(
                     displayName = meta.displayName,
                     grade = meta.grade,
                     favorite = meta.name in favorites,
-                    ready = ready,
+                    ready = readyFor(meta.name),
+                    bytes = bytesFor(meta.name),
                     selected = meta.name == selectedVoice,
                     preview = previewStage(meta.name, audition),
                 )
@@ -353,21 +165,185 @@ fun buildVoiceSelectorState(
                 ""
             },
         unavailableSavedVoice = unavailable,
+        ready = readyFor(selectedVoice),
     )
+}
+
+/**
+ * The compact engine+voice picker (decisions #166 follow-up): dropdowns
+ * instead of the long radio lists, one shared surface on every voice-picking
+ * screen. Pure presentation — engine/voice selection, favorite, preview and
+ * download actions come from the host:
+ *
+ * - the engine dropdown is rendered only when the host lets the user change
+ *   the engine ([onEngineSelect] non-null) and lists engines exist;
+ * - one voice dropdown ([voiceLabel] labels it — "Voice" everywhere today);
+ * - a saved voice absent from the catalog renders as unavailable with a
+ *   download/reselect action instead of leaving every option unselected;
+ * - the selected voice's row shows its favorite star and its Preview/Stop /
+ *   Generating / Failed / Download action (missing packs replace Preview with
+ *   the same explicit download action used elsewhere);
+ * - when the selected voice's packs are not ready and [onOpenSettings] is
+ *   non-null, a "Manage downloads in Settings" link leaves the current
+ *   surface (the reader voice sheet closes itself) and opens Settings.
+ */
+@Composable
+fun EngineVoicePicker(
+    state: EngineVoiceUiState,
+    voiceLabel: String,
+    onEngineSelect: ((String) -> Unit)?,
+    onSelect: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onPreview: (String) -> Unit,
+    onStopPreview: () -> Unit,
+    onDownload: (String) -> Unit,
+    onOpenSettings: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        val engineSelect = onEngineSelect
+        if (engineSelect != null && state.engines.isNotEmpty()) {
+            val selectedEngine = state.engines.firstOrNull { it.id == state.engineId }
+            LabeledDropdown(
+                label = "Speech engine",
+                selectedLabel = selectedEngine?.displayName ?: state.engineId,
+                options =
+                    state.engines.map {
+                        DropdownOption(
+                            id = it.id,
+                            label = it.displayName,
+                            description = it.description,
+                            trailing = if (it.ready) "downloaded" else "needs download",
+                        )
+                    },
+                onSelect = engineSelect,
+                modifier = Modifier.padding(bottom = AyvuSpacing.SM),
+            )
+        }
+        val selectedRow = state.rows.firstOrNull { it.selected }
+        LabeledDropdown(
+            label = voiceLabel,
+            selectedLabel =
+                selectedRow?.let { it.displayName.ifEmpty { it.name } }
+                    ?: state.unavailableSavedVoice?.let { "$it (unavailable)" }
+                    ?: "—",
+            options =
+                state.rows.map { row ->
+                    DropdownOption(
+                        id = row.name,
+                        label = row.displayName.ifEmpty { row.name },
+                        description = "${row.language} · ${row.gender}",
+                        trailing =
+                            if (row.ready) {
+                                "downloaded"
+                            } else {
+                                "needs download · ${formatBytes(row.bytes)}"
+                            },
+                    )
+                },
+            onSelect = onSelect,
+            modifier = Modifier.padding(bottom = AyvuSpacing.SM),
+        )
+        val unavailable = state.unavailableSavedVoice
+        if (unavailable != null) {
+            Text(
+                "Selected voice: $unavailable (unavailable)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "This voice is not in the current catalog — download its pack or choose another.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = { onDownload(unavailable) }) { Text("Download / choose again") }
+        } else if (selectedRow != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        selectedRow.displayName.ifEmpty { selectedRow.name },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        listOfNotNull(
+                            selectedRow.name,
+                            selectedRow.gender,
+                            selectedRow.grade?.let { "grade $it" },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = { onToggleFavorite(selectedRow.name) }) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription =
+                            if (selectedRow.favorite) {
+                                "Remove ${selectedRow.name} from favorites"
+                            } else {
+                                "Favorite ${selectedRow.name}"
+                            },
+                        tint =
+                            if (selectedRow.favorite) {
+                                MaterialTheme.colorScheme.tertiary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                    )
+                }
+            }
+            when {
+                !selectedRow.ready ->
+                    TextButton(onClick = { onDownload(selectedRow.name) }) {
+                        Text("Download this voice's pack")
+                    }
+                selectedRow.preview is VoicePreviewUi.Generating ->
+                    Text(
+                        "Generating sample…",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = AyvuSpacing.SM),
+                    )
+                selectedRow.preview is VoicePreviewUi.Playing ->
+                    TextButton(onClick = onStopPreview) {
+                        Text("Stop")
+                    }
+                selectedRow.preview is VoicePreviewUi.Failed ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            selectedRow.preview.reason,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        TextButton(onClick = { onPreview(selectedRow.name) }) { Text("Retry") }
+                    }
+                else ->
+                    TextButton(onClick = { onPreview(selectedRow.name) }) {
+                        Text("Preview")
+                    }
+            }
+        }
+        if (!state.ready && onOpenSettings != null) {
+            TextButton(onClick = onOpenSettings) { Text("Manage downloads in Settings") }
+        }
+    }
 }
 
 private fun previewStage(
     name: String,
-    audition: com.moronigranja.localttsreader.player.AuditionUiState,
+    audition: AuditionUiState,
 ): VoicePreviewUi =
     if (audition.voice == name) {
         val stage = audition.stage
         when (stage) {
-            com.moronigranja.localttsreader.player.AuditionStage.Generating -> VoicePreviewUi.Generating
-            com.moronigranja.localttsreader.player.AuditionStage.Playing -> VoicePreviewUi.Playing
-            is com.moronigranja.localttsreader.player.AuditionStage.Failed ->
+            AuditionStage.Generating -> VoicePreviewUi.Generating
+            AuditionStage.Playing -> VoicePreviewUi.Playing
+            is AuditionStage.Failed ->
                 VoicePreviewUi.Failed(stage.reason)
-            com.moronigranja.localttsreader.player.AuditionStage.Idle -> VoicePreviewUi.Idle
+            AuditionStage.Idle -> VoicePreviewUi.Idle
         }
     } else {
         VoicePreviewUi.Idle

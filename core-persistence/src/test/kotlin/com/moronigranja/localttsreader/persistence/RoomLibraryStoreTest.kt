@@ -142,6 +142,25 @@ class RoomLibraryStoreTest {
             assertEquals(emptyList<CachedPassage>(), database.passageDao().forBook("b1"))
         }
 
+    @Test
+    fun `store delete drops the book's translations and per-book settings rows`() =
+        runTest {
+            val store = RoomLibraryStore(database, backgroundScope)
+            store.add(importedBook)
+            database.translationDao().put(TranslationEntity("b1", 0, 0, "pt-BR", "lfm12b", "texto", 1L))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookVoiceKey("b1"), "pf_dora"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookTranslateKey("b1"), "pt-BR"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookDisplayKey("b1"), "pt-BR"))
+            // Another book's rows must survive (per-book keying).
+            database.settingsDao().put(SettingEntity(SettingsStore.bookVoiceKey("b2"), "af_heart"))
+
+            store.delete("b1")
+
+            assertTrue(database.translationDao().all().isEmpty())
+            val remaining = database.settingsDao().all().map { it.key }
+            assertEquals(listOf(SettingsStore.bookVoiceKey("b2")), remaining)
+        }
+
     // ------------------------------------------------------------------
     // DAO round-trips
     // ------------------------------------------------------------------

@@ -63,6 +63,10 @@ class VoiceAuditionCoordinatorTest {
         override suspend fun delete(key: String) {
             rows.remove(key)
         }
+
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
+        }
     }
 
     private val context: Context = RuntimeEnvironment.getApplication()
@@ -91,6 +95,7 @@ class VoiceAuditionCoordinatorTest {
                         override fun get(): TTSEngine = error("system tts unused")
                     },
                     settings,
+                    stubTranslationService,
                 ),
             output = output,
             commands = commands,
@@ -98,6 +103,32 @@ class VoiceAuditionCoordinatorTest {
             ioDispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler),
             settings = settings,
         )
+
+    /** The audition path never touches the translate seam — a stub suffices. */
+    private val stubTranslationService =
+        object : com.moronigranja.localttsreader.player.pregen.TranslationService {
+            override val translatePossible: Boolean = true
+            override val ready: kotlinx.coroutines.flow.Flow<com.moronigranja.localttsreader.player.pregen.TranslationReady> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun cached(
+                bookId: String,
+                chapter: Int,
+                passage: Int,
+                target: com.moronigranja.localttsreader.player.pregen.TranslationTarget,
+            ): String? = null
+            override suspend fun translate(
+                bookId: String,
+                chapter: Int,
+                passage: Int,
+                target: com.moronigranja.localttsreader.player.pregen.TranslationTarget,
+            ): String? = null
+            override fun prefetch(
+                bookId: String,
+                chapter: Int,
+                passages: List<Int>,
+                target: com.moronigranja.localttsreader.player.pregen.TranslationTarget,
+            ) = Unit
+        }
 
     private class FakeRuntime(
         context: Context,

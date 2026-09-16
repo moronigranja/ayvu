@@ -49,16 +49,26 @@ class RoomLibraryStore(
 
     override suspend fun delete(bookId: String) {
         // One transaction: passages cascade from the book row, but progress,
-        // bookmarks, the undo ring and the per-day activity rows have no FK —
-        // delete them explicitly so the resume surface never points at a
-        // removed book (decisions #50) and the stats card never counts a
-        // deleted book (Phase H, decisions #109).
+        // bookmarks, the undo ring, the per-day activity rows, the stored
+        // translations and the per-book settings rows have no FK — delete
+        // them explicitly so the resume surface never points at a removed
+        // book (decisions #50), the stats card never counts a deleted book
+        // (Phase H, decisions #109), and the per-book voice/translate/display
+        // settings + translated text never orphan behind it (cleanup pass G).
         database.withTransaction {
             database.progressDao().delete(bookId)
             database.bookmarkDao().deleteByBook(bookId)
             database.historyDao().deleteByBook(bookId)
             database.activityDao().deleteByBook(bookId)
+            database.translationDao().deleteByBook(bookId)
             database.passageDao().deleteByBook(bookId)
+            database.settingsDao().deleteAll(
+                listOf(
+                    SettingsStore.bookVoiceKey(bookId),
+                    SettingsStore.bookTranslateKey(bookId),
+                    SettingsStore.bookDisplayKey(bookId),
+                ),
+            )
             database.bookDao().delete(bookId)
         }
     }

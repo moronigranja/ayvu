@@ -52,11 +52,12 @@ data class SetupUiState(
     /** The active engine's required packs, mapped for the shared plan card. */
     val packs: List<PlanPackRow> = emptyList(),
     val selectedVoice: String = SettingsStore.DEFAULT_VOICE,
-    /** C2: the shared selector rows + "Selected voice:" summary (+ the one
-     * audition), built from the static catalog + pack readiness. */
-    val voiceSelector: com.moronigranja.localttsreader.ui.VoiceSelectorUiState =
+    /** Shared engine+voice picker state — rows + "Selected voice:" summary
+     * (+ the one audition), built from the static catalog + required-pack
+     * readiness/bytes. */
+    val engineVoice: com.moronigranja.localttsreader.ui.EngineVoiceUiState =
         com.moronigranja.localttsreader.ui
-            .VoiceSelectorUiState(),
+            .EngineVoiceUiState(),
     /** Sum of the three required packs' descriptor sizes — the plan's total. */
     val storageTotalBytes: Long = 0L,
     /** Sum of the not-yet-ready required packs' sizes — what still needs
@@ -148,7 +149,7 @@ class SetupViewModel
                     currentStep = wizardStep,
                     packs = required.map { it.toPlanRow(err, filesDir) },
                     selectedVoice = prefs.voice,
-                    voiceSelector = voiceSelector(required, prefs, audition),
+                    engineVoice = engineVoice(required, prefs, audition),
                     storageTotalBytes = required.sumOf { it.pack.sizeBytes },
                     requiredBytes = requiredBytes,
                     availableBytes = available,
@@ -255,29 +256,34 @@ class SetupViewModel
 
         fun stopPreview() = voiceAudition.stop()
 
-        /** C2: the explicit per-row download action while the active engine's
-         * packs are missing — starts the same downloads the plan card lists. */
-        fun downloadVoicePacks() {
+        /** The picker's per-voice download action while the active engine's packs
+         * are missing — starts the same downloads the plan card lists. */
+        fun downloadVoicePacks(voice: String) {
             val prefs = settings.state.value
-            SetupEnginePacks.requiredIds(prefs.ttsEngine, prefs.voice).forEach { download(it) }
+            SetupEnginePacks.requiredIds(prefs.ttsEngine, voice).forEach { download(it) }
         }
 
-        /** C2 shared selector state — pack readiness + the one audition,
-         * via the single shared builder (C2, #102.4). The catalog follows the
-         * selected engine (D4 #154 addendum): Piper voices under piper-v1,
-         * Kokoro's otherwise. */
-        private fun voiceSelector(
+        /** Shared engine+voice picker state — required-pack readiness/bytes +
+         * the one audition, via the single shared builder (C2, #102.4 +
+         * #166 follow-up). The catalog follows the selected engine (D4 #154
+         * addendum): Piper voices under piper-v1, Kokoro's otherwise. */
+        private fun engineVoice(
             required: List<PackState>,
             prefs: AppSettings.Snapshot,
             audition: com.moronigranja.localttsreader.player.AuditionUiState,
-        ): com.moronigranja.localttsreader.ui.VoiceSelectorUiState {
+        ): com.moronigranja.localttsreader.ui.EngineVoiceUiState {
             val piperSelected = prefs.ttsEngine == SettingsStore.PIPER_ENGINE
-            val ready = required.all { it.status == com.moronigranja.localttsreader.tts.PackStatus.Ready }
-            return com.moronigranja.localttsreader.ui.buildVoiceSelectorState(
+            return com.moronigranja.localttsreader.ui.buildEngineVoiceState(
+                engineId = prefs.ttsEngine,
+                engines =
+                    com.moronigranja.localttsreader.ui.engineOptions(prefs.ttsEngine) {
+                        SetupEnginePacks.readyFor(prefs.ttsEngine, it, required)
+                    },
                 voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
                 selectedVoice = prefs.voice,
                 favorites = prefs.favorites.toSet(),
-                ready = ready,
+                readyFor = { SetupEnginePacks.readyFor(prefs.ttsEngine, it, required) },
+                bytesFor = { SetupEnginePacks.bytesFor(prefs.ttsEngine, it, required) },
                 audition = audition,
             )
         }

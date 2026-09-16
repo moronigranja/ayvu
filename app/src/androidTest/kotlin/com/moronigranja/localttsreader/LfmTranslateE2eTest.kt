@@ -13,6 +13,7 @@ import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.pregen.PcmPassageCache
 import com.moronigranja.localttsreader.player.pregen.PregenAudio
 import com.moronigranja.localttsreader.player.pregen.PregenKey
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.PackCache
 import com.moronigranja.localttsreader.tts.PackDownloader
 import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
@@ -79,6 +80,10 @@ class LfmTranslateE2eTest {
 
         override suspend fun delete(key: String) {
             rows.remove(key)
+        }
+
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
         }
     }
 
@@ -161,8 +166,7 @@ class LfmTranslateE2eTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                translateLang = "pt-BR",
-                translator = PregenKey.LFM_TRANSLATOR,
+                target = TranslationTarget("pt-BR"),
             )
         cache.put(key, PregenAudio(ByteArray(2_000) { 3 }, 24_000, null))
 

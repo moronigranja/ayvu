@@ -65,3 +65,26 @@ val MIGRATION_2_3: Migration =
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_activity_seconds_bookId` ON `activity_seconds` (`bookId`)")
         }
     }
+
+/** Read-in-language display (post-#114 follow-up): the stored translation
+ * table arrives as a pure add — v3 tables are untouched. */
+val MIGRATION_3_4: Migration =
+    object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+            CREATE TABLE IF NOT EXISTS `translations` (
+                `bookId` TEXT NOT NULL,
+                `chapterIndex` INTEGER NOT NULL,
+                `passageIndex` INTEGER NOT NULL,
+                `lang` TEXT NOT NULL,
+                `translator` TEXT NOT NULL,
+                `text` TEXT NOT NULL,
+                `createdAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`bookId`, `chapterIndex`, `passageIndex`, `lang`, `translator`)
+            )
+            """,
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_translations_bookId` ON `translations` (`bookId`)")
+        }
+    }

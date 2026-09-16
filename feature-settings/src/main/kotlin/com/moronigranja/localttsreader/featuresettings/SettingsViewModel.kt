@@ -23,14 +23,13 @@ import com.moronigranja.localttsreader.tts.VoiceCatalog
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMeta
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
-import com.moronigranja.localttsreader.tts.piper.PiperEngine
-import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
-import com.moronigranja.localttsreader.tts.piper.PiperVoices
+import com.moronigranja.localttsreader.tts.setup.SetupEnginePacks
 import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
 import com.moronigranja.localttsreader.tts.translate.TranslatePacks
-import com.moronigranja.localttsreader.ui.VoiceSelectorUiState
-import com.moronigranja.localttsreader.ui.buildVoiceSelectorState
+import com.moronigranja.localttsreader.ui.EngineVoiceUiState
+import com.moronigranja.localttsreader.ui.buildEngineVoiceState
+import com.moronigranja.localttsreader.ui.engineOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,10 +68,10 @@ data class SettingsUiState(
      * packs with no settings-surface edit.
      */
     val speechPackIds: Set<String> = emptySet(),
-    /** C2: the shared voice selector state (core-ui rows + "Selected voice:"
+    /** The shared engine+voice picker state (core-ui rows + "Selected voice:"
      * summary + unavailable-saved-voice), built from the static catalog +
-     * pack readiness + the one audition. */
-    val voiceSelector: VoiceSelectorUiState = VoiceSelectorUiState(),
+     * required-pack readiness/bytes + the one audition. */
+    val engineVoice: EngineVoiceUiState = EngineVoiceUiState(),
     /** The speech engine id (C1.5): kokoro-82m or the degraded system-tts. */
     val ttsEngine: String = SettingsStore.DEFAULT_TTS_ENGINE,
     val matchThreshold: Double = SettingsStore.DEFAULT_MATCH_THRESHOLD,
@@ -136,7 +135,7 @@ class SettingsViewModel
                 SettingsUiState(
                     packs = packs.map { packRow(it, prog[it.pack.id], err[it.pack.id]) },
                     speechPackIds = speechPackIds(prefs.ttsEngine),
-                    voiceSelector = voiceSelector(packs, prefs, audition),
+                    engineVoice = engineVoice(packs, prefs, audition),
                     ttsEngine = prefs.ttsEngine,
                     matchThreshold = prefs.threshold,
                     playbackGain = prefs.playbackGain,
@@ -253,12 +252,11 @@ class SettingsViewModel
                 .forEach { downloadInternal(it.pack.id, isTess = false) }
         }
 
-        /** C2: the explicit download action every voice row shows while the
-         * active engine's packs are missing (never silence, never an
-         * unannounced fallback) — Kokoro's three packs, or the resolved
-         * Piper voice's model + config plus espeak (D4 #154 addendum). */
-        fun downloadVoicePacks() {
-            voicePackIds(settings.state.value).forEach { download(it) }
+        /** The named voice's required-pack download action (never silence, never an
+         * unannounced fallback) — the shared required-pack table resolves the
+         * ids under the active engine (D4 #154 addendum). */
+        fun downloadVoice(voice: String) {
+            SetupEnginePacks.requiredIds(settings.state.value.ttsEngine, voice).forEach { download(it) }
         }
 
         private fun downloadInternal(
@@ -368,44 +366,38 @@ class SettingsViewModel
             if (espeakReady(filesDir)) "staged (lib + data)" else "not staged — download the pack above"
 
         // ------------------------------------------------------------------
-        // C2 shared selector state
+        // C4 shared engine+voice picker state
         // ------------------------------------------------------------------
 
-        private fun voiceSelector(
+        private fun engineVoice(
             packs: List<PackState>,
             prefs: AppSettings.Snapshot,
             audition: AuditionUiState,
-        ): VoiceSelectorUiState {
-            val piperSelected = prefs.ttsEngine == SettingsStore.PIPER_ENGINE
-            // The ONE shared builder (C2, #102.4) — Setup/Reader route here
-            // too; the catalog follows the selected engine (D4 #154 addendum)
-            // and a saved voice the engine does not expose degrades to the
-            // builder's unavailable row (decisions #144 availability shape).
-            return buildVoiceSelectorState(
-                voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
+        ): EngineVoiceUiState {
+            val engineId = prefs.ttsEngine
+            // The ONE shared builder (C2, #102.4 + #166 follow-up) — Setup/
+            // Reader route here too; the catalog follows the selected engine
+            // (D4 #154 addendum) and a saved voice the engine does not expose
+            // degrades to the builder's unavailable row (decisions #144
+            // availability shape).
+            val voices =
+                if (engineId == SettingsStore.PIPER_ENGINE) {
+                    PiperVoiceMetadata.all
+                } else {
+                    KokoroVoiceMetadata.all
+                }
+            val readyFor: (String) -> Boolean = { SetupEnginePacks.readyFor(engineId, it, packs) }
+            return buildEngineVoiceState(
+                engineId = engineId,
+                engines = engineOptions(engineId, readyFor),
+                voices = voices,
                 selectedVoice = prefs.voice,
                 favorites = prefs.favorites.toSet(),
-                ready =
-                    voicePackIds(prefs).all { id ->
-                        packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready
-                    },
+                readyFor = readyFor,
+                bytesFor = { SetupEnginePacks.bytesFor(engineId, it, packs) },
                 audition = audition,
             )
         }
-
-        /** Pack ids of the SELECTED engine's voice readiness: Kokoro's three,
-         * or the resolved Piper voice's model + config plus the shared espeak
-         * bundle both engines phonemize through. */
-        private fun voicePackIds(prefs: AppSettings.Snapshot): Set<String> =
-            if (prefs.ttsEngine == SettingsStore.PIPER_ENGINE) {
-                PiperPacks
-                    .forVoice(
-                        if (prefs.voice in PiperVoices.all) prefs.voice else PiperEngine.DEFAULT_VOICE,
-                    ).map { it.id }
-                    .toSet() + ESPEAK_PACK_ID
-            } else {
-                kokoroPackIds
-            }
 
         /**
          * K2 (decisions #156): the Speech section's pack rows, derived from
@@ -444,8 +436,6 @@ class SettingsViewModel
 
         private companion object {
             const val ESPEAK_PACK_ID = "espeak-ng"
-            private val kokoroPackIds =
-                setOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
         }
     }
 

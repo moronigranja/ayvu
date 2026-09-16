@@ -38,7 +38,10 @@ class PregenQueue(
     private val book: Book,
     private val voice: String,
     private val speed: Double,
-    private val synthesize: suspend (text: String) -> SynthesisOutcome,
+    /** Synthesizes one passage — the (chapterIndex, passageIndex) identity
+     * lets a translated render share the stored display translation (the
+     * `x<lang>` key's text and the audio's text are the SAME artifact). */
+    private val synthesize: suspend (text: String, chapterIndex: Int, passageIndex: Int) -> SynthesisOutcome,
     private val lookahead: Int = 5,
     /** Buffered audio target in seconds ahead of the playhead — the D1
      * horizon (decisions #155, "approximately 30-second audio horizon");
@@ -49,14 +52,12 @@ class PregenQueue(
     private val onSynthesized: suspend (key: PregenKey, audio: PregenAudio) -> Unit = { _, _ -> },
     /** Engine whose voice/speed the queue synthesizes — part of the [PregenKey] cache path. */
     private val engine: String = PregenKey.DEFAULT_ENGINE,
-    /** Read-in-language target code for this queue's keys (decisions #114);
-     * null = the book's original language. */
-    private val translateLang: String? = null,
-    /** Translator identity for this queue's keys (decisions #162) — see
-     * [PregenKey.translator]. Only meaningful with [translateLang]. */
-    private val translator: String? = null,
+    /** Read-in-language target for this queue's keys (decisions #114/#162) —
+     * the language AND the translator that wrote it ([TranslationTarget]).
+     * Null = the book's original language. */
+    private val target: TranslationTarget? = null,
 ) {
-    private val planner = PregenPlanner(book, voice, speed, engine, translateLang, translator)
+    private val planner = PregenPlanner(book, voice, speed, engine, target)
     private val lock = Object()
     private val entries = LinkedHashMap<PregenKey, PregenAudio>()
     private val inFlight = mutableSetOf<PregenKey>()
@@ -112,7 +113,7 @@ class PregenQueue(
                 val current = rearm?.invoke()
                 if (current != null && !isAfter(key, current)) break
                 val text = book.passageText(key.chapterIndex, key.passageIndex) ?: break
-                val audio = convert(synthesize(text)) ?: break
+                val audio = convert(synthesize(text, key.chapterIndex, key.passageIndex)) ?: break
                 onSynthesized(key, audio)
                 synchronized(lock) {
                     if (!entries.containsKey(key)) {

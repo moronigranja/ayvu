@@ -25,12 +25,10 @@ class PregenPlanner(
     private val speed: Double,
     /** Engine whose voice/speed the walk keys — part of the [PregenKey] cache path. */
     private val engine: String = PregenKey.DEFAULT_ENGINE,
-    /** Read-in-language target code for this walk's keys (decisions #114);
-     * null = the book's original language. */
-    private val translateLang: String? = null,
-    /** Translator identity for this walk's keys (decisions #162) — see
-     * [PregenKey.translator]. Only meaningful with [translateLang]. */
-    private val translator: String? = null,
+    /** Read-in-language target for this walk's keys (decisions #114/#162) —
+     * the language AND the translator that wrote it ([TranslationTarget]).
+     * Null = the book's original language. */
+    private val target: TranslationTarget? = null,
 ) {
     /** The book's first passage (spine start). */
     val first: Pair<Int, Int> get() = 0 to 0
@@ -52,7 +50,7 @@ class PregenPlanner(
     fun key(
         chapterIndex: Int,
         passageIndex: Int,
-    ): PregenKey = PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine, translateLang, translator)
+    ): PregenKey = PregenKey(book.id, chapterIndex, passageIndex, voice, speed, engine, target)
 
     /**
      * Non-suspend spine walk for plan-building phases (the queue's

@@ -114,17 +114,18 @@ enum class PregenTerminal {
  */
 class OfflinePregen(
     private val cache: PcmPassageCache,
-    private val synthesize: suspend (text: String) -> SynthesisOutcome,
+    /** Synthesizes one passage — the (chapterIndex, passageIndex) identity
+     * lets a translated render share the stored display translation (the
+     * `x<lang>` key's text and the audio's text are the SAME artifact). */
+    private val synthesize: suspend (text: String, chapterIndex: Int, passageIndex: Int) -> SynthesisOutcome,
     private val consecutiveFailureCap: Int = 5,
     private val shouldContinue: () -> Boolean = { true },
     /** Engine whose voice/speed the run synthesizes — part of the [PregenKey] cache path. */
     private val engine: String = PregenKey.DEFAULT_ENGINE,
-    /** Read-in-language target code for this run's keys (decisions #114);
-     * null = the book's original language. */
-    private val translateLang: String? = null,
-    /** Translator identity for this run's keys (decisions #162) — see
-     * [PregenKey.translator]. Only meaningful with [translateLang]. */
-    private val translator: String? = null,
+    /** Read-in-language target for this run's keys (decisions #114/#162) —
+     * the language AND the translator that wrote it ([TranslationTarget]).
+     * Null = the book's original language. */
+    private val target: TranslationTarget? = null,
 ) {
     init {
         require(consecutiveFailureCap > 0) { "consecutiveFailureCap must be positive" }
@@ -170,7 +171,7 @@ class OfflinePregen(
             return final
         }
 
-        PregenPlanner(book, voice, speed, engine, translateLang, translator).walk(
+        PregenPlanner(book, voice, speed, engine, target).walk(
             from = startAt?.let { inclusiveFrom(book, it) },
             onChapter = { chapterIndex ->
                 // Chapter-boundary gates: maxChapters and the caller's yield.
@@ -212,7 +213,7 @@ class OfflinePregen(
                     terminal = PregenTerminal.CacheSaturated
                     false
                 } else {
-                    when (val outcome = synthesize(book.chapters[key.chapterIndex].passages[passageIndex].text)) {
+                    when (val outcome = synthesize(book.chapters[key.chapterIndex].passages[passageIndex].text, key.chapterIndex, passageIndex)) {
                         is SynthesisOutcome.Audio -> {
                             cache.put(key, PregenAudio(outcome.pcm, outcome.sampleRateHz, outcome.segments))
                             // 16-bit mono PCM: bytes / (rate × 2) = listening seconds

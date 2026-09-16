@@ -14,6 +14,7 @@ import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlayerPhase
 import com.moronigranja.localttsreader.player.pregen.PcmPassageCache
 import com.moronigranja.localttsreader.player.pregen.PregenKey
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.PackCache
 import com.moronigranja.localttsreader.tts.PackDownloader
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
@@ -140,8 +141,7 @@ class LfmTranslatedPlaybackE2eTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                translateLang = "pt-BR",
-                translator = PregenKey.LFM_TRANSLATOR,
+                target = TranslationTarget("pt-BR"),
             )
         val audio = cache.get(translated)
         assertTrue("no translated audio cached under $translated", audio != null && audio.pcm.isNotEmpty())
@@ -153,7 +153,7 @@ class LfmTranslatedPlaybackE2eTest {
         // the cache key name what was actually synthesized, decisions #114).
         assertTrue(
             "the original-language key must be a different entry",
-            cache.get(translated.copy(translateLang = null, translator = null)) == null,
+            cache.get(translated.copy(target = null)) == null,
         )
     }
 }

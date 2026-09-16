@@ -31,6 +31,7 @@ import java.util.zip.ZipOutputStream
  * progress.json         [ { bookId, chapterIndex, passageIndex, offsetSeconds, speed, updatedAtEpochMillis } ]
  * bookmarks.json        [ { bookId, chapterIndex, passageIndex, offsetSeconds, label, createdAtEpochMillis } ]
  * position_history.json [ { bookId, chapterIndex, passageIndex, offsetSeconds, createdAtEpochMillis } ]
+ * translations.json     optional: [ { bookId, chapterIndex, passageIndex, lang, translator, text, createdAtEpochMillis } ]
  * books/                optional: <bookId>.<ext> only when book files were included
  * ```
  *
@@ -55,6 +56,7 @@ object BackupCodec {
     private const val PROGRESS = "progress.json"
     private const val BOOKMARKS = "bookmarks.json"
     private const val HISTORY = "position_history.json"
+    private const val TRANSLATIONS = "translations.json"
     private const val BOOKS_DIR = "books/"
 
     private val REQUIRED_SECTIONS = setOf(MANIFEST, SETTINGS, LIBRARY, PASSAGES, PROGRESS, BOOKMARKS, HISTORY)
@@ -158,6 +160,24 @@ object BackupCodec {
                                 )
                             }
                         },
+                    TRANSLATIONS to
+                        buildJsonArray {
+                            snapshot.translations.forEach { t ->
+                                add(
+                                    JsonObject(
+                                        mapOf(
+                                            "bookId" to JsonPrimitive(t.bookId),
+                                            "chapterIndex" to JsonPrimitive(t.chapterIndex),
+                                            "passageIndex" to JsonPrimitive(t.passageIndex),
+                                            "lang" to JsonPrimitive(t.lang),
+                                            "translator" to JsonPrimitive(t.translator),
+                                            "text" to JsonPrimitive(t.text),
+                                            "createdAtEpochMillis" to JsonPrimitive(t.createdAtEpochMillis),
+                                        ),
+                                    ),
+                                )
+                            }
+                        },
                 )
             // Deterministic order: sections in the contract order, then book
             // files sorted by key — byte-stable output for a given snapshot.
@@ -212,6 +232,12 @@ object BackupCodec {
             val progress = parseArray(parseSection(entries, PROGRESS), PROGRESS).map { parseProgress(it, PROGRESS) }
             val bookmarks = parseArray(parseSection(entries, BOOKMARKS), BOOKMARKS).map { parseBookmark(it, BOOKMARKS) }
             val history = parseArray(parseSection(entries, HISTORY), HISTORY).map { parseHistory(it, HISTORY) }
+            // translations is an OPTIONAL section: a v1 archive (7 required
+            // sections, no translations.json) restores cleanly with none.
+            val translations =
+                entries[TRANSLATIONS]
+                    ?.let { parseArray(parseSection(entries, TRANSLATIONS), TRANSLATIONS).map { parseTranslation(it, TRANSLATIONS) } }
+                    ?: emptyList()
             // book files are OPAQUE bytes — never JSON-parsed; only the books/ prefix
             // marks them, so a binary body cannot be misread as a section.
             val bookFiles =
@@ -231,6 +257,7 @@ object BackupCodec {
                     progress = progress,
                     bookmarks = bookmarks,
                     positionHistory = history,
+                    translations = translations,
                     bookFiles = bookFiles,
                 ),
             )
@@ -316,6 +343,22 @@ object BackupCodec {
             passageIndex = o.intField("passageIndex", section),
             offsetSeconds = o.doubleField("offsetSeconds", section),
             label = o.stringField("label", section),
+            createdAtEpochMillis = o.longField("createdAtEpochMillis", section),
+        )
+    }
+
+    private fun parseTranslation(
+        element: JsonElement,
+        section: String,
+    ): BackupTranslation {
+        val o = element.jsonObjectOrNull() ?: throw BackupReadError.MalformedSection(section, "translation entry not an object")
+        return BackupTranslation(
+            bookId = o.stringField("bookId", section),
+            chapterIndex = o.intField("chapterIndex", section),
+            passageIndex = o.intField("passageIndex", section),
+            lang = o.stringField("lang", section),
+            translator = o.stringField("translator", section),
+            text = o.stringField("text", section),
             createdAtEpochMillis = o.longField("createdAtEpochMillis", section),
         )
     }

@@ -40,7 +40,11 @@ class OfflinePregenTest {
     private var unavailableText: String? = null
 
     /** Deterministic fake: uniform 1000-byte passages (the congestion cases stay byte-exact). */
-    private suspend fun fake(text: String): SynthesisOutcome {
+    private suspend fun fake(
+        text: String,
+        @Suppress("UNUSED_PARAMETER") chapterIndex: Int,
+        @Suppress("UNUSED_PARAMETER") passageIndex: Int,
+    ): SynthesisOutcome {
         synthesized += text
         if (text in failTexts) return SynthesisOutcome.Failed("boom")
         if (text == unavailableText) return SynthesisOutcome.Unavailable
@@ -290,7 +294,11 @@ class OfflinePregenTest {
     @Test
     fun `cancellation propagates at the synthesis boundary`() =
         runTest {
-            suspend fun gate(text: String): SynthesisOutcome {
+            suspend fun gate(
+            text: String,
+            @Suppress("UNUSED_PARAMETER") chapterIndex: Int,
+            @Suppress("UNUSED_PARAMETER") passageIndex: Int,
+        ): SynthesisOutcome {
                 awaitCancellation()
             }
             val blocker = OfflinePregen(cache(), ::gate)

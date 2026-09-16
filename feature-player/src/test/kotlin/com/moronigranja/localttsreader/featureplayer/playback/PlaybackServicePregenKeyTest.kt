@@ -6,6 +6,7 @@ import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.player.PlayerPosition
 import com.moronigranja.localttsreader.player.pregen.PregenKey
 import com.moronigranja.localttsreader.player.pregen.PregenPlanner
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -50,7 +51,7 @@ class PlaybackServicePregenKeyTest {
         ).forEach { (translateLang, voice) ->
             val edge = service.livePregenKey(book, position, voice, 1.0, translateLang)
             val canonical =
-                PregenPlanner(book, voice, 1.0, translateLang = translateLang, translator = translateLang?.let { PregenKey.LFM_TRANSLATOR })
+                PregenPlanner(book, voice, 1.0, target = translateLang?.let { TranslationTarget(it) })
                     .key(chapterIndex = 0, passageIndex = 1)
             assertEquals(
                 "edge key must be the builder's key (translateLang=$translateLang)",

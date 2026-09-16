@@ -22,7 +22,11 @@ fun LoadingState(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(AyvuSpacing.LG),
+        // CenterVertically makes the KDoc's "centered" true for a caller that
+        // gives the column room (Modifier.fillMaxSize()); the wrap-content
+        // call sites (settings rows, share screen) are unaffected because
+        // there is no free space to distribute.
+        verticalArrangement = Arrangement.spacedBy(AyvuSpacing.LG, Alignment.CenterVertically),
     ) {
         if (LocalReducedMotion.current) {
             StaticRing(Modifier.size(48.dp))

@@ -179,6 +179,7 @@ class PlaybackServiceFocusTest {
                     TranslateRuntime(context, this.settings),
                     onUnusedSystemTts,
                     this.settings,
+                    FakeTranslationService(),
                 )
         }
 

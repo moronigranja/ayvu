@@ -9,7 +9,9 @@ package com.moronigranja.localttsreader.backup
  * module never applies the serialization compiler plugin.
  *
  * Archive layout (v1): `manifest.json` + six JSON section files + optional
- * `books/` entries, zipped. See [BackupCodec].
+ * `books/` entries + optional `translations.json` (the read-in-language
+ * display rows, a pure add — a v1 archive without it restores cleanly),
+ * zipped. See [BackupCodec].
  */
 data class BackupSnapshot(
     val version: Int,
@@ -21,6 +23,9 @@ data class BackupSnapshot(
     val progress: List<BackupProgress>,
     val bookmarks: List<BackupBookmark>,
     val positionHistory: List<BackupHistory>,
+    /** Stored passage translations (read-in-language display) — an optional
+     * archive section; empty for a v1 archive without it. */
+    val translations: List<BackupTranslation> = emptyList(),
     /** Original book files: `<bookId>.<ext>` → bytes. Empty when not included. */
     val bookFiles: Map<String, ByteArray>,
 ) {
@@ -35,6 +40,7 @@ data class BackupSnapshot(
             progress == other.progress &&
             bookmarks == other.bookmarks &&
             positionHistory == other.positionHistory &&
+            translations == other.translations &&
             bookFiles.size == other.bookFiles.size &&
             bookFiles.all { (k, v) -> other.bookFiles[k]?.contentEquals(v) == true }
 
@@ -48,6 +54,7 @@ data class BackupSnapshot(
         result = 31 * result + progress.hashCode()
         result = 31 * result + bookmarks.hashCode()
         result = 31 * result + positionHistory.hashCode()
+        result = 31 * result + translations.hashCode()
         result = 31 * result + bookFiles.keys.hashCode()
         return result
     }
@@ -91,5 +98,18 @@ data class BackupHistory(
     val chapterIndex: Int,
     val passageIndex: Int,
     val offsetSeconds: Double,
+    val createdAtEpochMillis: Long,
+)
+
+/** One stored passage translation (read-in-language display): the natural
+ * (bookId, chapterIndex, passageIndex, lang, translator) key — restored rows
+ * overwrite local on that key (same precedence as settings). */
+data class BackupTranslation(
+    val bookId: String,
+    val chapterIndex: Int,
+    val passageIndex: Int,
+    val lang: String,
+    val translator: String,
+    val text: String,
     val createdAtEpochMillis: Long,
 )

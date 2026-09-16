@@ -42,7 +42,22 @@ data class PlaybackUiState(
     /** Chapter titles in spine order — the chapter selector. */
     val chapters: List<String> = emptyList(),
     /** The current chapter's passage texts, in order — the stitched reader
-     * surface (decisions #51 follow-up). */
+     * surface (decisions #51 follow-up).
+     *
+     * NAVIGATION CONTRACT: index == passage index into the chapter, and the
+     * texts are the ORIGINAL-language passages. Every reader path keys off
+     * that positional identity — page anchoring (`computePassageOffsets`),
+     * follow, play-from-view, the long-press menu — and so does persistence:
+     * a `Bookmark` and the resume row both store
+     * `(bookId, chapterIndex, passageIndex)` and re-resolve it against the
+     * original parsed `Book` through `BookLayout.isValid`, never against this
+     * list.
+     *
+     * A displayed TRANSLATION must therefore be a separate projection, never
+     * a list that interleaves or reorders this one. Interleaving here would
+     * silently re-point every bookmark, resume row and share match in the
+     * book — the one thing the reader's language display has to preserve
+     * (owner requirement, 2026-09-15). */
     val chapterPassages: List<String> = emptyList(),
     /** Sentence spans of the current passage's audio (decisions #31). */
     val segments: List<SegmentAnchor> = emptyList(),

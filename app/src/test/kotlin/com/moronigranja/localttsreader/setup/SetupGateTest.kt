@@ -290,4 +290,8 @@ class FakeSettingsDao : SettingsDao {
     override suspend fun delete(key: String) {
         rows.remove(key)
     }
+
+    override suspend fun deleteAll(keys: List<String>) {
+        keys.forEach { rows.remove(it) }
+    }
 }

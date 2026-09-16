@@ -56,6 +56,11 @@ class BackupCodecTest {
                     BackupHistory("b1", 0, 1, 3.5, 1_751_000_000_000),
                     BackupHistory("b2", 1, 0, 0.0, 1_752_000_000_000),
                 ),
+            translations =
+                listOf(
+                    BackupTranslation("b1", 0, 0, "pt-BR", "lfm12b", "Todas as famílias felizes são iguais.", 1_750_500_000_000),
+                    BackupTranslation("b1", 0, 1, "pt-BR", "lfm12b", "Cada infeliz o é à sua maneira.", 1_750_500_000_100),
+                ),
             bookFiles =
                 mapOf(
                     "b1.epub" to byteArrayOf(0x50.toByte(), 0x4B.toByte(), 0x03.toByte(), 0x04.toByte(), 1, 2, 3),

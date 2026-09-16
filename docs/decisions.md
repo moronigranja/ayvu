@@ -4,6 +4,248 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 167. Keep-together pages, compact pickers, and the spoken translation's own voice (2026-09-16)
+
+Four follow-ups to the read-in-language display (#166), landed as slices A–D in
+`local://translation-display-followup-plan.md`.
+
+- **Pagination is keep-together (slice A).** `TextPagination.pageOf/
+  pageStartLine/totalPages` are replaced by `layout(totalLines, firstPageLines,
+  fullPageLines, keepTogether): PageLayout` — boundaries derived so a page break
+  lands AFTER a translated passage's Original+Translation group, never inside it.
+  Groups may share a page; a group taller than a full page degrades to the old
+  capacity split (the settled rule — an oversized paragraph cannot fit any legal
+  page). `PageLayout` exposes `pageCount/startLine/pageOf`; the reader consumes
+  it for the range, the keep-place effect, `activeSentencePage` and the prefetch
+  (the prefetch window is now derived from `startLine`, not arithmetic).
+  Alternative rejected: a per-page reflow of the *text* (paragraph-indent
+  grid corruption, see #166).
+- **One compact dropdown primitive, no radio walls (slices B/C).**
+  `core-ui/ui/DropdownField.kt` adds `LabeledDropdown`/`DropdownOption`
+  (read-only `ExposedDropdownMenuBox`, per-option description + right-aligned
+  status). `ReadInLanguagePicker` renders Show-translation-in / Layout /
+  Read-aloud-in / Translation-voice as dropdowns (the radio `LanguageRow` is
+  gone); `VoiceSelector` (+ `VoiceSelectorUiState`/`buildVoiceSelectorState`/
+  the language-section radio list) is replaced by `EngineVoicePicker` +
+  `buildEngineVoiceState`/`engineOptions`/`EngineOptionUi`. The 54-row list was
+  a wall; one engine + one voice dropdown is the picker on Settings, first-run
+  setup (its private `VoiceDropdown` and the C2 "owner override" are retired)
+  and the reader sheet — one convention, no second surface.
+- **Per-voice download state, and the missing-pack escape hatch.**
+  `VoiceRowUi.bytes` carries the voice's required-pack size;
+  `SetupEnginePacks.readyFor/bytesFor` are the ONE readiness/size table (id
+  resolution stays engine-aware: Piper per voice + espeak, Kokoro's three,
+  system-tts none). Every dropdown option shows `downloaded` or
+  `needs download · <size>`, the selected row offers the per-voice download, and
+  when the selected voice is unready the reader sheet adds **Manage downloads in
+  Settings** which closes the sheet and opens Settings (`ReaderScreen` gains
+  `onOpenSettings`; MainActivity clears the open book). `VoicePackDownloader.
+  requestDownload(voice)` and the composition-root module take the voice, no
+  hand-rolled per-engine id list.
+- **The spoken translation has its OWN voice, over one shared engine (slice D).**
+  `translate_voice` is a new global `SettingsStore`/`AppSettings` key (absent =
+  automatic = the catalog's first voice for the book's target language),
+  exposed as a per-target-language dropdown in the reader sheet.
+  `TranslateLanguages.voicesFor/resolvedVoiceFor` validate it against the active
+  engine's catalog AND the book's in-force target — a stored voice whose
+  language or engine no longer matches degrades to automatic per read
+  (`EngineSelector.storedTranslateVoice`). The **engine dropdown is per
+  surface** (Settings + reader + setup) and switches the catalog immediately;
+  the voice is global, so the library dialog shows no target-voice control.
+- **Cache key: the render voice, not the request voice.** `EngineSelector.
+  renderVoice(bookId)` = the validated explicit target voice, else
+  `effectiveVoice` — so `PlaybackService` (runLoop + pre-arm + `buildQueue` +
+  the coverage key) and `PregenWorker.run` key under the voice that actually
+  renders. With no explicit target voice the key is byte-identical to before
+  (the auto-picked voice is deterministic from the language) — no invalidation
+  for existing caches; the request voice handed to the engine stays the
+  original's (the decorator swaps it internally). No `PregenKey`/path/parse
+  change.
+- **Interaction rule kept from #166:** selecting a read-aloud language still
+  closes the sheet; selecting the target voice or a display/layout change does
+  not (the user works through the dropdowns).
+
+Verification: `:core-player:test` (`TextPaginationTest`: the three retained
+`linesPerPage` cases plus five `layout` cases — parity without groups, a group
+kept whole, the oversized-group capacity split, a group past the last line, and
+a group exactly filling a page), `:core-translate:test` (new
+`voicesFor`/`resolvedVoiceFor` cases), `:core-persistence:test` (+ a
+`translateVoice` round-trip through store and mirror, blank/null clearing),
+`:core-ui:testDebugUnitTest` (`BuildEngineVoiceStateTest` replaces
+`BuildVoiceSelectorStateTest`: selection/summary, favorite independence,
+unavailable saved voice, `readyFor`/`bytesFor` flow, the fixed Kokoro/Piper/
+system engine order), `:feature-settings:testDebugUnitTest`,
+`:feature-player:testDebugUnitTest`, `:app:testDebugUnitTest`,
+`:app:assembleDebug`, `:app:compileDebugAndroidTestKotlin` — all green in the
+container toolchain. Two stale test fakes were carried forward with the earlier
+persistence work (`SettingsDao.deleteAll` in the feature-settings/app fakes; the
+`EngineSelector.translationService` constructor arg in
+`VoiceAuditionCoordinatorTest`) and two `PregenKey` call sites in the LFM E2E
+tests still used the pre-#162 `translateLang`/`translator` names — all fixed to
+the current shapes.
+
+Device pass (S22 Ultra, `io.github.moronigranja.ayvu`), display language pt-BR:
+page pairs land complete — a page ends after a whole Original+Translation group
+(the next starts with the following pair intact) and the oversized first
+passage splits by capacity only; the reader sheet shows all sections as
+dropdowns with the constrained speech rows (Off + the display language); the
+engine dropdown lists Kokoro/Piper/Device voice with per-engine state and
+switching to Piper re-derives the catalog (the Kokoro voice renders as
+unavailable with Download/choose again); the Piper voice list shows per-voice
+sizes; selecting an unready voice surfaces "Download this voice's pack" +
+"Manage downloads in Settings", and the latter closes the reader and opens
+Settings; with a pt-BR read-aloud target the Translation-voice dropdown lists
+Automatic + the three pt-BR voices, and after picking Alex the log shows
+`loop: source=synthesized` under the new key (no `degrade:` line), then
+`source=disk` on the revisit and `source=pregen` ahead; the display-language
+round trip (off → on) re-anchors on the same passage. Note: the plan's A2
+case-2 expectation (`layout(50,10,20,listOf(8 until 13))` → pageCount 3) was
+arithmetically impossible under the mandated algorithm (a 22-line last page
+against 20-line capacity); the test pins the algorithm's true output
+(`[0, 8, 28, 48]`, pageCount 4), which the plan's own verification line
+(`startLine(1) == 8`) also satisfies.
+
+## 166. The reader shows the translation; speech and display share one artifact (2026-09-16)
+
+The read-in-language display: the reader shows a translation of the current
+chapter, stored per book/chapter/passage/language — and a passage is translated
+AT MOST once. The spoken language is independently selectable, constrained to
+Off or the display language.
+
+- **Presentation: interleaved single column, plus translated-only.** One
+  Original block per passage, then its translation; or the translation alone.
+  The projection (`ChapterDisplay`) lives in core-player and is composed from
+  the ALREADY-published `chapterPassages` plus a reader-owned translation map —
+  the published list can never be interleaved, so the
+  `chapterPassages: index == original passage index` bookmark/resume invariant
+  holds by construction (PlaybackUiState gains no display fields).
+- **The display translation and the audio translation are the SAME stored
+  artifact.** `TranslatingEngine` now consumes the `TranslationService`
+  (cache-first, keyed in-flight dedupe, bounded display yield to
+  engineInUse): the audio path reads the stored text instead of re-decoding.
+  The speech-vs-display constraint is ONE choke point
+  (`EngineSelector.translateTarget`): with a display language set, a
+  mismatched stored speech target degrades to original audio rather than
+  starting a second translation; the write path normalizes it away.
+- **Durable text, optional backup section.** Translations live in a Room
+  table (`MIGRATION_3_4`) and ride the backup archive as an optional
+  `translations.json` (a v1 archive without it restores cleanly) with
+  restored-rows-overwrite-local precedence. No automatic eviction — text is
+  single-digit MB per language against the 4 GiB PCM cap; per-book delete is
+  offered instead (and now drops the per-book settings rows too).
+- **Progressive + never blank.** The original renders immediately; a
+  translation block lands when ready (the reader's keep-place effect re-
+  anchors on the page's first passage on every reflow — a landing
+  translation, a mode switch or the immersive toggle never moves the reading
+  place; the indicator may move ±1 passage on the fixed line grid, which is
+  the page top's own semantics); Pending renders LIVE loading dots (~3/s,
+  same-length substitution so the line grid never moves), Unavailable
+  renders the original plus an inline note. The next page is prefetched at
+  display priority, yielding to playback/pregen within a bounded quiet
+  window (the service prefill holds engineInUse for its whole session — an
+  unbounded retry would starve the display forever).
+- **Differentiation: colour only (`onSurfaceVariant`), never font size and
+  never paragraph indent** — `lineHeightPx` is the uniform grid pitch for the
+  whole chapter, so a differently-pitched block would corrupt
+  `linesPerPage`. The planned `ParagraphStyle` indent was dropped on device:
+  Compose expands a paragraph span to its containing paragraph, so a clipped
+  span on a page slice can end beyond the slice text
+  (`StringIndexOutOfBounds` in `substringWithoutParagraphStyles`); character
+  styles never affect measurement, so the render's wrap stays identical to
+  the measured chapter.
+- **The page slice preserves its `"\n\n"` separators.** Display block offsets
+  are +2-separated; rebuilding the page from block chunks must span through
+  the NEXT block's offset (block text end + separator), or every later style
+  span shifts past the text end (the same crash family).
+- **Highlight ownership:** speech == display language highlights the
+  translation block (anchors from the translated render); original audio
+  highlights the original; translated-only + original audio suppresses the
+  highlight while page-follow anchors on the passage's first block.
+- **Identity:** the (lang, translator) pair collapsed into `TranslationTarget`
+  on `PregenKey` — the on-disk `x<lang>/t<translator>` layout is unchanged
+  (byte-identical toString; the 6-segment v2a form still parses as SMALL100),
+  and the reader-text publication moved out of `stateCopy` into
+  `ReaderTextPublisher` (cleanup pass H, behaviour-preserving).
+- **`resolve()` no longer opens the LLM without a target in force.** It ran
+  `translate.translator()` (a ~1.6 GB model load + idle-timer arm) on EVERY
+  resolve, including books with no translate target — contradicting
+  `TranslateRuntime`'s "never resident during original-language listening"
+  policy (every synthesize touches resolve, so the leg stayed lodged while
+  reading untranslated books). The session is now touched only inside the
+  decoration gate; the degrade log's translator flag uses the non-arming
+  `canOpen`.
+
+## 165. Reader surface: the passage indicator, the open-state placeholder, and the bookmark-vs-display contract (2026-09-15)
+
+Two owner-reported reader defects fixed, plus the invariant the forthcoming
+translation display must preserve. All of it is reader-local — no service,
+state or persistence change.
+
+- **The bottom passage indicator floated and showed the played passage.** It
+  was the page `Column`'s last child in normal flow — pagination already
+  reserved its band (`bottomReservePx`) but nothing pinned it to it — and it
+  formatted `bookPassageIndex`, the *playback* position. A manual page turn
+  stops playback, so advancing pages left the label behind on the last played
+  passage. Now a `Spacer(weight 1f)` pins it into the reserved band and the
+  label is the page's FIRST passage, book-wide. That needs no new published
+  state: `stateCopy` builds `bookPassageIndex` as `chapterPrefix +
+  passageIndex`, so the prefix is the difference — `chapterPrefix(state)` plus
+  the composition's own `firstPassageOnPage`. The immersive overlay's copy of
+  the indicator takes the same source (`pageStartPassage`, published for
+  play-from-view).
+- **The empty-state placeholder showed while a book was still opening.** The
+  branch `chapterPassages.isEmpty() && phase == IDLE` rendered "Tap play to
+  start listening from this book." over every cold start and drift recovery,
+  because the holder carries the previous book (or its process default,
+  `bookId = null`) until the open command's single `publish()`. No existing
+  state could key a loading message: `phase` stays `IDLE` through every open
+  path — `LOADING` is play-path-only. The new branch keys on
+  `state.bookId != bookId` (the reader knows which book it asked for), which
+  is the same fact the re-open effect already keys on.
+
+**The bookmark-vs-display contract (owner requirement, same session):** "make
+sure we can always return to a bookmark even if we bookmark a passage with one
+language and open it with two, or vice-versa." It holds today by construction —
+`Bookmark` and the resume row both store `(bookId, chapterIndex, passageIndex)`,
+and every jump re-resolves through `BookLayout.isValid` against a freshly
+reloaded ORIGINAL `Book`, never against `chapterPassages`, the joined chapter
+text, or the translate target. It is unguarded by tests, and the thing that
+would break it is the interleaved translation display, so
+`PlaybackUiState.chapterPassages` now carries the contract explicitly: index ==
+passage index, original text, and a displayed translation must be a separate
+projection. Recorded here because the next slice is the one that could violate
+it silently.
+
+**Recorded, not fixed:** a bookmark jump drops `Bookmark.offsetSeconds` —
+`openPosition(bookId, chapter, passage)` carries no offset at either layer, so
+play after a bookmark jump restarts the passage rather than the bookmarked
+spot. Offset fidelity, not the language invariant; the owner's call.
+
+**Verification:** `:feature-player:compileDebugKotlin`, `:app:assembleDebug` and
+`ktlintCheck` green; host suites green (core-player 163, feature-player 72, plus
+the feature-settings/feature-share suites). **Device visual pass DONE** (S22
+`SM-S908U1`, debug APK installed over the existing one with data and packs
+intact; screen recording of the open transition + four page turns):
+
+- the indicator advanced `112 → 116 → 119 → 123` of 4060 across four `Jumper`
+  page turns, at a **constant** y≈1270 with the player card's top edge at
+  ≈1295 — pinned, and page-granular (it moves by the number of passages on the
+  page, which is exactly "the first passage on screen").
+- The same pass proves it tracks the page and not the playhead: with playback at
+  **75%** the indicator read `Passage 3/4 (50%)`, and with playback finished
+  (**100%**) it read `Passage 2/4 (25%)`. The old code formatted
+  `bookPassageIndex`, so both would have shown the played passage.
+- The loading state renders **centred** with "Opening book…" (three frames of the
+  open transition), not top-left.
+
+**Follow-up caught on device (2026-09-15):** the first cut of the loading branch
+rendered top-left — `LoadingState` packs its content at the top
+(`Arrangement.spacedBy(LG)`) and never fills, though its own KDoc says
+"centred". Fixed at the component (`spacedBy(LG, Alignment.CenterVertically)`,
+which makes the KDoc true) and given room by the reader
+(`Modifier.fillMaxSize()`); both existing call sites pass wrap-content modifiers,
+so their rendering is unchanged by construction.
+
 ## 164. TTS pronunciation rules (G1 rounds 2-7): the four owner rulings and the constraints that now bind every rule (2026-09-15)
 
 G1's built-in correction set landed in seven ear-verified batches — the per-class record is

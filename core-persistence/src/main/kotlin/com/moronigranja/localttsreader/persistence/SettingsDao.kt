@@ -25,4 +25,9 @@ interface SettingsDao {
     /** Bulk upsert — the backup restore apply (E1); absent keys keep their local rows. */
     @Upsert
     suspend fun putAll(settings: List<SettingEntity>)
+
+    /** Key-list delete — the book-removal drop of the per-book settings rows
+     * (voice/translate/display); absent keys are unaffected. */
+    @Query("DELETE FROM settings WHERE key IN (:keys)")
+    suspend fun deleteAll(keys: List<String>)
 }

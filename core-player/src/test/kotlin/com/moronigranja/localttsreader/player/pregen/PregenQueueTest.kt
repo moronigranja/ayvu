@@ -33,7 +33,11 @@ class PregenQueueTest {
     private var failIndex: Int? = null
 
     /** Deterministic fake: size = (spine index + 1) * 1000 bytes per passage. */
-    private suspend fun fake(text: String): SynthesisOutcome {
+    private suspend fun fake(
+        text: String,
+        @Suppress("UNUSED_PARAMETER") chapterIndex: Int,
+        @Suppress("UNUSED_PARAMETER") passageIndex: Int,
+    ): SynthesisOutcome {
         callCount++
         val spineIndex = text.drop(1).toInt()
         if (spineIndex == failIndex) return SynthesisOutcome.Failed("boom")
@@ -55,7 +59,7 @@ class PregenQueueTest {
             book,
             "af_heart",
             1.0,
-            { _ ->
+            { _, _, _ ->
                 callCount++
                 SynthesisOutcome.Audio(ByteArray(24_000) { 0 }, 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
             },
@@ -154,7 +158,7 @@ class PregenQueueTest {
                     book,
                     "af_heart",
                     1.0,
-                    { text ->
+                    { text, _, _ ->
                         callCount++
                         if (playhead == PlayerPosition("b1", 0, 0)) {
                             playhead = PlayerPosition("b1", 1, 0) // seek during the first in-flight passage
@@ -202,7 +206,7 @@ class PregenQueueTest {
                     longBook,
                     "af_heart",
                     1.0,
-                    { _ ->
+                    { _, _, _ ->
                         callCount++
                         SynthesisOutcome.Audio(ByteArray(24_000 * 2), 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
                     },
@@ -226,7 +230,7 @@ class PregenQueueTest {
                     book,
                     "af_heart",
                     1.0,
-                    { text ->
+                    { text, _, _ ->
                         callCount++
                         if (text == "p1") gate.await() // the seek lands while p1 is in flight
                         SynthesisOutcome.Audio(ByteArray(24_000) { 0 }, 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))
@@ -281,7 +285,7 @@ class PregenQueueTest {
     }
 
     @Test
-    fun `PregenKey round-trips through its path form - translator dimension`() {
+    fun `PregenKey round-trips through its path form - target dimension`() {
         // V2b layout:
         // <bookId>/<engine>/<voice>/<speed>/x<lang>/t<translator>/c<ch>p<passage>
         val lfm =
@@ -292,22 +296,17 @@ class PregenQueueTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                translateLang = "pt-BR",
-                translator = PregenKey.LFM_TRANSLATOR,
+                target = TranslationTarget("pt-BR"),
             )
         assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0", lfm.toString())
         assertEquals(lfm, PregenKey.parse(lfm.toString()))
-        // Without the translator dimension the same target is the v2a form —
-        // what the retired SMaLL-100 runtime wrote. Reading it back stamps the
-        // legacy translator (the 6-segment form has no other author), so the
-        // round-trip is identity for LFM keys and small100-stamped for v2a.
-        val langOnly = lfm.copy(translator = null)
-        assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/c0p0", langOnly.toString())
-        assertEquals(langOnly.copy(translator = PregenKey.SMALL100_TRANSLATOR), PregenKey.parse(langOnly.toString()))
-        assertEquals(lfm, PregenKey.parse(lfm.toString()), "a v2b key round-trips as itself")
-        // A translator with no target has nothing to qualify: the segment is
-        // dropped rather than rendering a degenerate path.
-        assertEquals("abc123/kokoro/pf_dora/1/c0p0", lfm.copy(translateLang = null).toString())
+        // A target whose translator is not the default renders its own
+        // `t<translator>` segment and round-trips as itself.
+        val small100 = lfm.copy(target = TranslationTarget("pt-BR", PregenKey.SMALL100_TRANSLATOR))
+        assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/tsmall100/c0p0", small100.toString())
+        assertEquals(small100, PregenKey.parse(small100.toString()))
+        // No target = no translation segments: the v2 form, unchanged.
+        assertEquals("abc123/kokoro/pf_dora/1/c0p0", lfm.copy(target = null).toString())
     }
 
     @Test
@@ -316,13 +315,44 @@ class PregenQueueTest {
         // that could have produced it is SMaLL-100. Defaulting to it is what
         // keeps an LFM run from treating that audio as a cache hit.
         val parsed = PregenKey.parse("abc123/kokoro/pf_dora/1/xpt-BR/c0p0")
-        assertEquals(PregenKey.SMALL100_TRANSLATOR, parsed?.translator)
-        assertEquals("pt-BR", parsed?.translateLang)
-        assertEquals(null, parsed?.copy(translator = null)?.translator, "the legacy marker is parse-only")
+        assertEquals(TranslationTarget("pt-BR", PregenKey.SMALL100_TRANSLATOR), parsed?.target)
+        assertEquals("pt-BR", parsed?.target?.lang)
+        assertEquals(null, parsed?.copy(target = null)?.target, "the legacy marker is parse-only")
         // Malformed translator segments are rejected, never guessed.
         assertNull(PregenKey.parse("abc123/kokoro/pf_dora/1/xpt-BR/zzz/c0p0"))
         assertNull(PregenKey.parse("abc123/kokoro/pf_dora/1/xpt-BR/t/c0p0"))
         assertNull(PregenKey.parse("abc123/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0/extra"))
+    }
+
+    @Test
+    fun `PregenKey round-trips identity through every disk form`() {
+        // No target + LFM target: the toString forms are byte-identical to
+        // the pre-TranslationTarget forms (the on-disk layout never changed).
+        val plain = PregenKey("abc123", 0, 0, "pf_dora", 1.0, engine = PregenKey.DEFAULT_ENGINE)
+        assertEquals("abc123/kokoro/pf_dora/1/c0p0", plain.toString())
+        assertEquals(plain, PregenKey.parse(plain.toString()))
+        val lfm =
+            PregenKey(
+                "abc123",
+                0,
+                0,
+                "pf_dora",
+                1.0,
+                engine = PregenKey.DEFAULT_ENGINE,
+                target = TranslationTarget("pt-BR"),
+            )
+        assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0", lfm.toString())
+        assertEquals(lfm, PregenKey.parse(lfm.toString()))
+        // The 6-segment v2a path predates the translator dimension — its only
+        // possible author is the retired SMaLL-100 runtime.
+        assertEquals(
+            TranslationTarget("pt-BR", PregenKey.SMALL100_TRANSLATOR),
+            PregenKey.parse("abc123/kokoro/pf_dora/1/xpt-BR/c0p0")?.target,
+        )
+        // The 4-segment v1 path predates the engine dimension — the default
+        // engine, and it re-serializes with the explicit engine segment.
+        assertEquals(plain, PregenKey.parse("abc123/pf_dora/1/c0p0"))
+        assertEquals("abc123/kokoro/pf_dora/1/c0p0", PregenKey.parse("abc123/pf_dora/1/c0p0")?.toString())
     }
 
     @Test
@@ -336,7 +366,7 @@ class PregenQueueTest {
                     book,
                     "af_heart",
                     1.0,
-                    { text ->
+                    { text, _, _ ->
                         callCount++
                         synthesized += text
                         if (!gate.isCompleted) gate.await()
@@ -367,7 +397,7 @@ class PregenQueueTest {
                     book,
                     "af_heart",
                     1.0,
-                    { _ ->
+                    { _, _, _ ->
                         callCount++
                         if (!gate.isCompleted) gate.await()
                         SynthesisOutcome.Audio(ByteArray(24_000) { 0 }, 24_000, 1, listOf(SegmentAnchor(0.0, 1.0)))

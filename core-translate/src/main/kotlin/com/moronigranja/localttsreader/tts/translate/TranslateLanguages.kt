@@ -55,5 +55,27 @@ object TranslateLanguages {
             }?.name
     }
 
+    /** Every catalog name whose language matches [target] (same normalize/base-code rule as [firstVoiceFor]). */
+    fun voicesFor(
+        metas: List<KokoroVoiceMeta>,
+        target: String,
+    ): List<String> {
+        val normalized = normalize(target)
+        return metas
+            .filter { meta ->
+                val code = langCode(meta.language)?.let(::normalize) ?: return@filter false
+                code == normalized ||
+                    (normalized.count { it == '-' } == 0 && code.substringBefore('-') == normalized)
+            }
+            .map { it.name }
+    }
+
+    /** [preferred] when it is a voice of [target], else the catalog's first — null when none matches. */
+    fun resolvedVoiceFor(
+        metas: List<KokoroVoiceMeta>,
+        target: String,
+        preferred: String?,
+    ): String? = preferred?.takeIf { it in voicesFor(metas, target) } ?: firstVoiceFor(metas, target)
+
     private fun normalize(code: String): String = code.lowercase().replace('_', '-')
 }

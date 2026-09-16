@@ -34,7 +34,14 @@ class TranslatingEngine(
      * English audio AND cached it under the x<lang> key (S22 2026-09-14).
      */
     private val targetEngine: TTSEngine,
-    private val translate: suspend (String) -> String?,
+    /**
+     * Translates one passage's text for the render. The (chapterIndex,
+     * passageIndex) identity comes from the request — the audio path shares
+     * the stored display translation through it (one artifact per passage,
+     * never a second decode). The lambda returns null to degrade to the
+     * original render (the #101 contract).
+     */
+    private val translate: suspend (text: String, chapterIndex: Int, passageIndex: Int) -> String?,
     private val targetVoice: String,
     /** The in-force target lang — the cache-key dimension ([translateLangInUse]):
      * keys must name the language actually rendered, never the raw setting. */
@@ -76,9 +83,12 @@ class TranslatingEngine(
 
     private suspend fun orchestrate(request: SynthesisRequest): SynthesisRequest {
         if (request.text.isBlank()) return request
+        // No passage identity (preview/probe syntheses): a keyed translation
+        // is impossible — degrade to the original render.
+        if (request.chapterIndex < 0 || request.passageIndex < 0) return request
         val translated =
             try {
-                translate(request.text)
+                translate(request.text, request.chapterIndex, request.passageIndex)
             } catch (t: Throwable) {
                 null
             } ?: return request

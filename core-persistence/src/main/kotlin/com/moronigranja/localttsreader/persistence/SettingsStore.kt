@@ -1,5 +1,7 @@
 package com.moronigranja.localttsreader.persistence
 
+import com.moronigranja.localttsreader.player.DisplayMode
+
 /**
  * Typed accessors over the generic `settings` table (V1). Unknown or corrupt
  * stored values fall back to defaults — a missing row and a bad value are
@@ -107,6 +109,69 @@ class SettingsStore(
             .all()
             .filter { it.key.startsWith(KEY_BOOK_TRANSLATE_PREFIX) && it.value.isNotBlank() }
             .associate { it.key.removePrefix(KEY_BOOK_TRANSLATE_PREFIX) to it.value }
+
+    /**
+     * Per-book DISPLAY language (read-in-language display): one generic row
+     * `book.display.<bookId>` holding the app language code whose translation
+     * the reader SHOWS — the same table ride-along as `book.translate.`, no
+     * migration, rides the backup archive raw and is dropped with the book.
+     * Absent key = show the original language.
+     *
+     * Speech constraint (a passage is translated AT MOST once): with a display
+     * language set, the spoken language is either the original (Off) or that
+     * same translation — the write normalizes a mismatched speech target away
+     * ([setBookDisplay] clears `book.translate.`), so a stored mismatch can
+     * only exist if written directly; the playback choke point degrades it.
+     */
+    suspend fun bookDisplay(bookId: String): String? = settingsDao.get(bookDisplayKey(bookId))?.takeIf { it.isNotBlank() }
+
+    /** Writes or clears [bookId]'s display language. A non-null [lang]
+     * normalizes the speech target: when the stored speech target differs,
+     * it is cleared in the same call (Off) — the display and the speech must
+     * never name two different translations of one passage. Clearing the
+     * display leaves the speech target alone. */
+    suspend fun setBookDisplay(
+        bookId: String,
+        lang: String?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookDisplayKey(bookId)
+        if (lang == null) {
+            settingsDao.delete(key)
+        } else {
+            require(lang.isNotBlank()) { "display language must not be blank" }
+            settingsDao.put(SettingEntity(key, lang))
+            // At most one translation per passage: a speech target other than
+            // the display's would be a second LLM pass + a second render.
+            val speech = settingsDao.get(bookTranslateKey(bookId))?.takeIf { it.isNotBlank() }
+            if (speech != null && speech != lang) settingsDao.delete(bookTranslateKey(bookId))
+        }
+    }
+
+    /** Every stored display language (bookId → app language code) — the
+     * mirror's reload read (one scan, same as [bookVoices]). */
+    suspend fun bookDisplays(): Map<String, String> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_DISPLAY_PREFIX) && it.value.isNotBlank() }
+            .associate { it.key.removePrefix(KEY_BOOK_DISPLAY_PREFIX) to it.value }
+
+    /** The reader's display mode — a reading STYLE, global (interleaved
+     * default; translated-only shows the translation alone). */
+    suspend fun displayMode(): DisplayMode = DisplayMode.from(settingsDao.get(KEY_DISPLAY_MODE))
+
+    suspend fun setDisplayMode(value: DisplayMode) {
+        settingsDao.put(SettingEntity(KEY_DISPLAY_MODE, value.key))
+    }
+
+    /** The global target-language voice for read-in-language speech; absent =
+     * automatic (the catalog's first voice for the book's target language). */
+    suspend fun translateVoice(): String? = settingsDao.get(KEY_TRANSLATE_VOICE)?.takeIf { it.isNotBlank() }
+
+    suspend fun setTranslateVoice(value: String?) {
+        if (value.isNullOrBlank()) settingsDao.delete(KEY_TRANSLATE_VOICE)
+        else settingsDao.put(SettingEntity(KEY_TRANSLATE_VOICE, value))
+    }
 
     /** UI theme: system / light / dark (V1). */
     suspend fun themeMode(): ThemeMode = ThemeMode.from(settingsDao.get(KEY_THEME_MODE))
@@ -229,6 +294,22 @@ class SettingsStore(
         const val KEY_BOOK_TRANSLATE_PREFIX = "book.translate."
 
         fun bookTranslateKey(bookId: String): String = KEY_BOOK_TRANSLATE_PREFIX + bookId
+
+        /** Per-book display-language keys (read-in-language display):
+         * `<prefix><bookId>` → the target app language code whose translation
+         * the reader shows, same generic-table ride-along as
+         * [KEY_BOOK_TRANSLATE_PREFIX]. */
+        const val KEY_BOOK_DISPLAY_PREFIX = "book.display."
+
+        fun bookDisplayKey(bookId: String): String = KEY_BOOK_DISPLAY_PREFIX + bookId
+
+        /** The reader's display MODE (a reading style — global, not per book):
+         * interleaved default; translated_only shows the translation alone. */
+        const val KEY_DISPLAY_MODE = "display_mode"
+
+        /** The global target-language voice for read-in-language speech; absent =
+         * automatic (the catalog's first voice for the book's target language). */
+        const val KEY_TRANSLATE_VOICE = "translate_voice"
     }
 }
 

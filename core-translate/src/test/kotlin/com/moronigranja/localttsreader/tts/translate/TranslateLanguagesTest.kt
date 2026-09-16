@@ -42,4 +42,38 @@ class TranslateLanguagesTest {
         assertNull(TranslateLanguages.firstVoiceFor(KokoroVoiceMetadata.all, "ko"))
         assertNull(TranslateLanguages.firstVoiceFor(KokoroVoiceMetadata.all, ""))
     }
+
+    @Test
+    fun `voicesFor lists every catalog voice of the target language`() {
+        val pt = TranslateLanguages.voicesFor(KokoroVoiceMetadata.all, "pt-BR")
+        assertEquals(listOf("pf_dora", "pm_alex", "pm_santa"), pt)
+        assertTrue(TranslateLanguages.voicesFor(KokoroVoiceMetadata.all, "es").isNotEmpty())
+        assertEquals(emptyList<String>(), TranslateLanguages.voicesFor(KokoroVoiceMetadata.all, "ko"))
+    }
+
+    @Test
+    fun `resolvedVoiceFor accepts a preferred voice of the target language`() {
+        assertEquals("pm_alex", TranslateLanguages.resolvedVoiceFor(KokoroVoiceMetadata.all, "pt-BR", "pm_alex"))
+    }
+
+    @Test
+    fun `resolvedVoiceFor rejects a preferred voice of the wrong language`() {
+        // em_alex is Spanish — never a Portuguese voice, even with pt-BR in force.
+        val resolved = TranslateLanguages.resolvedVoiceFor(KokoroVoiceMetadata.all, "pt-BR", "em_alex")
+        assertEquals(TranslateLanguages.firstVoiceFor(KokoroVoiceMetadata.all, "pt-BR"), resolved)
+        assertTrue(resolved != null && !resolved.startsWith("em_"))
+    }
+
+    @Test
+    fun `resolvedVoiceFor with no preference falls back to the first voice`() {
+        assertEquals(
+            TranslateLanguages.firstVoiceFor(KokoroVoiceMetadata.all, "es"),
+            TranslateLanguages.resolvedVoiceFor(KokoroVoiceMetadata.all, "es", null),
+        )
+    }
+
+    @Test
+    fun `resolvedVoiceFor returns null for an unvoiced target`() {
+        assertNull(TranslateLanguages.resolvedVoiceFor(KokoroVoiceMetadata.all, "ko", "af_heart"))
+    }
 }

@@ -14,6 +14,19 @@ data class PregenAudio(
 )
 
 /**
+ * The read-in-language target: which language, and which translator wrote it.
+ * A translation is only valid for the pair — a different engine produces
+ * different text for the same passage (decisions #161). Travels as one value
+ * so the (lang, translator) pair can never be set half-way, and the
+ * translator *version* dimension stays one edit when a new engine replaces
+ * [PregenKey.LFM_TRANSLATOR].
+ */
+data class TranslationTarget(
+    val lang: String,
+    val translator: String = PregenKey.LFM_TRANSLATOR,
+)
+
+/**
  * Identity of one synthesized passage: book, spine indexes, engine, voice,
  * speed (and the read-in-language dimension, decisions #114). The [toString]
  * form is the disk-cache path — book id is a content hash (decisions #11),
@@ -40,26 +53,16 @@ data class PregenKey(
     val voice: String,
     val speed: Double,
     val engine: String = DEFAULT_ENGINE,
-    /** Read-in-language target app code when this audio is translated text;
-     * null = the book's original language. The disk path inserts an `x<lang>`
-     * segment, so translated and original audio can never collide — including
-     * the target-voice-equals-book-voice toggle case (decisions #114). */
-    val translateLang: String? = null,
-    /** WHO translated the text ([LFM_TRANSLATOR] today), or null when
-     * [translateLang] is null — the plan's `t<translator>` segment. Different
-     * engines produce different Portuguese for the same passage, so a run must
-     * never treat another engine's audio as a cache hit (decisions #161). An
-     * untranslated key is unchanged; [parse] reads a 6-segment (v2a) key as
-     * [SMALL100_TRANSLATOR], the only engine that could have written it. */
-    val translator: String? = null,
+    /** Read-in-language target when this audio is translated text; null =
+     * the book's original language. The disk path inserts `x<lang>` + (when
+     * a target is set) `t<translator>` segments, so translated and original
+     * audio can never collide — including the
+     * target-voice-equals-book-voice toggle case (decisions #114). */
+    val target: TranslationTarget? = null,
 ) {
     override fun toString(): String {
         val middle = "$engine/$voice/${formatSpeed(speed)}"
-        val langSegment = translateLang?.let { "x$it" } ?: ""
-        // The translator segment only qualifies a language segment: without a
-        // target there is no translation to attribute.
-        val translatorSegment = if (langSegment.isNotEmpty()) translator?.let { "t$it" } ?: "" else ""
-        val translated = "$langSegment/$translatorSegment".trim('/')
+        val translated = target?.let { "x${it.lang}/t${it.translator}" } ?: ""
         return if (translated.isEmpty()) {
             "$bookId/$middle/c$chapterIndex" + "p$passageIndex"
         } else {
@@ -107,25 +110,27 @@ data class PregenKey(
             val voice = if (legacy) parts[1] else parts[2]
             val speed =
                 (if (legacy) parts[2] else parts[3]).replace('_', '.').toDoubleOrNull() ?: return null
-            val translateLang =
-                if (parts.size >= 6) {
-                    val segment = parts[4]
-                    if (!segment.startsWith("x")) return null
-                    segment.substring(1).takeIf { it.isNotBlank() } ?: return null
-                } else {
-                    null
-                }
-            // A 6-segment key predates the translator dimension, so SMaLL-100 is
-            // the only engine that can have written it — that default is what
+            // The 7-segment form names its translator; the 6-segment (v2a)
+            // form predates the translator dimension, so SMaLL-100 is the
+            // only engine that can have written it — that default is what
             // keeps an LFM run from reading small-100-era audio as a cache hit.
-            val translator =
+            val target =
                 when {
                     parts.size == 7 -> {
-                        val segment = parts[5]
-                        if (!segment.startsWith("t")) return null
-                        segment.substring(1).takeIf { it.isNotBlank() } ?: return null
+                        val langSegment = parts[4]
+                        if (!langSegment.startsWith("x")) return null
+                        val lang = langSegment.substring(1).takeIf { it.isNotBlank() } ?: return null
+                        val translatorSegment = parts[5]
+                        if (!translatorSegment.startsWith("t")) return null
+                        val translator = translatorSegment.substring(1).takeIf { it.isNotBlank() } ?: return null
+                        TranslationTarget(lang, translator)
                     }
-                    parts.size == 6 -> SMALL100_TRANSLATOR
+                    parts.size == 6 -> {
+                        val segment = parts[4]
+                        if (!segment.startsWith("x")) return null
+                        val lang = segment.substring(1).takeIf { it.isNotBlank() } ?: return null
+                        TranslationTarget(lang, SMALL100_TRANSLATOR)
+                    }
                     else -> null
                 }
             return PregenKey(
@@ -135,8 +140,7 @@ data class PregenKey(
                 voice,
                 speed,
                 engine,
-                translateLang,
-                translator,
+                target,
             )
         }
 

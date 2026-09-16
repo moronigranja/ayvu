@@ -24,6 +24,10 @@ class AppSettingsTest {
             settings.forEach { rows[it.key] = it.value }
         }
 
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
+        }
+
         override suspend fun delete(key: String) {
             rows.remove(key)
         }
@@ -200,5 +204,33 @@ class AppSettingsTest {
             val restarted = AppSettings(SettingsStore(dao))
             restarted.reload()
             assertEquals(true, restarted.state.value.realtimeCapable)
+        }
+
+    @Test
+    fun `translate voice round-trips store and mirror and clears with null`() =
+        runBlocking {
+            val dao = FakeSettingsDao()
+            val store = SettingsStore(dao)
+            val settings = AppSettings(store)
+
+            settings.setTranslateVoice("es_ES-davefx-medium")
+            assertEquals("es_ES-davefx-medium", store.translateVoice())
+            assertEquals("es_ES-davefx-medium", settings.translateVoice())
+            assertEquals("es_ES-davefx-medium", settings.state.value.translateVoice)
+
+            settings.setTranslateVoice(null)
+            assertNull(store.translateVoice())
+            assertNull(settings.translateVoice())
+
+            // The blank write clears too (mirror + store).
+            settings.setTranslateVoice(" ")
+            assertNull(store.translateVoice())
+            assertNull(settings.state.value.translateVoice)
+
+            // A cold restart reads the persisted voice back.
+            settings.setTranslateVoice("pm_alex")
+            val restarted = AppSettings(SettingsStore(dao))
+            restarted.reload()
+            assertEquals("pm_alex", restarted.translateVoice())
         }
 }

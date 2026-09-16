@@ -12,6 +12,7 @@ import com.moronigranja.localttsreader.model.TextPassage
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
+import com.moronigranja.localttsreader.persistence.MIGRATION_3_4
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.SettingEntity
 import com.moronigranja.localttsreader.persistence.SettingsStore
@@ -78,7 +79,7 @@ class PlaybackE2eTest {
             database =
                 Room
                     .databaseBuilder(context, LibraryDatabase::class.java, "local-tts-reader.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .allowMainThreadQueries()
                     .build()
             store = RoomLibraryStore(database, scope)

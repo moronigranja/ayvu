@@ -50,33 +50,69 @@ needs a decision, not a patch: which slug vocabulary (the setting is `kokoro-82m
 `piper-v1`, the key's default is `kokoro`), and acceptance that existing Piper entries
 become unreachable cache (re-synthesized, then reaped).
 
-**Next slice (owner, 2026-09-15): separate translation from TTS.** Two goals — translate
-*without* audio (or read the translated text), and reading a translation must not
-re-translate. What the current structure already gives it: `TranslatingEngine` is a
-decorator over `TTSEngine` (`core-translate`), the per-book target language already
-resolves in one place (`EngineSelector.translateLangInUse`), and the audio cache's
-identity dimensions (`x<lang>` / `t<translator>`) are exactly what a translation-text key
-needs — so the text cache must reuse that identity (one identity, two payloads) or text
-and audio hits will disagree. Three things follow:
+**Shipped (2026-09-16): read-in-language display** (decisions #166; the slice below is the
+historical scope — deviations from it are in the design doc's Status). Full plan:
+[features/read-in-language-display.md](features/read-in-language-display.md). The goal
+widened from "separate translation from TTS" once the owner settled the product shape: the
+translation becomes **visible** in the reader (interleaved single column, plus a
+translated-only option, export planned for later), and the **spoken language is independent
+of the displayed one**. Six ordered steps, 0–5; steps 0 and 1 are prerequisites, not
+optional:
 
-- **Cheap now, do it in the slice's favour:** `(translateLang, translator)` is threaded as
-  two loose nullable Strings through `PregenPlanner` / `PregenQueue` / `OfflinePregen` /
-  `PregenSpaceEstimator` / `PlaybackService.livePregenKey` / `PregenWorker`, always set
-  together (`translateLang?.let { PregenKey.LFM_TRANSLATOR }` at every site). Unifying them
-  into one `TranslationTarget` value type makes the slice's extra dimension (translator
-  *version*) one edit instead of six, and deletes the impossible "lang null, translator
-  set" state the key's `toString` currently defends against.
-- **Do not pre-build:** the translate dispatcher (today translation runs inside whatever
-  called `synthesize` — prefill/loop/worker — so llama decode occupies a TTS worker
-  thread; the priority/cancellation/pre-emption semantics against the TTS engine and
-  `PlaybackActive.engineInUse` are the slice's design), the translation-text store, and its
-  Room v4 migration (forward-only policy: additive migration + test).
-- **Sequencing:** the reader's text is synchronous-from-memory today —
-  `PlaybackService.stateCopy` builds `passageText`/`chapterPassages` from the in-memory
-  `Book`. "Read the translated text" makes that surface translation-backed (async or
-  pre-resolved), and it lands in the same file as cleanup pass 4's remaining work. Pass 4's
-  publication/text extraction should therefore precede the slice, so the slice edits a
-  collaborator instead of the 2,100-line service.
+- **0 — `TranslationTarget`** (as previously scoped): `(translateLang, translator)` is
+  threaded as two loose nullable Strings through `PregenPlanner` / `PregenQueue` /
+  `OfflinePregen` / `PregenSpaceEstimator` / `PlaybackService.livePregenKey` /
+  `PregenWorker`, always set together (`translateLang?.let { PregenKey.LFM_TRANSLATOR }` at
+  every site — three production sites). Unifying them into one value type makes the slice's
+  extra dimension (translator *version*) one edit instead of six, and deletes the
+  impossible "lang null, translator set" state the key's `toString` defends against.
+- **1 — pass 4's publication/text extraction, re-scoped.** Extract the reader-text
+  collaborator from `PlaybackService.stateCopy` — the single producer of every text field
+  the reader sees — behind a **ranged display-block seam**, so the slice edits a
+  collaborator instead of the 2,100-line service. The gate the roadmap held it behind is
+  discharged (#164 cleared D5 + G1).
+- **2 — `TranslationService`.** Translation leaves `TTSEngine.synthesize` and becomes a
+  service consumed by *both* the audio path (`TranslatingEngine`, behaviour unchanged) and
+  the display path: keyed cache + in-flight dedupe, playback > pregen > display priority,
+  never on the `AyvuPlayer` thread. **The "do not pre-build the translate dispatcher" note
+  above is superseded** — a visible translation *requires* it, because translation must be
+  callable with no synthesis at all. Today there is no text-level memo, so re-translation
+  is avoided only incidentally when that passage's audio is already cached.
+- **3 — translated-text store.** Room v4 (forward-only additive, migration + test), keyed
+  `(bookId, chapter, passage, lang, translatorVersion)`. Eviction and the backup section are
+  explicit decisions, not inherited from the PCM cache — regenerating text costs an LLM run,
+  not a synthesis.
+- **4 — publish blocks + split the settings key.** `book.translate.<bookId>` stays the
+  speech target; a new per-book display key needs **no Room migration** (`SettingsStore` is
+  typed accessors over a key/value table). A display-only change must not rebuild the player
+  through `changeVoice` — it is a text re-projection, not a session rebuild.
+- **5 — reader.** Three modes over one block list; differentiation by **colour + paragraph
+  indent**, never font size (it breaks the line-pitch grid the pagination samples).
+
+**Corrected premise.** An earlier draft of this section said the text cache must reuse the
+audio cache's identity — "one identity, two payloads" — or text and audio hits would
+disagree. With independent audio and display it must not: `livePregenKey` deliberately
+omits `x<lang>` whenever the *original* is what gets synthesized, while the text key always
+carries it. They are two identities with overlapping dimensions, and the text key must not
+inherit `livePregenKey`.
+
+**Invariant.** `PlaybackUiState.chapterPassages` documents it (decisions #165): index ==
+original passage index, original-language text, and a displayed translation is a **separate
+projection**. Interleaving that list would silently re-point every bookmark, resume row and
+share match in the book.
+
+**Pre-existing defect in scope:** `RoomLibraryStore.delete` drops progress/bookmarks/
+history/activity/passages/book but **not** the `book.*` settings rows, though
+`SettingsStore` and decisions #156 claim it does — so per-book voice/translate settings
+already orphan on delete, and the new display key would inherit the leak. — **Fixed with
+the slice** (the delete now drops `translations` + the voice/translate/display settings
+rows; regression-tested).
+
+**Slice shipped 2026-09-16 (decisions #166).** Shipped deviations from the scope above:
+differentiation is colour-only (the planned paragraph indent crashed Compose's paragraph
+span expansion on page slices), Pending renders live animated dots, reflows re-anchor on
+the page's first passage, no automatic text eviction, and the `TranslationService`
+interface lives in `core-player` (not `core-translate` — no new module edge).
 
 ## Planning rules
 

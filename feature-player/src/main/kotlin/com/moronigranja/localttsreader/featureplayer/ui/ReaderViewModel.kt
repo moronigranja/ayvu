@@ -6,34 +6,43 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moronigranja.localttsreader.featureplayer.playback.EngineSelector
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
+import com.moronigranja.localttsreader.player.pregen.TranslationService
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.AuditionUiState
+import com.moronigranja.localttsreader.player.ChapterDisplay
+import com.moronigranja.localttsreader.player.DisplayBlock
+import com.moronigranja.localttsreader.player.DisplayMode
 import com.moronigranja.localttsreader.player.PlaybackStateHolder
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerCommands
+import com.moronigranja.localttsreader.player.TranslationState
 import com.moronigranja.localttsreader.player.VoiceAudition
 import com.moronigranja.localttsreader.player.VoicePackDownloader
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.PackRegistry
 import com.moronigranja.localttsreader.tts.PackState
 import com.moronigranja.localttsreader.tts.PackStatus
-import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
-import com.moronigranja.localttsreader.tts.piper.PiperEngine
-import com.moronigranja.localttsreader.tts.piper.PiperPacks
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
-import com.moronigranja.localttsreader.tts.piper.PiperVoices
+import com.moronigranja.localttsreader.tts.setup.SetupEnginePacks
 import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
 import com.moronigranja.localttsreader.tts.translate.TranslatePacks
+import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
+import com.moronigranja.localttsreader.ui.EngineVoiceUiState
 import com.moronigranja.localttsreader.ui.ReadInLanguageUiState
-import com.moronigranja.localttsreader.ui.VoiceSelectorUiState
-import com.moronigranja.localttsreader.ui.buildVoiceSelectorState
+import com.moronigranja.localttsreader.ui.VoiceRowUi
+import com.moronigranja.localttsreader.ui.buildEngineVoiceState
+import com.moronigranja.localttsreader.ui.engineOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,10 +50,10 @@ import javax.inject.Inject
  * Reader-side commands to the [PlaybackService]; state is read from the
  * service-published [PlaybackStateHolder] (the service is the single writer).
  *
- * C2: the reader voice sheet reuses the shared [VoiceAudition] coordinator
- * and [buildVoiceSelectorState] builder; selecting a voice persists it AND
- * rebuilds the active book under it at the same playhead via [changeVoice]
- * (A5 single-writer — stale synthesis can never publish).
+ * C2: the reader voice sheet reuses the shared [EngineVoicePicker] surface
+ * and [buildEngineVoiceState] builder; selecting a voice or engine persists
+ * it AND rebuilds the active book under it at the same playhead via
+ * [changeVoice] (A5 single-writer — stale synthesis can never publish).
  */
 @HiltViewModel
 class ReaderViewModel
@@ -56,63 +65,54 @@ class ReaderViewModel
         private val selector: EngineSelector,
         private val registry: PackRegistry,
         private val download: VoicePackDownloader,
+        private val translationService: TranslationService,
     ) : ViewModel(),
         PlayerCommands {
         val state: StateFlow<PlaybackUiState> = PlaybackStateHolder.state
 
-        /** C2: the shared selector state for the reader's voice sheet — the
-         * catalog follows the selected engine (D4 #154 addendum): piper rows
-         * with the resolved voice's pack readiness under `piper-v1`, the
-         * Kokoro catalog otherwise. A saved voice the active engine does not
+        /** The shared engine+voice picker state for the reader's voice sheet
+         * (decisions #166 follow-up): the catalog follows the selected engine
+         * (piper rows with the resolved voice's pack readiness under
+         * `piper-v1`, the Kokoro catalog otherwise), readiness/bytes come from
+         * the required-pack table. A saved voice the active engine does not
          * expose degrades to the builder's unavailable row (decisions #144
          * availability shape). */
-        val voiceSelector: StateFlow<VoiceSelectorUiState> =
+        val engineVoice: StateFlow<EngineVoiceUiState> =
             combine(settings.state, audition.state, registry.packs) { prefs, aud, packs ->
-                voiceSelector(packs, prefs, aud)
+                engineVoice(packs, prefs, aud)
             }.stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                voiceSelector(
+                engineVoice(
                     registry.packs.value,
                     settings.state.value,
                     audition.state.value,
-                    ready = false,
                 ),
             )
 
-        private fun voiceSelector(
+        private fun engineVoice(
             packs: List<PackState>,
             prefs: AppSettings.Snapshot,
             audition: AuditionUiState,
-            ready: Boolean = readyFor(prefs, packs),
-        ): VoiceSelectorUiState {
-            val piperSelected = prefs.ttsEngine == SettingsStore.PIPER_ENGINE
-            return buildVoiceSelectorState(
-                voices = if (piperSelected) PiperVoiceMetadata.all else KokoroVoiceMetadata.all,
+        ): EngineVoiceUiState {
+            val engineId = prefs.ttsEngine
+            val voices =
+                if (engineId == SettingsStore.PIPER_ENGINE) {
+                    PiperVoiceMetadata.all
+                } else {
+                    KokoroVoiceMetadata.all
+                }
+            val readyFor: (String) -> Boolean = { SetupEnginePacks.readyFor(engineId, it, packs) }
+            return buildEngineVoiceState(
+                engineId = engineId,
+                engines = engineOptions(engineId, readyFor),
+                voices = voices,
                 selectedVoice = prefs.voice,
                 favorites = prefs.favorites.toSet(),
-                ready = ready,
+                readyFor = readyFor,
+                bytesFor = { SetupEnginePacks.bytesFor(engineId, it, packs) },
                 audition = audition,
             )
-        }
-
-        /** Pack readiness of the SELECTED engine: Kokoro's three packs, or
-         * the resolved Piper voice's model + config plus the shared espeak
-         * bundle both engines phonemize through. */
-        private fun readyFor(
-            prefs: AppSettings.Snapshot,
-            packs: List<PackState>,
-        ): Boolean {
-            val ids =
-                if (prefs.ttsEngine == SettingsStore.PIPER_ENGINE) {
-                    PiperPacks
-                        .forVoice(
-                            if (prefs.voice in PiperVoices.all) prefs.voice else PiperEngine.DEFAULT_VOICE,
-                        ).map { it.id } + ESPEAK_PACK_ID
-                } else {
-                    listOf(KokoroPacks.model.id, KokoroPacks.voices.id, KokoroPacks.espeak.id)
-                }
-            return ids.all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
         }
 
         /** The book this reader shows — [resume] carries it so a machine-less
@@ -135,21 +135,233 @@ class ReaderViewModel
                 progress,
                 playback,
                 ->
+                val bookId = playback.bookId
+                val display = bookId?.let { prefs.bookDisplays[it] }
+                val speech = bookId?.let { prefs.bookTranslate[it] }
+                val storedTargetVoice = bookId?.let { selector.translateVoice(it) }
                 ReadInLanguageUiState(
-                    bookId = playback.bookId,
-                    target = playback.bookId?.let { prefs.bookTranslate[it] },
+                    bookId = bookId,
+                    target = speech,
                     languages = selector.availableTranslateLanguages(),
+                    // The reader's display surface: the book's display language
+                    // + the global display mode.
+                    displayTarget = display,
+                    displayMode = prefs.displayMode,
+                    // The constrained SPEECH row set: with a display language in
+                    // force, the spoken language is Off or that SAME translation
+                    // (a passage is translated at most once).
+                    speechLanguages = display?.let { d -> listOf(d) },
+                    // The spoken TRANSLATION's own voice (decisions #166
+                    // follow-up): the resolved (stored-or-automatic) target
+                    // voice, the target language's catalog voices with per-voice
+                    // pack readiness, and the in-force voice's download state.
+                    translateVoice = storedTargetVoice,
+                    translateVoices =
+                        speech?.let { lang ->
+                            val catalog = selector.voiceCatalog()
+                            TranslateLanguages.voicesFor(catalog, lang).map { name ->
+                                val meta = catalog.first { it.name == name }
+                                VoiceRowUi(
+                                    name = meta.name,
+                                    language = meta.language,
+                                    gender = meta.gender,
+                                    displayName = meta.displayName,
+                                    grade = meta.grade,
+                                    ready = SetupEnginePacks.readyFor(prefs.ttsEngine, meta.name, packs),
+                                    bytes = SetupEnginePacks.bytesFor(prefs.ttsEngine, meta.name, packs),
+                                    selected = meta.name == storedTargetVoice,
+                                )
+                            }
+                        } ?: emptyList(),
+                    translateVoiceReady =
+                        storedTargetVoice?.let { SetupEnginePacks.readyFor(prefs.ttsEngine, it, packs) } ?: true,
                     packDownloaded =
                         packs.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
                             TranslatePackStager.isStaged(context.filesDir),
                     downloadProgress = progress,
-                    degradeReason = selector.translateDegradeReason(playback.bookId),
+                    degradeReason = selector.translateDegradeReason(bookId),
                 )
             }.stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
                 ReadInLanguageUiState(),
             )
+
+        // ---- read-in-language display (the block projection) ----
+
+        /** The translation map under display: chapter-scoped so a stale map
+         * can never project against a different chapter (passage indices
+         * overlap across chapters). */
+        private val chapterTranslations = kotlinx.coroutines.flow.MutableStateFlow(ChapterTranslations(chapterIndex = -1, entries = emptyMap()))
+
+        private data class ChapterTranslations(
+            val chapterIndex: Int,
+            val entries: Map<Int, TranslationState>,
+        )
+
+        /** The seed identity — distinguishes book/chapter/passage-count AND
+         * the display target for the current book, so setting/clearing a
+         * display language mid-chapter re-seeds (distinctUntilChanged). */
+        private data class SeedKey(
+            val bookId: String?,
+            val chapter: Int,
+            val passageCount: Int,
+            val display: String?,
+        )
+
+        /** The projected chapter the reader renders: blocks composed from the
+         * published `chapterPassages` + the reader-owned translation map (the
+         * published list itself is never interleaved — the bookmark/resume
+         * invariant holds by construction), plus the per-book display target,
+         * the global display mode and the in-force SPEECH target (the
+         * highlight rule). */
+        val chapterDisplay: StateFlow<ChapterDisplayState> =
+            combine(
+                PlaybackStateHolder.state,
+                chapterTranslations,
+                settings.state,
+            ) { playback, ct, prefs ->
+                val bookId = playback.bookId
+                // Guard against a stale map (the seed for the NEW chapter has
+                // not landed yet): only project the map that belongs to the
+                // chapter being displayed.
+                val usable =
+                    if (bookId != null && ct.chapterIndex == playback.chapterIndex) ct.entries else emptyMap()
+                // Pending that can never decode renders Unavailable (the
+                // translator pack removed / failed-open) — the inline note,
+                // never an eternal dots placeholder.
+                val normalized =
+                    if (translationService.translatePossible) {
+                        usable
+                    } else {
+                        usable.mapValues { (_, state) ->
+                            if (state is TranslationState.Pending) TranslationState.Unavailable else state
+                        }
+                    }
+                val displayTarget = bookId?.let { prefs.bookDisplays[it] }
+                ChapterDisplayState(
+                    blocks = ChapterDisplay.project(playback.chapterPassages, normalized, prefs.displayMode),
+                    translations = normalized,
+                    displayTarget = displayTarget,
+                    speechTarget = bookId?.let { selector.translateTarget(it) },
+                )
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                ChapterDisplayState(),
+            )
+
+        init {
+            // Seed on every book/chapter change AND every display-target
+            // change for the current book (setting a display language
+            // mid-chapter must re-project with Pending blocks + stored rows —
+            // the eager path of the progressive landing). Stored rows become
+            // Ready, absent rows Pending; never a flash of the original-only
+            // layout: the projection is emitted only after the seed lands.
+            viewModelScope.launch {
+                combine(
+                    PlaybackStateHolder.state.map { Triple(it.bookId, it.chapterIndex, it.chapterPassages.size) },
+                    settings.state.map { it.bookDisplays },
+                ) { nav, displays ->
+                    SeedKey(nav.first, nav.second, nav.third, displays[nav.first])
+                }.distinctUntilChanged()
+                    .collect { key ->
+                        seedTranslations(key.bookId, key.chapter, key.passageCount, key.display)
+                    }
+            }
+            // Merge each passage's text as it becomes available — the PROGRESSIVE
+            // landing that re-paginates through the reader's keep-place effect.
+            viewModelScope.launch {
+                translationService.ready.collect { ready ->
+                    val current = PlaybackStateHolder.state.value
+                    if (ready.bookId == current.bookId && ready.chapter == current.chapterIndex) {
+                        chapterTranslations.update { ct ->
+                            if (ct.chapterIndex == ready.chapter) {
+                                ct.copy(entries = ct.entries + (ready.passage to TranslationState.Ready(ready.text)))
+                            } else {
+                                ct
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private suspend fun seedTranslations(
+            bookId: String?,
+            chapter: Int,
+            passageCount: Int,
+            display: String?,
+        ) {
+            if (bookId == null || passageCount == 0 || display == null) {
+                chapterTranslations.value = ChapterTranslations(chapter, emptyMap())
+                return
+            }
+            val target = TranslationTarget(display)
+            // Absent rows are Pending while a decode is possible; with the
+            // translator pack removed / failed-open they are Unavailable from
+            // the start (the original renders plus the inline note — never an
+            // eternal dots placeholder).
+            val unavailable = !translationService.translatePossible
+            val entries = LinkedHashMap<Int, TranslationState>(passageCount)
+            for (p in 0 until passageCount) {
+                entries[p] =
+                    translationService.cached(bookId, chapter, p, target)
+                        ?.let { TranslationState.Ready(it) }
+                        ?: if (unavailable) TranslationState.Unavailable else TranslationState.Pending
+            }
+            chapterTranslations.value = ChapterTranslations(chapter, entries)
+        }
+
+        /** Background display-priority fill of the current + next page's
+         * passages — the reader calls it on every page entry (the service
+         * dedupes by passage). No-op when no display language is set. */
+        fun prefetchChapter(
+            bookId: String,
+            chapter: Int,
+            passages: List<Int>,
+        ) {
+            val display = settings.bookDisplay(bookId) ?: return
+            translationService.prefetch(bookId, chapter, passages.distinct(), TranslationTarget(display))
+            // The pack can vanish mid-session (removed/failed-open): the next
+            // page entry is where Unavailable is (re)derived — Pending rows
+            // that can never decode flip to the inline note; the rows retry on
+            // a later entry when the translator comes back.
+            if (!translationService.translatePossible) {
+                chapterTranslations.update { ct ->
+                    if (ct.chapterIndex == chapter) {
+                        ct.copy(
+                            entries =
+                                ct.entries.mapValues { (_, state) ->
+                                    if (state is TranslationState.Pending) TranslationState.Unavailable else state
+                                },
+                        )
+                    } else {
+                        ct
+                    }
+                }
+            }
+        }
+
+        /** Writes or clears the book's display language. A display change is
+         * a TEXT re-projection, not a session rebuild — the next synthesize
+         * re-resolves the speech target through the constraint (a mismatched
+         * speech was already degrading to original audio), so NO
+         * [PlaybackService.ACTION_CHANGE_VOICE] here. */
+        fun setDisplayTarget(target: String?) {
+            // The published state lags a fresh open (same fallback as the
+            // speech picker — S22 2026-09-14).
+            val bookId = PlaybackStateHolder.state.value.bookId ?: openedBookId ?: return
+            val current = settings.bookDisplay(bookId)
+            if (target != current) {
+                viewModelScope.launch { settings.setBookDisplay(bookId, target) }
+            }
+        }
+
+        /** The reader's display mode (global reading style). */
+        fun setDisplayMode(mode: DisplayMode) {
+            viewModelScope.launch { settings.setDisplayMode(mode) }
+        }
 
         /**
          * Persists the book's translate target (null = Off) and rebuilds the
@@ -169,6 +381,16 @@ class ReaderViewModel
                 viewModelScope.launch { settings.setBookTranslate(bookId, target) }
                 changeVoice(settings.state.value.voice)
             }
+        }
+
+        /** The spoken TRANSLATION's own voice (global; null = automatic):
+         * persists it AND rebuilds the active book at the same playhead —
+         * the cache key changes with the target voice, so stale audio can
+         * never publish under the old key. */
+        fun setTranslateVoice(voice: String?) {
+            if (voice == settings.translateVoice()) return
+            viewModelScope.launch { settings.setTranslateVoice(voice) }
+            changeVoice(settings.state.value.voice)
         }
 
         /** Inline download for the translation pack row (per-book, never a
@@ -200,13 +422,21 @@ class ReaderViewModel
             viewModelScope.launch { settings.toggleFavorite(voice) }
         }
 
+        /** The speech engine (global): persists it AND rebuilds the active
+         * book at the playhead (the catalog switch re-resolves the voice). */
+        fun setEngine(engineId: String) {
+            if (engineId == settings.state.value.ttsEngine) return
+            viewModelScope.launch { settings.setTtsEngine(engineId) }
+            changeVoice(settings.state.value.voice)
+        }
+
         fun previewVoice(voice: String) = audition.preview(voice)
 
         fun stopPreview() = audition.stop()
 
-        /** C2: explicit voice-pack download action while Kokoro packs are
-         * missing — routed to the composition root (A6). */
-        fun downloadVoicePacks() = download.requestDownload()
+        /** The named voice's pack download action while packs are missing —
+         * routed to the composition root (A6). */
+        fun downloadVoicePacks(voice: String) = download.requestDownload(voice)
 
         /** Opens a book in the reader WITHOUT starting playback (decisions #52). */
         fun open(bookId: String) {
@@ -304,10 +534,19 @@ class ReaderViewModel
             }
             runCatching { context.startForegroundService(intent) }
         }
-
-        private companion object {
-            /** The shared espeak-ng bundle both open-weight engines phonemize
-             * through (Kokoro and Piper; the descriptor id is stable). */
-            const val ESPEAK_PACK_ID = "espeak-ng"
-        }
     }
+
+/** The projected chapter the reader renders ([ReaderViewModel.chapterDisplay]):
+ * the [DisplayBlock]s plus the highlight context — the display language and
+ * the in-force speech target (through the constraint), which decide which
+ * block the read-along highlight anchors on. */
+data class ChapterDisplayState(
+    val blocks: List<DisplayBlock> = emptyList(),
+    val translations: Map<Int, TranslationState> = emptyMap(),
+    /** The in-force display language (null = original-only layout). */
+    val displayTarget: String? = null,
+    /** The in-force SPEECH target through the constraint (null = original
+     * audio). When it equals the display language, the utterance is the
+     * displayed translation — the highlight moves to the translation block. */
+    val speechTarget: String? = null,
+)

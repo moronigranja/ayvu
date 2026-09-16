@@ -126,6 +126,7 @@ class PregenWorkerTest {
                     override fun get(): TTSEngine = error("system tts must not be used in kokoro tests")
                 },
                 settings,
+                FakeTranslationService(),
             )
         val factory =
             object : WorkerFactory() {

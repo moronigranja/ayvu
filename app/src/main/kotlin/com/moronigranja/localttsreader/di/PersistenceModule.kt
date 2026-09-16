@@ -9,15 +9,19 @@ import com.moronigranja.localttsreader.persistence.CorruptDatabaseGuard
 import com.moronigranja.localttsreader.persistence.LibraryDatabase
 import com.moronigranja.localttsreader.persistence.MIGRATION_1_2
 import com.moronigranja.localttsreader.persistence.MIGRATION_2_3
+import com.moronigranja.localttsreader.persistence.MIGRATION_3_4
 import com.moronigranja.localttsreader.persistence.PassageDao
 import com.moronigranja.localttsreader.persistence.ProgressDao
 import com.moronigranja.localttsreader.persistence.RoomActivityStore
 import com.moronigranja.localttsreader.persistence.RoomLibraryStore
 import com.moronigranja.localttsreader.persistence.RoomPlayerStore
+import com.moronigranja.localttsreader.persistence.RoomTranslationStore
 import com.moronigranja.localttsreader.persistence.SettingsDao
 import com.moronigranja.localttsreader.persistence.SettingsStore
+import com.moronigranja.localttsreader.persistence.TranslationDao
 import com.moronigranja.localttsreader.player.ActivityStore
 import com.moronigranja.localttsreader.player.PlayerStore
+import com.moronigranja.localttsreader.player.TranslationStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,7 +51,7 @@ object PersistenceModule {
         CorruptDatabaseGuard.quarantineIfCorrupt(context, DATABASE_NAME)
         return Room
             .databaseBuilder(context, LibraryDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
 
@@ -92,6 +96,15 @@ object PersistenceModule {
     @Provides
     @Singleton
     fun providePlayerStore(database: LibraryDatabase): PlayerStore = RoomPlayerStore(database)
+
+    @Provides
+    fun provideTranslationDao(database: LibraryDatabase): TranslationDao = database.translationDao()
+
+    /** The translated-text store (v4, read-in-language display) — consumed by
+     * the feature-player translation service and the backup archive. */
+    @Provides
+    @Singleton
+    fun provideTranslationStore(database: LibraryDatabase): TranslationStore = RoomTranslationStore(database)
 
     private const val DATABASE_NAME = "local-tts-reader.db"
 }

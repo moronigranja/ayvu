@@ -31,7 +31,7 @@ class TranslatingEngineTest {
     )
 
     private fun engine(
-        translator: suspend (String) -> String? = { "traduzido: $it" },
+        translator: suspend (text: String, chapterIndex: Int, passageIndex: Int) -> String? = { text, _, _ -> "traduzido: $text" },
         targetVoice: String = "pt_voice",
         targetLang: String = "pt",
         targetFactory: (EngineSpec) -> RecordingDelegate = ::RecordingDelegate,
@@ -55,7 +55,7 @@ class TranslatingEngineTest {
     fun successRoutesToTheTargetEngineUnderTheTargetVoice() =
         runBlocking {
             val e = engine()
-            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice"))
+            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0))
             assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
             assertEquals(0, e.original.requests.size)
             assertEquals(1, e.target.requests.size)
@@ -66,8 +66,8 @@ class TranslatingEngineTest {
     @Test
     fun translatorExceptionDegradesToOriginal() =
         runBlocking {
-            val e = engine(translator = { throw IllegalStateException("graph gone") })
-            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice"))
+            val e = engine(translator = { _, _, _ -> throw IllegalStateException("graph gone") })
+            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0))
             assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
             assertEquals("Hello world", e.original.lastRequest!!.text)
             assertEquals("en_voice", e.original.lastRequest!!.voice)
@@ -77,8 +77,8 @@ class TranslatingEngineTest {
     @Test
     fun emptyTranslationDegradesToOriginal() =
         runBlocking {
-            val e = engine(translator = { "" })
-            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice"))
+            val e = engine(translator = { _, _, _ -> "" })
+            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0))
             assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
             assertEquals("Hello world", e.original.lastRequest!!.text)
         }
@@ -88,7 +88,7 @@ class TranslatingEngineTest {
         runBlocking {
             var called = false
             val e =
-                engine(translator = {
+                engine(translator = { _, _, _ ->
                     called = true
                     "x"
                 })
@@ -103,12 +103,45 @@ class TranslatingEngineTest {
         runBlocking {
             val e = engine()
             val windows = mutableListOf<ByteArray>()
-            val outcome = e.engine.synthesizeStreaming(SynthesisRequest("Hello", "en_voice")) { windows.add(it) }
+            val outcome = e.engine.synthesizeStreaming(SynthesisRequest("Hello", "en_voice", chapterIndex = 0, passageIndex = 0)) { windows.add(it) }
             assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
             assertEquals(0, e.original.requests.size)
             assertEquals("traduzido: Hello", e.target.lastRequest!!.text)
             val audio = outcome as SynthesisOutcome.Audio
             assertEquals(listOf(audio.pcm), windows)
+        }
+
+    @Test
+    fun passageIdentityReachesTheTranslator() =
+        runBlocking {
+            var seen: Pair<Int, Int>? = null
+            val e =
+                engine(translator = { text, chapterIndex, passageIndex ->
+                    seen = chapterIndex to passageIndex
+                    "traduzido: $text"
+                })
+            e.engine.synthesize(SynthesisRequest("Hello world", "en_voice", chapterIndex = 2, passageIndex = 5))
+            assertEquals(2 to 5, seen)
+        }
+
+    @Test
+    fun noPassageIdentityDegradesToTheOriginalRender() =
+        runBlocking {
+            // A preview/probe synthesis carries no passage identity (-1):
+            // a keyed translation is impossible, so the decorator must not
+            // half-translate — the original text + voice render untouched.
+            var called = false
+            val e =
+                engine(translator = { _, _, _ ->
+                    called = true
+                    "traduzido"
+                })
+            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice"))
+            assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
+            assertTrue(!called, "translator must not run without a passage identity")
+            assertEquals("Hello world", e.original.lastRequest!!.text)
+            assertEquals("en_voice", e.original.lastRequest!!.voice)
+            assertEquals(0, e.target.requests.size)
         }
 
     @Test
@@ -168,7 +201,7 @@ class TranslatingEngineTest {
     fun targetSynthesisFailureDegradesToTheOriginalEngine() =
         runBlocking {
             val e = engine(targetFactory = { FailingOnVoiceDelegate(it, "pt_voice") })
-            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice"))
+            val outcome = e.engine.synthesize(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0))
             assertTrue(outcome is SynthesisOutcome.Audio)
             assertEquals(1, e.target.requests.size)
             assertEquals("pt_voice", e.target.requests[0].voice)
@@ -183,7 +216,7 @@ class TranslatingEngineTest {
             val e = engine(targetFactory = { FailingOnVoiceDelegate(it, "pt_voice") })
             val windows = mutableListOf<ByteArray>()
             val outcome =
-                e.engine.synthesizeStreaming(SynthesisRequest("Hello world", "en_voice")) { windows.add(it) }
+                e.engine.synthesizeStreaming(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0)) { windows.add(it) }
             assertTrue(outcome is SynthesisOutcome.Audio)
             assertEquals(1, windows.size)
             assertEquals(1, e.target.requests.size)

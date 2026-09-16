@@ -1,6 +1,8 @@
 package com.moronigranja.localttsreader.tts.setup
 
 import com.moronigranja.localttsreader.tts.DefaultEngines
+import com.moronigranja.localttsreader.tts.PackState
+import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.kokoro.KokoroPacks
 import com.moronigranja.localttsreader.tts.piper.PiperEngine
 import com.moronigranja.localttsreader.tts.piper.PiperPacks
@@ -45,4 +47,18 @@ object SetupEnginePacks {
             // requirement — the degraded voice path.
             else -> emptyList()
         }
+
+    /** True when every pack [requiredIds] names is Ready on disk. */
+    fun readyFor(
+        engineId: String,
+        voice: String,
+        packs: List<PackState>,
+    ): Boolean = requiredIds(engineId, voice).all { id -> packs.firstOrNull { it.pack.id == id }?.status == PackStatus.Ready }
+
+    /** Total required-pack size for the voice (0 when no packs are needed). */
+    fun bytesFor(
+        engineId: String,
+        voice: String,
+        packs: List<PackState>,
+    ): Long = requiredIds(engineId, voice).sumOf { id -> packs.firstOrNull { it.pack.id == id }?.pack?.sizeBytes ?: 0L }
 }

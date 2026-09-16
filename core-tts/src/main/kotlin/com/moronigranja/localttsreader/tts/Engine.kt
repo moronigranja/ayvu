@@ -104,6 +104,16 @@ data class SynthesisRequest(
      * speed on the player side (decisions #33).
      */
     val speed: Double = 1.0,
+    /**
+     * Passage identity the request synthesizes — the read-in-language KEY
+     * dimension: a translated render must name its passage so the audio path
+     * shares the stored display translation (one artifact, at most one decode
+     * per passage). Set by the playback/pregen call sites; -1 = no identity
+     * (preview/probe syntheses), which degrades a translated render to the
+     * original text + voice ([TranslatingEngine]). Engines ignore both.
+     */
+    val chapterIndex: Int = -1,
+    val passageIndex: Int = -1,
 )
 
 sealed interface SynthesisOutcome {

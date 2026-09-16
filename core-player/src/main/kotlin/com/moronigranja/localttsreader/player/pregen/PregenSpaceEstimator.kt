@@ -37,12 +37,10 @@ class PregenSpaceEstimator(
         voice: String,
         speed: Double,
         engine: String = PregenKey.DEFAULT_ENGINE,
-        /** Read-in-language target code (decisions #114); the translated audio
-         * lives under its own `x<lang>` cache segment. */
-        translateLang: String? = null,
-        /** Translator identity (decisions #162) — see [PregenKey.translator];
-         * part of the `t<translator>` cache segment. */
-        translator: String? = null,
+        /** Read-in-language target (decisions #114/#162): the language + the
+         * translator that wrote it; the translated audio lives under its own
+         * `x<lang>`/`t<translator>` cache segments. */
+        target: TranslationTarget? = null,
     ): PregenSpaceEstimate {
         require(speed > 0) { "speed must be positive" }
         val bytesPerSecond = bytesPerSecond(engine)
@@ -58,8 +56,7 @@ class PregenSpaceEstimator(
                         voice,
                         speed,
                         engine,
-                        translateLang,
-                        translator,
+                        target,
                     )
                 val exact = cache.sizeOf(key)
                 if (exact != null) {

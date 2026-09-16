@@ -49,6 +49,7 @@ import com.moronigranja.localttsreader.player.passageText
 import com.moronigranja.localttsreader.player.pregen.CoverageEncoder
 import com.moronigranja.localttsreader.player.pregen.PregenAudio
 import com.moronigranja.localttsreader.player.pregen.PregenKey
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.player.pregen.PregenQueue
 import com.moronigranja.localttsreader.tts.SegmentAnchor
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
@@ -164,8 +165,20 @@ class PlaybackService : Service() {
      * nothing and counted chapters differently). */
     private var layout: BookLayout? = null
 
-    /** Active book (internal for host tests that drive commands directly). */
-    internal var book: Book? = null
+    /** The reader-text publication slice (cleanup pass H): owns the in-memory
+     * active [Book] and derives the reader-facing text fields; [stateCopy]
+     * delegates here. The single entry point is [bindBook] (the test
+     * assignments against [book] route through this property's setter). */
+    private val textPublisher = ReaderTextPublisher()
+
+    /** Active book (internal for host tests that drive commands directly) —
+     * owned by [textPublisher], exposed here so every existing read site and
+     * the host-test assignments keep working unchanged. */
+    internal var book: Book?
+        get() = textPublisher.book
+        set(value) {
+            textPublisher.book = value
+        }
 
     /** CR-2 host-test seam: the passage output (tests inject a fake).
      * Default: the static track (decisions #84) — MODE_STREAM proved inert
@@ -950,7 +963,12 @@ class PlaybackService : Service() {
             // back to a synchronous synthesize.
             val voice = activeVoice()
             val translateLang = selector.translateLangInUse(activeBook.id)
-            val key = livePregenKey(activeBook, position, voice, current.speed, translateLang)
+            // The cache-key voice is the RENDER voice — an explicitly stored
+            // target-language voice names the translated audio under its own
+            // key (the request voice above stays the original's; the decorator
+            // re-renders under the target voice).
+            val keyVoice = selector.renderVoice(activeBook.id)
+            val key = livePregenKey(activeBook, position, keyVoice, current.speed, translateLang)
             // Deterministic re-seek (layer 2): in-flight first-listen persists
             // land before any re-fetch, so a played passage is always on disk.
             pendingPersists.forEach { it.join() }
@@ -1032,7 +1050,7 @@ class PlaybackService : Service() {
                     queue
                         ?.peek(nextTarget.chapterIndex, nextTarget.passageIndex)
                         ?: pregenCache.cache.get(
-                            livePregenKey(activeBook, nextTarget, voice, current.speed, translateLang),
+                            livePregenKey(activeBook, nextTarget, keyVoice, current.speed, translateLang),
                         )
                 if (nextPcm != null) output.prearm(nextPcm.pcm.size, nextPcm.sampleRateHz)
             }
@@ -1277,26 +1295,15 @@ class PlaybackService : Service() {
             chapterIndex = position?.chapterIndex ?: 0,
             passageIndex = position?.passageIndex ?: 0,
             // Book-wide passage position (item 4): chapter prefix sums + the
-            // in-chapter index — the book is resident in memory (CR-9 reads
-            // book.chapters for the stitched reader), so no Room query and
-            // no cache. Chapters are ordered by index (model contract).
-            bookPassageIndex =
-                book?.let {
-                    it.chapters.filter { ch -> ch.index < (position?.chapterIndex ?: 0) }.sumOf { ch -> ch.passages.size } +
-                        (position?.passageIndex ?: 0)
-                } ?: 0,
-            bookPassageCount = book?.chapters?.sumOf { it.passages.size } ?: 0,
-            passageText = position?.let { p -> book?.passageText(p.chapterIndex, p.passageIndex) } ?: "",
+            // in-chapter index — the book is resident in memory. The whole
+            // reader-text publication delegates to [textPublisher] (cleanup
+            // pass H): one owner for the fields, same values and timing.
+            bookPassageIndex = textPublisher.bookPassageIndex(position),
+            bookPassageCount = textPublisher.bookPassageCount(),
+            passageText = textPublisher.passageText(position),
             passageDurationSeconds = segments.lastOrNull()?.endSeconds ?: 0.0,
-            chapters = book?.chapters?.map { it.title.orEmpty() } ?: emptyList(),
-            chapterPassages =
-                position?.let { p ->
-                    book
-                        ?.chapters
-                        ?.firstOrNull { it.index == p.chapterIndex }
-                        ?.passages
-                        ?.map { it.text }
-                } ?: emptyList(),
+            chapters = textPublisher.chapterTitles(),
+            chapterPassages = textPublisher.chapterPassages(position),
             segments = segments,
             offsetSeconds = liveOffsetSeconds(),
             readFraction = position?.let { p -> book?.let { BookProgress.fraction(it, p.chapterIndex, p.passageIndex) } } ?: 0f,
@@ -1334,7 +1341,7 @@ class PlaybackService : Service() {
         // uninitialized field would die silently there). Hilt always injects
         // on device; the guard is a no-op there.
         if (!::pregenCache.isInitialized) return emptyList<CoverageSpan>() to emptyList<Float>()
-        val voice = activeVoice()
+        val voice = selector.renderVoice(activeBook.id)
         val speed = active.state.value.speed
         val key = "${activeBook.id}|$voice|$speed"
         if (!coverageDirty && coverageKey == key) return coverageCache
@@ -1559,10 +1566,9 @@ class PlaybackService : Service() {
             position.passageIndex,
             voice,
             speed,
-            translateLang = translateLang,
-            // Which translator rendered that language (decisions #162): only an
-            // LFM render is a hit for this key.
-            translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
+            // The language plus which translator rendered it (decisions #162):
+            // only an LFM render is a hit for this key.
+            target = translateLang?.let { TranslationTarget(it) },
         )
 
     /** The book's cover bitmap for the media notification, cached per book
@@ -1649,18 +1655,31 @@ class PlaybackService : Service() {
         startCoverageObserver(activeBook.id)
         return PregenQueue(
             book = activeBook,
-            voice = activeVoiceFor(activeBook.id),
+            // The planner's key voice: an explicit target-language voice names
+            // the translated audio under its own key; the synthesize lambda
+            // keeps the request voice (the decorator re-renders under the
+            // target voice).
+            voice = selector.renderVoice(activeBook.id),
             speed = speed,
-            // The queue's keys carry the book's translate target so the
-            // translated audio cannot collide with the original's (the
-            // `x<lang>` path segment, decisions #114), plus which translator
-            // rendered it (`t<translator>`, decisions #162).
-            translateLang = translateLang,
-            translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
-            synthesize = { text ->
+            // The queue's keys carry the book's translate target (language +
+            // translator) so the translated audio cannot collide with the
+            // original's (the `x<lang>`/`t<translator>` path segments,
+            // decisions #114/#162).
+            target = translateLang?.let { TranslationTarget(it) },
+            synthesize = { text, chapterIndex, passageIndex ->
                 val (engine, voice) = selector.resolve(activeBook.id)
-                engine?.synthesize(SynthesisRequest(text, voice, speed = speed))
-                    ?: SynthesisOutcome.Failed("engine unavailable")
+                engine?.synthesize(
+                    SynthesisRequest(
+                        text,
+                        voice,
+                        speed = speed,
+                        // The render's passage identity — the read-in-language
+                        // key dimension (the audio path shares the stored
+                        // display translation, one artifact per passage).
+                        chapterIndex = chapterIndex,
+                        passageIndex = passageIndex,
+                    ),
+                ) ?: SynthesisOutcome.Failed("engine unavailable")
             },
             lookahead = PREFILL_LOOKAHEAD_PASSAGES,
             lookaheadSeconds = PREFILL_LOOKAHEAD_SECONDS,
@@ -1799,8 +1818,18 @@ class PlaybackService : Service() {
             PlaybackActive.markEngineUsed()
             val startedAt = System.currentTimeMillis()
             val outcome =
-                selector.resolve(book?.id).first?.synthesize(SynthesisRequest(text, voice, speed = speed))
-                    ?: SynthesisOutcome.Failed("engine unavailable")
+                selector.resolve(book?.id).first?.synthesize(
+                    // The render's passage identity — the read-in-language key
+                    // dimension (one stored artifact per passage, shared by the
+                    // reader display and the audio path).
+                    SynthesisRequest(
+                        text,
+                        voice,
+                        speed = speed,
+                        chapterIndex = position.chapterIndex,
+                        passageIndex = position.passageIndex,
+                    ),
+                ) ?: SynthesisOutcome.Failed("engine unavailable")
             // RTF lazy fallback (item 8): real passages measure the same
             // wall/audio pair as Preview; stop accumulating once a verdict
             // exists (realtimeCapable != null).

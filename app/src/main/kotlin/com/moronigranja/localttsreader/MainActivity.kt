@@ -122,6 +122,12 @@ class MainActivity : ComponentActivity() {
                                 targetChapter = -1
                                 targetPassage = -1
                             },
+                            onOpenSettings = {
+                                openBookId = null
+                                targetChapter = -1
+                                targetPassage = -1
+                                openSettings = true
+                            },
                         )
                     else ->
                         LibraryScreen(

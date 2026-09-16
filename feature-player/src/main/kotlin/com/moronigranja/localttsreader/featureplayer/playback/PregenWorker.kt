@@ -22,6 +22,7 @@ import com.moronigranja.localttsreader.player.pregen.PregenBudget
 import com.moronigranja.localttsreader.player.pregen.PregenKey
 import com.moronigranja.localttsreader.player.pregen.PregenProgress
 import com.moronigranja.localttsreader.player.pregen.PregenTerminal
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest
 import dagger.assisted.Assisted
@@ -233,11 +234,20 @@ class PregenWorker
                 val runner =
                     OfflinePregen(
                         cache = pregenCache.cache,
-                        synthesize = { text -> engineForBook.synthesize(SynthesisRequest(text, voice, speed)) },
-                        translateLang = translateLang,
-                        // Which translator rendered the target's audio: the
-                        // `t<translator>` key dimension (decisions #162).
-                        translator = translateLang?.let { PregenKey.LFM_TRANSLATOR },
+                        synthesize = { text, chapterIndex, passageIndex ->
+                        // The render's passage identity — the read-in-language
+                        // key dimension (same artifact as the reader display).
+                        engineForBook.synthesize(
+                            SynthesisRequest(
+                                text,
+                                voice,
+                                speed,
+                                chapterIndex = chapterIndex,
+                                passageIndex = passageIndex,
+                            ),
+                        )
+                    },
+                        target = translateLang?.let { TranslationTarget(it) },
                         // G2: yield to an engaged playback session (manual runs too).
                         shouldContinue = { !PlaybackActive.engineInUse },
                     )
@@ -271,7 +281,10 @@ class PregenWorker
                 val result =
                     runner.run(
                         book = fullBook,
-                        voice = voice,
+                        // The KEY voice: an explicitly stored target-language
+                        // voice names the translated audio under its own key
+                        // (the synthesize lambda keeps the request voice).
+                        voice = selector.renderVoice(book.id),
                         speed = speed,
                         budget = budget,
                         startAt = startAt,

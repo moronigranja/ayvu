@@ -100,6 +100,9 @@ class BackupStoreTest {
         )
         db.settingsDao().put(SettingEntity("voice", "af_heart"))
         db.settingsDao().put(SettingEntity("theme_mode", "dark"))
+        db.translationDao().put(
+            TranslationEntity("b1", 0, 0, "pt-BR", "lfm12b", "Todas as famílias felizes são iguais.", 3_100L),
+        )
         BookFileStore(bookFiles).save("b1.epub", EPUB_BYTES)
     }
 
@@ -267,6 +270,31 @@ class BackupStoreTest {
     // ------------------------------------------------------------------
     // Passages never clobbered
     // ------------------------------------------------------------------
+
+    @Test
+    fun `restored translations overwrite local on the natural key`() =
+        runTest {
+            populate(database)
+            val snapshot = roundTrip()
+
+            // Local rows: the same (book, chapter, passage, lang, translator)
+            // key holds a different text; a different translator's row is
+            // distinct (the natural key includes the translator, decisions #161).
+            database.translationDao().put(
+                TranslationEntity("b1", 0, 0, "pt-BR", "lfm12b", "LOCAL TEXT", 4_000L),
+            )
+            database.translationDao().put(
+                TranslationEntity("b1", 0, 0, "pt-BR", "small100", "RETIRED ENGINE TEXT", 4_100L),
+            )
+
+            store().merge(snapshot)
+
+            val rows = database.translationDao().all().associate { Triple(it.bookId, it.passageIndex, it.translator) to it.text }
+            // Restored rows overwrite local on the same key…
+            assertEquals("Todas as famílias felizes são iguais.", rows[Triple("b1", 0, "lfm12b")])
+            // …while a key the archive does not carry keeps its local row.
+            assertEquals("RETIRED ENGINE TEXT", rows[Triple("b1", 0, "small100")])
+        }
 
     @Test
     fun `existing book cache is not rewritten by a merge`() =

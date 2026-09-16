@@ -219,6 +219,7 @@ class PlaybackServiceFillRestartTest {
                         TranslateRuntime(context, this.settings),
                         onUnusedSystemTts,
                         this.settings,
+                        FakeTranslationService(),
                     )
             }
         PlaybackStateHolder.reset()
@@ -279,6 +280,7 @@ class PlaybackServiceFillRestartTest {
                         TranslateRuntime(context, this.settings),
                         onUnusedSystemTts,
                         this.settings,
+                        FakeTranslationService(),
                     )
             }
         PlaybackStateHolder.reset()

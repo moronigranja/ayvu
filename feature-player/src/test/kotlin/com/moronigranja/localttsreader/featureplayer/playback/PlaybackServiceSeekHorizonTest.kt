@@ -221,6 +221,7 @@ class PlaybackServiceSeekHorizonTest {
                     TranslateRuntime(context, this.settings),
                     onUnusedSystemTts,
                     this.settings,
+                    FakeTranslationService(),
                 )
         }
 

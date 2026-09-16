@@ -13,16 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,8 +43,6 @@ import com.moronigranja.localttsreader.ui.PacksPlanCard
 import com.moronigranja.localttsreader.ui.PillButton
 import com.moronigranja.localttsreader.ui.PlanPackStatus
 import com.moronigranja.localttsreader.ui.SectionHeader
-import com.moronigranja.localttsreader.ui.VoicePreviewUi
-import com.moronigranja.localttsreader.ui.VoiceRowUi
 
 /**
  * C1.4: the guided first-run flow. The checklist is derived by
@@ -112,7 +103,7 @@ fun SetupScreen(
                         )
                     StepKind.CHOOSE_VOICE ->
                         ChooseVoiceCard(
-                            voiceSelector = state.voiceSelector,
+                            engineVoice = state.engineVoice,
                             onSelect = viewModel::chooseVoice,
                             onPreview = viewModel::previewVoice,
                             onStopPreview = viewModel::stopPreview,
@@ -235,11 +226,11 @@ private fun EngineRow(
 
 @Composable
 private fun ChooseVoiceCard(
-    voiceSelector: com.moronigranja.localttsreader.ui.VoiceSelectorUiState,
+    engineVoice: com.moronigranja.localttsreader.ui.EngineVoiceUiState,
     onSelect: (String) -> Unit,
     onPreview: (String) -> Unit,
     onStopPreview: () -> Unit,
-    onDownload: () -> Unit,
+    onDownload: (String) -> Unit,
 ) {
     StepCard {
         Text("Choose a voice", style = MaterialTheme.typography.titleMedium)
@@ -249,148 +240,20 @@ private fun ChooseVoiceCard(
                 "selected voice shows the download action instead.",
             style = MaterialTheme.typography.bodyMedium,
         )
-        VoiceDropdown(
-            state = voiceSelector,
+        // The ONE shared compact picker (decisions #166 follow-up) — the
+        // owner override of the C2 full-list selector is retired: Setup now
+        // renders the same surface Settings and the reader use.
+        com.moronigranja.localttsreader.ui.EngineVoicePicker(
+            state = engineVoice,
+            voiceLabel = "Voice",
+            onEngineSelect = null,
             onSelect = onSelect,
+            onToggleFavorite = { },
             onPreview = onPreview,
             onStopPreview = onStopPreview,
             onDownload = onDownload,
+            onOpenSettings = null,
         )
-    }
-}
-
-/**
- * Owner override (2026-09-02) of the C2 full-list selector for first-run setup:
- * a compact dropdown of the whole catalog instead of the tall inline list, with
- * the selected voice's action (Preview/Stop/download) beneath. Data still comes
- * from the ONE shared [com.moronigranja.localttsreader.ui.VoiceSelectorUiState]
- * builder — Settings keeps the full shared selector (#102.4).
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun VoiceDropdown(
-    state: com.moronigranja.localttsreader.ui.VoiceSelectorUiState,
-    onSelect: (String) -> Unit,
-    onPreview: (String) -> Unit,
-    onStopPreview: () -> Unit,
-    onDownload: () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selected = state.rows.firstOrNull { it.selected }
-    val anchorLabel =
-        selected?.let { "${it.name} · ${it.language}" }
-            ?: state.unavailableSavedVoice?.let { "$it (unavailable)" }
-            ?: state.summary.ifBlank { "—" }
-
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = anchorLabel,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Voice") },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = if (expanded) "Close voice list" else "Open voice list",
-                )
-            },
-            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            state.rows.groupBy { it.language }.forEach { (language, rows) ->
-                Text(
-                    text = language,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = AyvuSpacing.MD, vertical = AyvuSpacing.XS),
-                )
-                rows.forEach { row ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(row.name, style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    "${row.language} · ${row.gender}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        leadingIcon = { RadioButton(selected = row.selected, onClick = null) },
-                        trailingIcon =
-                            if (!row.ready) {
-                                {
-                                    Text(
-                                        "needs download",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        onClick = {
-                            onSelect(row.name)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
-    when {
-        state.unavailableSavedVoice != null ->
-            Column {
-                Text(
-                    "Selected voice: ${state.unavailableSavedVoice} (unavailable)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "This voice is not in the current catalog — download its pack or choose another.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onDownload) { Text("Download / choose again") }
-            }
-        selected != null -> selectedVoiceAction(selected, onPreview, onStopPreview, onDownload)
-    }
-}
-
-/** The selected voice's Preview/Stop/Generating/Download — the shared row's
- * action semantics (C2) kept in the compact card. */
-@Composable
-private fun selectedVoiceAction(
-    row: VoiceRowUi,
-    onPreview: (String) -> Unit,
-    onStopPreview: () -> Unit,
-    onDownload: () -> Unit,
-) {
-    // Local capture: `preview` is a public API property of another module —
-    // smart casts are impossible across that boundary.
-    val preview = row.preview
-    when {
-        !row.ready ->
-            TextButton(onClick = onDownload) { Text("Download this voice's pack") }
-        preview is VoicePreviewUi.Generating ->
-            Text(
-                "Generating sample…",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = AyvuSpacing.SM),
-            )
-        preview is VoicePreviewUi.Playing ->
-            TextButton(onClick = onStopPreview) { Text("Stop") }
-        preview is VoicePreviewUi.Failed ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    preview.reason,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                TextButton(onClick = { onPreview(row.name) }) { Text("Retry") }
-            }
-        else -> TextButton(onClick = { onPreview(row.name) }) { Text("Preview") }
     }
 }
 
