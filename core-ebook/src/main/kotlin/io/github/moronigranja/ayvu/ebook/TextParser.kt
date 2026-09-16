@@ -11,8 +11,10 @@ import java.nio.charset.StandardCharsets
 
 /**
  * TXT/Markdown parser (C7). Plain text is a single chapter titled from the file name;
- * Markdown splits chapters on ATX headings (`#`…`######`, CommonMark rules), heading
- * text becoming the chapter title and also the fallback book title. Passages are
+ * Markdown splits chapters on ATX headings (`#`…`######`, CommonMark rules), the heading
+ * text becoming the chapter title. The book title is always the file-derived fallback;
+ * text preceding the first heading lands in a first chapter that keeps that title.
+ * Passages are
  * blank-line-separated paragraphs; internal line breaks are preserved (segmentation
  * already handles multi-line passages). Empty chapters are never emitted — the same
  * convention as the MOBI NCX path.

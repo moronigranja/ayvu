@@ -155,7 +155,7 @@ The v1 spine:
 | Legacy IDs | Delivered capability | Evidence |
 |---|---|---|
 | F1–F2 | Android/Hilt foundation and canonical domain model | README module inventory; decisions #1–#13 |
-| C1–C7 | EPUB, AZW3/KF8, MOBI/AZW, TXT and Markdown import; segmentation; SAF library flow | decisions #10–#13, #29, #50 |
+| C1–C7 | EPUB, AZW3/KF8, MOBI/AZW, TXT and Markdown import; segmentation; SAF library flow | decisions #10–#13, #29, #50, #170 |
 | P1–P2 | Room persistence, cached parses, progress, settings and launch-time index rebuild | decisions #22, #33 |
 | T1–T5 | Verified packs, Kokoro, player state machine, MediaSession, read-along, bookmarks, undo, sleep timer and pre-generation | decisions #23–#35, #42 |
 | S1–S3 | OCR, share receiver, match result and listen-from-here | decisions #36–#38 |

@@ -186,7 +186,7 @@ class TextParserTest {
 
     @Test
     fun `single CR is normalized to LF`() {
-        val text = "First.\r\nSecond."
+        val text = "First.\rSecond."
         val parsed = TextParser.parse(textBytes(text))
         assertEquals(1, parsed.chapters.size)
         assertEquals(1, parsed.chapters[0].passages.size)

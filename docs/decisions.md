@@ -4,6 +4,33 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 170. C7 txt/markdown close-out: title semantics pinned, lone-CR regression (2026-09-16)
+
+The TXT/Markdown parser (`TextParser`) shipped with C7; this pass pinned the title
+contract the KDoc now states and fixed a test that never exercised its own branch.
+
+- **Title semantics.** The book title is ALWAYS the file-derived fallback — heading
+  text never renames the book. ATX heading text becomes the *chapter* title; text
+  before the first heading lands in a first chapter that keeps the fallback title.
+  A bare `#…` line is an unlabelled chapter break (CommonMark `\s` rule: `#glued` is
+  content, not a heading), and fenced code blocks (``` / ~~~) are content, never
+  chapter boundaries.
+- **Encoding and failure mode.** UTF-8 default; BOM sniffing for UTF-8/UTF-16LE/
+  UTF-16BE; strictly decoded (`REPORT` on malformed/unmappable) → typed
+  `EBookParseException`, never silently mangled text. CRLF and lone CR normalize to
+  LF; passages are blank-line-separated paragraphs with internal line breaks
+  preserved (segmentation handles multi-line passages). Empty chapters are never
+  emitted (MOBI NCX convention); an empty file raises a parse error.
+- **Wiring.** `EBookFormats.parserFor` maps `txt` / `markdown` / `md` → `TextParser`;
+  `IntakeRouting.viewMimes` advertises `text/plain`, `text/markdown`,
+  `text/x-markdown` (octet-stream backstopped by the extension gate) — the SAF
+  intake gate, no second extension list.
+- **Regression test fix.** `single CR is normalized to LF` previously fed `\r\n`,
+  which the CRLF branch consumed first — the lone-CR branch was untested. The test
+  now feeds a genuine `\r` and pins `"First.\nSecond."` as one multi-line passage.
+- **Verification.** `:core-ebook:test` 144 green (17:46 run, post-change),
+  TextParserTest 21/21, repo-wide `ktlintCheck` clean.
+
 ## 169. Product-name alignment: Kotlin package `io.github.moronigranja.ayvu`, `AyvuApp`, repo `ayvu` (2026-09-16)
 
 Roadmap pass 8. The `applicationId` became `io.github.moronigranja.ayvu` in #128, but every
