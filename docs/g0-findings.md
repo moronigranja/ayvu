@@ -202,7 +202,7 @@ Template:
   singularized for English ("3/4 cups" → "three fourths of a cup"). The halves are
   invariant PHRASES in the Romance languages on purpose — "media taza" vs "medio
   litro" needs the noun's gender, which a dictionary cannot know.
-- Status: **landed (2026-09-15), awaiting the owner's ear (batch 6).** Evidence:
+- Status: **EAR-VERIFIED (2026-09-15, batch 6 — "batch 6 is fine").** Evidence:
   pure tests per language, including the ratio guard and the date interaction; the
   device harness renders 36 (ratio guard) and 37 (the owner's own sentence).
   Note: this class was found by the owner listening to the *date* batch — the
@@ -225,7 +225,9 @@ Template:
   strengthens the pause. Must handle both curly-quote and guillemet forms.
 - Status: **owner-confirmed (2026-09-13)** — "there should be a pause on dialogue
   after closing quotation marks."
-- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** Mechanism approved
+- **EAR-VERIFIED (2026-09-15, batch 7 — "ok, not perfect but passable"); the measured
+  reservation and the em-dash lever are recorded in [roadmap.md](roadmap.md) §G1.**
+  Mechanism approved
   by the owner the same day: *insert a punctuation mark* rather than reach into the
   audio path. The mark is chosen by measurement on the shipped engine (espeak-ng
   1.52.0, en-us) instead of by feel: a clause comma is 269 ms, a semicolon 349, a
@@ -315,7 +317,7 @@ Template:
   one shared clause-boundary pause rule rather than two.
 - Status: **owner-confirmed (2026-09-13)** — "weird lack of pause between three
   and no."
-- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** A "?" already carries
+- **EAR-VERIFIED (2026-09-15, batch 7).** A "?" already carries
   a sentence-length pause (299 ms measured, against a period's 289 — the question mark
   is not the problem), so the fix is the interjection's BEAT: an em-dash, which the
   corpus's own voice already uses ("Wait — no.") and which measures 409 ms. Scoped to
@@ -401,7 +403,7 @@ Template:
   heading colon/em-dash. One shared mechanism.
 - Status: **owner-confirmed (2026-09-13)** — "a pause after the heading, before the
   title would be better."
-- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** The heading colon
+- **EAR-VERIFIED (2026-09-15, batch 7).** The heading colon
   measures 220 ms where a period measures 299, so the mark becomes a **period**. The
   scope is a *heading-shaped line*: it opens with a structural word (chapter / part /
   appendix / chapitre / capítulo / parte / annexe / appendice / apêndice / partie /

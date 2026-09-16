@@ -441,7 +441,7 @@ for SMaLL-100, which #162 deleted for LFM2.5-1.2B on llama.cpp, so the read now 
 the shipped translator). The next action is human,
 not code: **the owner's listening pass** over the Roman-language classes.
 
-#### G1 — TTS pronunciation replacements — IN PROGRESS (rule set bounded by G0)
+#### G1 — TTS pronunciation replacements — BUILT-IN SET COMPLETE (bounded by G0; candidates unshipped)
 
 Add a deterministic, testable normalization/replacement stage before phonemization for
 names, honorifics, abbreviations, pauses and intentionally skipped page furniture. The
@@ -473,8 +473,8 @@ context. **Region-scoped rules** exist for exactly this case (the English date
 shape is the only rule that differs by region, so `regionRules` applies before the
 base list rather than shipping two English lists).
 
-**Batch 6 — fractions — rendered on the S22 and awaiting the owner's ear
-(2026-09-15).** `fraction-read-as-slash` (owner-reported, see
+**Batch 6 — fractions — EAR-VERIFIED on the S22 (2026-09-15, "batch 6 is
+fine").** `fraction-read-as-slash` (owner-reported, see
 [g0-findings.md](g0-findings.md)): a proper fraction becomes words, the following
 partitive is kept as-is ("3/4 of a cup" never doubles it), a following measure noun
 is absorbed and singularized for English ("3/4 cups" → "three fourths of a cup",
@@ -482,8 +482,17 @@ is absorbed and singularized for English ("3/4 cups" → "three fourths of a cup
 ("la mitad de taza" rather than a gender-dependent "media taza"). Ratios and scores
 (`2/1`, `5/2`) are never expanded.
 
-**Batch 7 — the clause-boundary pause family — rendered on the S22 and awaiting
-the owner's ear (2026-09-15).** The mechanism is the owner's call: *insert a
+**Batch 7 — the clause-boundary pause family — EAR-VERIFIED on the S22
+(2026-09-15, "ok, not perfect but passable"), with the reservation recorded rather
+than smoothed over:** the guillemet dialogue pairs did not gain measurable pause
+time on the device (the pause there comes from Kokoro's duration prediction over
+espeak's phoneme markers, not from espeak's own synthesis), while the headings,
+the question beat and the English dialogue did. **Recorded lever, not
+implemented:** the em-dash transfers on the device where the period does not (the
+question pairs are the proof: +600 ms en, +145 ms es), so a future pass can swap
+the guillemet dialogue rule's period for an em-dash — one line per rule, and one
+more ear round. It is deliberately NOT done now: it would invalidate this ear
+verification without the owner asking for it. The mechanism is the owner's call: *insert a
 punctuation mark*, never reach into the audio path. The mark was then chosen by
 measurement on the shipped engine (espeak-ng 1.52.0, en-us: clause comma 269 ms,
 semicolon 349, colon 359, period 429), so `dialogue-quote-attribution-pause` and
@@ -534,10 +543,18 @@ pipeline — for the owner's ear.
   be declared ABOVE it: `headingWords` moved below the list and the pattern silently
   became `…null…` (no match, no error, no crash). Rules read tables; tables precede.
 
-**Remaining:** the *candidate* pause rules the peer probe proposed (parenthetical
-clauses, dash pauses, dropping standalone page-number lines) — never confirmed as
-classes, so they stay unshipped until the ear confirms one. Everything G0 typed is
-landed and ear-verified except batches 6 and 7 above, which are rendered and waiting.
+**Status: every class G0 typed is landed and EAR-VERIFIED — batches 1-7, the
+third acceptance line of G0 satisfied.** `g0-findings.md` carries the per-class
+record (rule, scope, expectation, the owner's verdict, and the measured evidence).
+This also discharges the gate G1 held over D5 and over the remaining
+`PlaybackService` collaborator extraction (MediaSession / notification /
+audio-focus / coverage / probes), which is gated on D5 + G1 — both now free.
+
+**Still unshipped:** the *candidate* pause rules the peer probe proposed
+(parenthetical clauses, dash pauses, dropping standalone page-number lines). None
+was confirmed as a G0 class, so none ships without the owner's ear first — the
+same disposition `lowercase-roman-garbled` got (owner-accepted as-is, no rule).
+A future pass may also lift the em-dash lever recorded under batch 7.
 
 Start with ordered literal rules plus a small built-in correction set. Regex and user
 editing require explicit limits and preview because an unbounded rule can silently
