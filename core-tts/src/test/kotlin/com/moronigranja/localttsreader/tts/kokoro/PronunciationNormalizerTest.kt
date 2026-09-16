@@ -364,10 +364,11 @@ class PronunciationNormalizerTest {
         assertEquals("le 21 mai", spoken("le 21/5", "fr-fr"))
         assertEquals("il 25 dicembre", spoken("il 25/12", "it"))
         assertEquals("em 25 de dezembro", spoken("em 25/12", "pt-br"))
-        // …but a bare pair with no date word is a fraction or a score.
-        assertEquals("add 3/4 cup", spoken("add 3/4 cup", "en-us"))
+        // …and a bare pair with no date word is never a date (it is a fraction,
+        // see the fraction tests below).
+        assertEquals("add three fourths of a cup", spoken("add 3/4 cup", "en-us"))
         assertEquals("won 2/1", spoken("won 2/1", "en-us"))
-        assertEquals("una fracción 3/4", spoken("una fracción 3/4", "es"))
+        assertEquals("una fracción tres cuartos", spoken("una fracción 3/4", "es"))
     }
 
     @Test
@@ -389,6 +390,119 @@ class PronunciationNormalizerTest {
     // ------------------------------------------------------------------
     // Scoping
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Fractions (owner-reported 2026-09-15)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `fractions are spoken as fractions, never spelled as a slash`() {
+        // The owner's own example, verbatim.
+        assertEquals(
+            "Add three fourths of a cup of sugar.",
+            spoken("Add 3/4 cup of sugar.", "en-us"),
+        )
+        assertEquals("half a cup", spoken("1/2 cup", "en-us"))
+        assertEquals("two thirds of a liter", spoken("2/3 L", "en-us"))
+        assertEquals("three fourths", spoken("3/4", "en-us"))
+        // A plural measure noun becomes singular after "of a".
+        assertEquals("five eighths of a mile", spoken("5/8 miles", "en-us"))
+    }
+
+    @Test
+    fun `an improper pair stays a ratio or a score`() {
+        assertEquals("win 2/1", spoken("win 2/1", "en-us"))
+        assertEquals("a 5/2 favourite", spoken("a 5/2 favourite", "en-us"))
+        assertEquals("odds 3/3", spoken("odds 3/3", "en-us"))
+    }
+
+    @Test
+    fun `a pair that already carries the partitive keeps it`() {
+        // One "of", not "of a of a".
+        assertEquals("three fourths of a cup", spoken("3/4 of a cup", "en-us"))
+        assertEquals("tres cuartos de la poblacion", spoken("3/4 de la poblacion", "es"))
+    }
+
+    @Test
+    fun `fractions are spoken in the Romance languages with invariant halves`() {
+        assertEquals("tres cuartos de taza", spoken("3/4 taza", "es"))
+        assertEquals("la mitad de taza", spoken("1/2 taza", "es"))
+        assertEquals("trois quarts de tasse", spoken("3/4 tasse", "fr-fr"))
+        assertEquals("tre quarti di tazza", spoken("3/4 tazza", "it"))
+        assertEquals("tr\u00eas quartos de x\u00edcara", spoken("3/4 x\u00edcara", "pt-br"))
+    }
+
+    @Test
+    fun `a fraction is never read as a date or a path`() {
+        // The date list still owns the slash-dates, in every locale.
+        assertEquals("On March 4th, 2024.", spoken("On 3/4/2024.", "en-us"))
+        assertEquals("el 4 de marzo de 2024", spoken("el 3/4/2024", "es"))
+        // A slash inside a path-like token is not a fraction.
+        assertEquals("see docs/3/4 notes", spoken("see docs/3/4 notes", "en-us"))
+    }
+
+    // ------------------------------------------------------------------
+    // Clause-boundary pauses (inserted punctuation; owner-approved mechanism)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `a closing quote before its attribution becomes a sentence break`() {
+        // The comma is there but reads too short (269 ms against a period's 429
+        // measured on the shipped espeak). Both comma conventions are covered: the
+        // English comma-inside form and the es/fr/it/pt comma-outside form.
+        assertEquals(
+            "\"Mind the gap.\" he said. \"Mind it... every single time.\"",
+            spoken("\"Mind the gap,\" he said. \"Mind it... every single time.\"", "en-us"),
+        )
+        assertEquals("«Cuidado.» dijo él.", spoken("«Cuidado», dijo él.", "es"))
+        assertEquals("« Attention. » dit-il.", spoken("« Attention », dit-il.", "fr-fr"))
+        assertEquals("«Attento.» disse lui.", spoken("«Attento», disse lui.", "it"))
+        assertEquals("\"Cuidado.\" disse ele.", spoken("\"Cuidado\", disse ele.", "pt-br"))
+        assertEquals("\u201cCuidado.\u201d dijo \u00e9l.", spoken("\u201cCuidado,\u201d dijo \u00e9l.", "es"))
+        assertEquals("\u201cCuidado.\u201d dijo \u00e9l.", spoken("\u201cCuidado\u201d, dijo \u00e9l.", "es"))
+    }
+
+    @Test
+    fun `an opening quote after a comma is never touched`() {
+        // The ASCII quote is ambiguous by itself, so the rule matches the whole
+        // quoted span: "he said, "X."" has no comma before its closing quote.
+        assertEquals("he said, \"Mind the gap.\"", spoken("he said, \"Mind the gap.\"", "en-us"))
+    }
+
+    @Test
+    fun `a short question takes a beat before the next clause`() {
+        assertEquals(
+            "One. Two... three? — No — four. Four, four, four.",
+            spoken("One. Two... three? No — four. Four, four, four.", "en-us"),
+        )
+        assertEquals("Uno. Dos... ¿tres? — No — cuatro.", spoken("Uno. Dos... ¿tres? No — cuatro.", "es"))
+        // A quoted, multi-word question keeps its attribution untouched.
+        assertEquals("\"Will you?\" she replied.", spoken("\"Will you?\" she replied.", "en-us"))
+    }
+
+    @Test
+    fun `a heading's colon becomes a sentence break before its title`() {
+        assertEquals("CHAPTER ONE. An Unexpected Party", spoken("CHAPTER ONE: An Unexpected Party", "en-us"))
+        assertEquals("PART TWO. The Road Goes Ever On", spoken("PART TWO — The Road Goes Ever On", "en-us"))
+        assertEquals("CAPÍTULO UNO. Una fiesta inesperada", spoken("CAPÍTULO UNO: Una fiesta inesperada", "es"))
+        assertEquals("Annexe A. Guide de prononciation", spoken("Annexe A : Guide de prononciation", "fr-fr"))
+        assertEquals("PARTE SEGUNDA. A estrada continua", spoken("PARTE SEGUNDA — A estrada continua", "pt-br"))
+    }
+
+    @Test
+    fun `a colon inside a sentence keeps its meaning`() {
+        // A heading is title-shaped: every word before the mark starts uppercase,
+        // and the line opens with a structural word. Everything else is prose.
+        assertEquals(
+            "Compare appendix B: the figure shows volume 2, number 3.",
+            spoken("Compare appendix B: the figure shows volume 2, number 3.", "en-us"),
+        )
+        assertEquals(
+            "compare appendix B: the figure shows volume 2, number 3.",
+            spoken("compare appendix B: the figure shows volume 2, number 3.", "en-us"),
+        )
+        assertEquals("He said: I will be there.", spoken("He said: I will be there.", "en-us"))
+    }
+
     @Test
     fun `a rule never fires in another language`() {
         // "Prof." is a Spanish word only in es; the same token in en keeps its

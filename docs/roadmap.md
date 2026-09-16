@@ -459,16 +459,46 @@ the hyphen range, `decade-trailing-s-read-literally`, `roman-numeral-read-with-l
 `pt-br-currency-real-read-with-dollar` — owner-passed in five batches, each rendered as
 before/after WAV pairs through `G1ListeningHarnessTest`.
 
-**Batch 5 — dates — rendered on the S22 and awaiting the owner's ear (2026-09-15).**
-`date-slash-read-aloud` is rewritten per locale: the corpus's own pairs settle the
-day/month order (every row reads `3/4/2024` as "4 March 2024", i.e. month-first) and a
-figure that cannot be a month settles the rest by arithmetic (`25/12` → 25 December).
-The spoken shape is per locale (en-us "March 4th, 2024", en-gb "4 March 2024", es/pt
-"D de <month> de Y", fr/it "D <month> Y"). The day/month pair requires a date
-preposition (`el 25/12`) because a bare `3/4` is a fraction far more often than a date;
-a four-digit year needs no context. **Region-scoped rules** exist for exactly this one
-case (the English date shape is the only rule that differs by region, so `regionRules`
-applies after the base list rather than shipping two English lists).
+**Batch 5 — dates — EAR-VERIFIED on the S22 (2026-09-15).** The pass flipped one
+case: the "fraction guard" control proved to be a defect of its own, so fractions
+became a class (owner: "3/4 cups of sugar … should be three fourths of a cup of
+sugar. Same for 1/2 being half"). `date-slash-read-aloud` is rewritten per locale:
+the corpus's own pairs settle the day/month order (every row reads `3/4/2024` as
+"4 March 2024", i.e. month-first) and a figure that cannot be a month settles the
+rest by arithmetic (`25/12` → 25 December). The spoken shape is per locale (en-us
+"March 4th, 2024", en-gb "4 March 2024", es/pt "D de <month> de Y", fr/it "D
+<month> Y"). The day/month pair requires a date preposition (`el 25/12`) because a
+bare `3/4` is a fraction far more often than a date; a four-digit year needs no
+context. **Region-scoped rules** exist for exactly this case (the English date
+shape is the only rule that differs by region, so `regionRules` applies before the
+base list rather than shipping two English lists).
+
+**Batch 6 — fractions — rendered on the S22 and awaiting the owner's ear
+(2026-09-15).** `fraction-read-as-slash` (owner-reported, see
+[g0-findings.md](g0-findings.md)): a proper fraction becomes words, the following
+partitive is kept as-is ("3/4 of a cup" never doubles it), a following measure noun
+is absorbed and singularized for English ("3/4 cups" → "three fourths of a cup",
+"1/2 cup" → "half a cup"), and the Romance languages use their invariant halves
+("la mitad de taza" rather than a gender-dependent "media taza"). Ratios and scores
+(`2/1`, `5/2`) are never expanded.
+
+**Batch 7 — the clause-boundary pause family — rendered on the S22 and awaiting
+the owner's ear (2026-09-15).** The mechanism is the owner's call: *insert a
+punctuation mark*, never reach into the audio path. The mark was then chosen by
+measurement on the shipped engine (espeak-ng 1.52.0, en-us: clause comma 269 ms,
+semicolon 349, colon 359, period 429), so `dialogue-quote-attribution-pause` and
+`heading-title-colon-pause` become **periods** and `question-boundary-pause-short`
+takes an **em-dash** (409 ms; a "?" alone already measures 299, so the missing beat
+was never the question mark). All three are punctuation-shape rules in `common`,
+and every transformation leaves the words untouched.
+
+The mark alone was not sufficient and the first render proved it: a period placed
+OUTSIDE a closing quote (`«Cuidado». dijo él.`) leaves the pause SHORTER than the
+comma it replaced (110 ms against 165), because espeak breaks on `." he said`
+(434 ms en / 409 ms es·fr·it·pt) and not on `". he said`. Every dialogue rule
+therefore puts the period INSIDE the closing quote, and the French form keeps its
+space there (`« Attention. »`). This is the class's real content: the pause depends
+on the punctuation's *position* relative to the quote, not just on its kind.
 
 Verification is three-layered: per-rule pure tests with boundary negatives, a
 **real-espeak oracle** (the corpus rows must render exactly as their expected spoken form
@@ -477,12 +507,17 @@ corpus's own spelled-out half byte-for-byte), and the **device listening harness
 (`G1ListeningHarnessTest`), which renders each case twice — raw espeak vs the production
 pipeline — for the owner's ear.
 
-**Three constraints this work established (all bit us):**
+**Five constraints this work established (all bit us):**
 
 - **Rules run under Android's ICU regex engine, not the host's.** ICU rejects a
   lookbehind of unbounded length, so `(?<!\p{Lu}\p{Ll}+\s)` compiled and passed on the
   host and threw `PatternSyntaxException` at class load on the device. Keep lookbehinds
   bounded; `PronunciationNormalizer.patternSources` exists so the suite asserts it.
+- **`(?i)` is not the same flag on both engines.** Java folds ASCII only; ICU folds
+  Unicode. A case-insensitive pattern containing an accented word (`capítulo`, `até`,
+  `dès`) therefore MATCHED on the device and did not on the host, where the test suite
+  lives — the divergence is invisible until a device run. Accented letters in a
+  case-insensitive pattern are written as explicit classes (`cap[\u00ed\u00cd]tulo`).
 - **The device harness needs BOTH APKs installed** — instrumented tests load production
   classes from the target app APK, so reinstalling only the androidTest APK silently
   renders the OLD behaviour. The harness now fails fast on a rules-present guard, and its
@@ -494,10 +529,15 @@ pipeline — for the owner's ear.
   Both the unit and the ordinal are written after a figure, so the discriminating
   property is the space (`21st` attached = ordinal, `8 st` spaced = stone) — now
   `unitSpaced`, pinned by a test. Assume the next batch finds another cross-rule pair.
+- **Rule tables are built eagerly, so declaration order is a behaviour.** `byLanguage`
+  constructs its rules at object initialization, which means any table a rule reads must
+  be declared ABOVE it: `headingWords` moved below the list and the pattern silently
+  became `…null…` (no match, no error, no crash). Rules read tables; tables precede.
 
-**Remaining:** the clause-boundary pause family (dialogue attribution, `?` boundary,
-heading colon), which needs a mechanism decision because it *strengthens* a pause rather
-than removing punctuation, and therefore another ear round.
+**Remaining:** the *candidate* pause rules the peer probe proposed (parenthetical
+clauses, dash pauses, dropping standalone page-number lines) — never confirmed as
+classes, so they stay unshipped until the ear confirms one. Everything G0 typed is
+landed and ear-verified except batches 6 and 7 above, which are rendered and waiting.
 
 Start with ordered literal rules plus a small built-in correction set. Regex and user
 editing require explicit limits and preview because an unbounded rule can silently

@@ -79,7 +79,18 @@ object PronunciationNormalizer {
         replacement: (MatchResult) -> String,
     ): Rule = Regex(pattern) to replacement
 
+    /**
+     * Structural words that make a line a heading. The union is language-independent
+     * on purpose: a heading in any of the six languages starts with one of these, and
+     * a wrong match costs a pause, never a word (see [pauseAtHeadingBoundary]).
+     */
+    private val headingWords =
+        "(?:chapter|chapitre|cap[\u00ed\u00cd]tulo|capitolo|capitulo|part|partie|parte|book|appendix|appendice|annexe|" +
+            "ap[e\u00e9]ndice|ap[\u00ea\u00ca]ndice|apendice|livre|section|secci[\u00f3\u00d3]n|sezione|" +
+            "se[\u00e7\u00c7][\u00e3\u00c3]o|preface|pr[e\u00e9]face|prefacio|prefazione|pref[a\u00e1]cio)"
+
     /** Language-independent rules (script furniture, not words). */
+
     private val common: List<Rule> =
         listOf(
             // Footnote reference markers are page furniture, not text: strip the
@@ -89,7 +100,80 @@ object PronunciationNormalizer {
             // upstream and need no rule.
             transform("[¹²³⁴⁵⁶⁷⁸⁹⁰]+") { "" },
             transform("\\[\\d{1,3}]") { "" },
+            // The clause-boundary pause family, punctuation-shape rules first so the
+            // word rules below see the segments they create.
+            *pauseAtClosingQuote().toTypedArray(),
+            pauseAfterShortQuestion(),
+            pauseAtHeadingBoundary(),
         )
+
+    /**
+     * The clause-boundary pause family (owner-approved mechanism, 2026-09-15:
+     * "inserting a punctuation mark is better"). All three classes share one
+     * mechanism — the pause is strengthened by a mark espeak already respects,
+     * measured on the shipped engine rather than guessed (espeak-ng 1.52.0,
+     * en-us): a comma at a clause break is 269 ms, a semicolon 349, a colon 359,
+     * a period 429. So the closing-quote comma and the heading colon both become
+     * PERIODS, the strongest mark available without touching the audio path.
+     *
+     * The quote span is matched as a whole (`"…"`, `“…”`, `«…»`) rather than the
+     * comma with a quote on one side, because an ASCII quote after a comma is
+     * ambiguous — `he said, "Mind the gap."` is an opening quote, `"Mind the gap,"`
+     * is a closing one, and no regex can tell them apart from parity. Matching the
+     * span makes the closing quote unambiguous, in both the comma-inside (en) and
+     * comma-outside (es/fr/it/pt) conventions.
+     */
+    private fun pauseAtClosingQuote(): List<Rule> =
+        listOf(
+            // The period goes INSIDE the closing quote in every convention, which is
+            // the measured requirement rather than a typographic preference: espeak
+            // breaks after `." he said` (434 ms en, 409 ms es/fr/it/pt) but gives
+            // `". he said` only 110 ms — LESS than the comma it replaced (289/165).
+            // The quote is captured as content so both comma conventions land on the
+            // same form: comma inside (en `,"`) and comma outside (es/fr/it/pt `",`).
+            transform("\"([^\"]{1,600}),\"\\s*") { m -> "\"${m.groupValues[1]}.\" " },
+            transform("\"([^\"]{1,600})\"\\s*,\\s*") { m -> "\"${m.groupValues[1]}.\" " },
+            transform("\u201c([^\u201d]{1,600}),\u201d\\s*") { m -> "\u201c${m.groupValues[1]}.\u201d " },
+            transform("\u201c([^\u201d]{1,600})\u201d\\s*,\\s*") { m -> "\u201c${m.groupValues[1]}.\u201d " },
+            // French writes a space before its closing guillemet, so the period goes
+            // inside the space ("« Attention. »") rather than after it.
+            transform("\u00ab([^\u00bb]{1,600}),\u00bb\\s*") { m -> frenchQuote(m.groupValues[1]) },
+            transform("\u00ab([^\u00bb]{1,600})\u00bb\\s*,\\s*") { m -> frenchQuote(m.groupValues[1]) },
+        )
+
+    /** "Attention" or " Attention " → "« Attention. »" / "«Attention.»", space kept. */
+    private fun frenchQuote(content: String): String =
+        if (content.endsWith(" ")) {
+            "\u00ab${content.trimEnd()}. \u00bb "
+        } else {
+            "\u00ab${content.trimEnd()}.\u00bb "
+        }
+
+    /**
+     * G0 `question-boundary-pause-short`: "three? No — four." (owner: "weird lack of
+     * pause between three and no"). A "?" already carries a sentence pause (299 ms
+     * measured), so the fix is the interjection's beat — an em-dash, which the
+     * corpus's own voice already uses ("Wait — no.") and which measures 409 ms.
+     * Scoped to a SHORT question (one word) followed by a capital or a dash, which
+     * keeps dialogue attributions out: `"Will you?" she replied` has the closing
+     * quote in between and a two-word question, so it is never touched.
+     */
+    private fun pauseAfterShortQuestion(): Rule = transform("(\\p{L}{1,12})\\s*\\?\\s*(?=—|[\\p{Lu}])") { m -> "${m.groupValues[1]}? — " }
+
+    /**
+     * G0 `heading-title-colon-pause`: the heading's colon or em-dash reads too short
+     * before the title (measured 220 ms against a period's 299). Scoped to a whole
+     * line that starts with a structural word, because a colon inside a sentence must
+     * keep its meaning — and because a heading reaches this stage as its own passage
+     * (`BookSegmentation`). A false positive costs one pause, never a word.
+     */
+    private fun pauseAtHeadingBoundary(): Rule =
+        transform(
+            "^(?i:(?=[^\\n:—]{0,60}\\b$headingWords\\b))" +
+                "((?:\\p{Lu}[\\p{L}\\p{N}.]*\\s+){0,4}\\p{Lu}[\\p{L}\\p{N}.]*)\\s*[:—]\\s*(\\S[^\\n]{0,90})$",
+        ) { m ->
+            "${m.groupValues[1]}. ${m.groupValues[2]}"
+        }
 
     /** Century words for the decade rules; an unmapped century is left alone. */
     private val centuryWords =
@@ -159,7 +243,8 @@ object PronunciationNormalizer {
     /** Structural words after which a roman numeral counts rather than names. */
     private val structuralContext =
         "(?:chapter|subchapter|part|section|subsection|appendix|table|figure|act|scene|book|volume|" +
-            "line|paragraph|page|chap\\.|capítulo|capitolo|sección|sezione|seção|chapitre|paragraphe)"
+            "line|paragraph|page|chap\\.|cap[\u00ed\u00cd]tulo|capitolo|secci[\u00f3\u00d3]n|sezione|" +
+            "se[\u00e7\u00c7][\u00e3\u00c3]o|chapitre|paragraphe)"
 
     /**
      * The roman-numeral label class, scoped to en/fr where it was confirmed (es/it/pt
@@ -335,9 +420,9 @@ object PronunciationNormalizer {
     private val dateLeads =
         mapOf(
             "es" to "el|la|en|desde|hasta|del",
-            "fr" to "le|la|en|depuis|jusqu'au|du|au|dès",
+            "fr" to "le|la|en|depuis|jusqu'au|du|au|d[\u00e8\u00c8]s",
             "it" to "il|lo|la|l'|dal|fino|entro|nel|in",
-            "pt" to "em|no|na|desde|até|de|do|da",
+            "pt" to "em|no|na|desde|at[\u00e9\u00c9]|de|do|da",
         )
 
     /** "1st/2nd/3rd/4th…": espeak ordinalizes the written suffix itself. */
@@ -404,9 +489,143 @@ object PronunciationNormalizer {
                 spokenDate(language, m.groupValues[1], m.groupValues[2], m.groupValues[3]) ?: m.value
             },
             leads?.let {
-                transform("(?i)\\b($it)\\s*(\\d{1,2})/(\\d{1,2})\\b") { m ->
+                transform("(?i)\\b($it)\\s*(\\d{1,2})/(\\d{1,2})\\b(?!(?:\\s+(?:de|del|di|du|des|della|dello|do|da|of)\\b))") { m ->
                     spokenDate(language, m.groupValues[2], m.groupValues[3], null)
                         ?.let { date -> "${m.groupValues[1]} $date" } ?: m.value
+                }
+            },
+        )
+    }
+
+    /** Numerator words, 1..12, per language. */
+    private val fractionNumerators =
+        mapOf(
+            "en" to listOf("", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"),
+            "es" to listOf("", "un", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce"),
+            "fr" to listOf("", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze"),
+            "it" to listOf("", "un", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci", "undici", "dodici"),
+            "pt" to listOf("", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze"),
+        )
+
+    /**
+     * Denominator words as (singular, plural). The halves are PHRASES rather than
+     * adjectives in the Romance languages on purpose: "media taza" vs "medio
+     * litro" needs the noun's gender, which a dictionary cannot know, while "la
+     * mitad de taza" / "la moitie de tasse" / "la meta di tazza" / "a metade de
+     * xicara" are invariant.
+     */
+    private val fractionDenominators =
+        mapOf(
+            "en" to
+                mapOf(
+                    2 to ("half" to "halves"),
+                    3 to ("third" to "thirds"),
+                    4 to ("fourth" to "fourths"),
+                    5 to ("fifth" to "fifths"),
+                    6 to ("sixth" to "sixths"),
+                    8 to ("eighth" to "eighths"),
+                    10 to ("tenth" to "tenths"),
+                ),
+            "es" to
+                mapOf(
+                    2 to ("la mitad" to "las mitades"),
+                    3 to ("tercio" to "tercios"),
+                    4 to ("cuarto" to "cuartos"),
+                    5 to ("quinto" to "quintos"),
+                    6 to ("sexto" to "sextos"),
+                    8 to ("octavo" to "octavos"),
+                    10 to ("décimo" to "décimos"),
+                ),
+            "fr" to
+                mapOf(
+                    2 to ("la moitié" to "les moitiés"),
+                    3 to ("tiers" to "tiers"),
+                    4 to ("quart" to "quarts"),
+                    5 to ("cinquième" to "cinquièmes"),
+                    6 to ("sixième" to "sixièmes"),
+                    8 to ("huitième" to "huitièmes"),
+                    10 to ("dixième" to "dixièmes"),
+                ),
+            "it" to
+                mapOf(
+                    2 to ("la metà" to "le metà"),
+                    3 to ("terzo" to "terzi"),
+                    4 to ("quarto" to "quarti"),
+                    5 to ("quinto" to "quinti"),
+                    6 to ("sesto" to "sesti"),
+                    8 to ("ottavo" to "ottavi"),
+                    10 to ("decimo" to "decimi"),
+                ),
+            "pt" to
+                mapOf(
+                    2 to ("a metade" to "as metades"),
+                    3 to ("terço" to "terços"),
+                    4 to ("quarto" to "quartos"),
+                    5 to ("quinto" to "quintos"),
+                    6 to ("sexto" to "sextos"),
+                    8 to ("oitavo" to "oitavos"),
+                    10 to ("décimo" to "décimos"),
+                ),
+        )
+
+    /**
+     * Words that already carry the partitive, so the rule must not add its own:
+     * "3/4 of a cup" must keep one "of", not become "of a of a cup".
+     */
+    private val partitives =
+        setOf("of", "de", "del", "di", "du", "des", "do", "da", "della", "dello", "dell", "delle", "dei")
+
+    /** "cups" to "cup" for "3/4 of a cup"; the irregular one is worth a case. */
+    private fun englishSingular(noun: String): String =
+        when {
+            noun == "feet" -> "foot"
+            noun == "inches" -> "inch"
+            noun.length > 2 && noun.endsWith("s") && !noun.endsWith("ss") && !noun.endsWith("us") -> noun.dropLast(1)
+            else -> noun
+        }
+
+    /**
+     * Fractions (owner-reported 2026-09-15: "3/4 cups of sugar is three fourths of
+     * a cup of sugar; same for 1/2 being half"). espeak reads the slash aloud
+     * ("three slash four cups"), and the pair is not a ratio in prose - but only a
+     * PROPER fraction is expanded, so "win 2/1" and "5/2" stay untouched, and a
+     * pair followed by a partitive keeps it ("3/4 of a cup" already has the shape
+     * the owner asked for). A following measure noun is absorbed because the
+     * English shape needs the singular article ("of a cup", "half a cup"), which
+     * is also why the unit rules must run first.
+     */
+    private fun fractions(language: String): List<Rule> {
+        val base = language.substringBefore('-')
+        val denominators = fractionDenominators[base] ?: return emptyList()
+        val numerators = fractionNumerators[base] ?: return emptyList()
+        return listOf(
+            transform("(?<![\\p{L}\\p{N}/.:])(\\d{1,2})/(\\d{1,2})(?![\\d/])(?:[ \\u00A0]+(\\p{L}+))?") { m ->
+                val numerator = m.groupValues[1].toInt()
+                val denominator = m.groupValues[2].toInt()
+                val words = denominators[denominator]
+                // Proper fractions only: an improper or equal pair is a ratio/score.
+                if (words == null || numerator < 1 || numerator >= denominator) return@transform m.value
+                val single = numerator == 1
+                val fraction =
+                    when {
+                        single && denominator == 2 -> words.first
+                        single -> "${numerators[1]} ${words.first}"
+                        else -> "${numerators[numerator]} ${words.second}"
+                    }
+                val noun = m.groupValues[3]
+                if (noun.isEmpty()) return@transform fraction
+                if (noun.lowercase() in partitives) return@transform "$fraction $noun"
+                when (base) {
+                    "en" ->
+                        if (single &&
+                            denominator == 2
+                        ) {
+                            "$fraction a ${englishSingular(noun)}"
+                        } else {
+                            "$fraction of a ${englishSingular(noun)}"
+                        }
+                    "it" -> "$fraction di $noun"
+                    else -> "$fraction de $noun"
                 }
             },
         )
@@ -522,6 +741,7 @@ object PronunciationNormalizer {
                 // one", "lines 8-19" → "eight dash nineteen"). "to" is the owner's
                 // call for English.
                 transform("(?<=\\d)\\s?-\\s?(?=\\d)") { " to " },
+                *fractions("en").toTypedArray(),
                 // Decades (G0 `decade-trailing-s-read-literally`).
                 *englishDecades().toTypedArray(),
                 // Roman numerals (G0 `roman-numeral-read-with-label`).
@@ -571,6 +791,7 @@ object PronunciationNormalizer {
                 minus("menos"),
                 regnalOrdinals("es"),
                 *dates("es").toTypedArray(),
+                *fractions("es").toTypedArray(),
             )
 
     private val fr: List<Rule> =
@@ -599,6 +820,7 @@ object PronunciationNormalizer {
                 minus("moins"),
                 *romanNumerals().toTypedArray(),
                 *dates("fr-fr").toTypedArray(),
+                *fractions("fr-fr").toTypedArray(),
             )
 
     private val it: List<Rule> =
@@ -631,6 +853,7 @@ object PronunciationNormalizer {
                 unit("l", " litri"),
                 unit("m", " metri"),
                 *dates("it").toTypedArray(),
+                *fractions("it").toTypedArray(),
             )
 
     private val pt: List<Rule> =
@@ -660,6 +883,7 @@ object PronunciationNormalizer {
                 // segundo", "Isabel segunda" — owner ruling, 2026-09-15).
                 regnalOrdinals("pt"),
                 *dates("pt-br").toTypedArray(),
+                *fractions("pt-br").toTypedArray(),
                 // Units (G0 rows 0230-0232): every symbol is spelled ("ka-ge",
                 // "ka-eme", "agá").
                 unit("km/h", " quilômetros por hora"),
@@ -692,12 +916,13 @@ object PronunciationNormalizer {
     ): String {
         var out = text
         for ((re, rep) in common) out = re.replace(out) { m -> rep(m) }
+        // Region-scoped rules FIRST: only the region decides a date shape, and the
+        // shared fraction rule reads the same "3/4" pair, so the date reading has to
+        // land before it. See [regionRules].
+        for ((re, rep) in regionRules(language.lowercase())) out = re.replace(out) { m -> rep(m) }
         for ((re, rep) in byLanguage[language.substringBefore('-').lowercase()].orEmpty()) {
             out = re.replace(out) { m -> rep(m) }
         }
-        // Region-scoped rules last: they only ever see the base rules' output
-        // (an already-normalized date contains no slash). See [regionRules].
-        for ((re, rep) in regionRules(language.lowercase())) out = re.replace(out) { m -> rep(m) }
         return out
     }
 

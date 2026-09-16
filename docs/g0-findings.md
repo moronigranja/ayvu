@@ -183,6 +183,32 @@ Template:
   of kilograms, f t instead of feet." Reconfirmed for es on 2026-09-15 with the rule
   stated plainly: **"units of measurement should be spelled out."**
 
+### fraction-read-as-slash (a slash fraction read as "three slash four")
+- Category: `number` (owner-reported after the G0 pass; not in the initial typed set)
+- Example (owner, 2026-09-15): "3/4 cups of sugar" — "it should be three
+  fourths of a cup of sugar. Same for 1/2 being half". espeak reads the slash
+  aloud ("three **slash** four cups").
+- Expected: the fraction as words, with the measure noun taken into the English
+  shape ("three fourths of a cup", "half a cup"); the Romance languages use their
+  invariant forms ("tres cuartos de taza", "la mitad de taza", "trois quarts de
+  tasse", "tre quarti di tazza", "três quartos de xícara", "a metade de xícara").
+- Frequency: any proper fraction in a measure or partitive phrase. Ratios and
+  scores (`2/1`, `5/2`) are NOT fractions and are never expanded; neither is a
+  slash-date (the date rule owns a four-digit year, the fraction rule refuses a
+  pair followed by `/`).
+- G1 rule: `n/d` with `n < d` and a known denominator (2, 3, 4, 5, 6, 8, 10) is
+  rewritten as words; a following partitive ("of", "de", "di", "du") is kept as-is
+  so the phrase never doubles it; a following measure noun is absorbed and
+  singularized for English ("3/4 cups" → "three fourths of a cup"). The halves are
+  invariant PHRASES in the Romance languages on purpose — "media taza" vs "medio
+  litro" needs the noun's gender, which a dictionary cannot know.
+- Status: **landed (2026-09-15), awaiting the owner's ear (batch 6).** Evidence:
+  pure tests per language, including the ratio guard and the date interaction; the
+  device harness renders 36 (ratio guard) and 37 (the owner's own sentence).
+  Note: this class was found by the owner listening to the *date* batch — the
+  control case that asserted "a bare 3/4 is a fraction, leave it alone" was
+  itself the defect, which is why the guard is now an expansion plus a ratio guard.
+
 ### dialogue-quote-attribution-pause (no pause between closing quote and attribution)
 - Category: `dialogue`
 - Example (owner-confirmed): `"Mind the gap," he said.` (en-us 0026) — the closing
@@ -199,6 +225,21 @@ Template:
   strengthens the pause. Must handle both curly-quote and guillemet forms.
 - Status: **owner-confirmed (2026-09-13)** — "there should be a pause on dialogue
   after closing quotation marks."
+- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** Mechanism approved
+  by the owner the same day: *insert a punctuation mark* rather than reach into the
+  audio path. The mark is chosen by measurement on the shipped engine (espeak-ng
+  1.52.0, en-us) instead of by feel: a clause comma is 269 ms, a semicolon 349, a
+  colon 359 and a period 429, so the closing-quote comma becomes a **period** —
+  the strongest mark available in the text-only contract. The quote is matched as a
+  whole span (`"…"`, `“…”`, `«…»`), which is what makes the ASCII case decidable:
+  `he said, "Mind the gap."` (opening) and `"Mind the gap," he said.` (closing) are
+  indistinguishable from the comma alone, but only the closing form ends a span.
+  Both comma conventions are handled — comma inside (en: `,"`) and comma outside
+  (es/fr/it/pt: `»,` with the French space before it) — and the period lands INSIDE
+  the closing quote in both, which the first device render proved necessary: outside
+  the quote the pause measures 110 ms, SHORTER than the comma's 165, while
+  `«Cuidado.»` / `"Mind the gap."` measure 409-434 ms. The French shape keeps its
+  space before the closing guillemet (`« Attention. »`).
 
 ### decade-trailing-s-read-literally (decades read with "hundred" + dangling s)
 - Category: `date`
@@ -274,6 +315,13 @@ Template:
   one shared clause-boundary pause rule rather than two.
 - Status: **owner-confirmed (2026-09-13)** — "weird lack of pause between three
   and no."
+- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** A "?" already carries
+  a sentence-length pause (299 ms measured, against a period's 289 — the question mark
+  is not the problem), so the fix is the interjection's BEAT: an em-dash, which the
+  corpus's own voice already uses ("Wait — no.") and which measures 409 ms. Scoped to
+  a short question (one word) followed by a capital or a dash, which keeps dialogue
+  attributions out — `"Will you?" she replied` is a two-word question behind a closing
+  quote and is never touched.
 
 ### negative-sign-english-injection (minus read with an English "minus" or dropped)
 - Category: `number`
@@ -353,6 +401,16 @@ Template:
   heading colon/em-dash. One shared mechanism.
 - Status: **owner-confirmed (2026-09-13)** — "a pause after the heading, before the
   title would be better."
+- **Landed (2026-09-15); awaiting the owner's ear (batch 7).** The heading colon
+  measures 220 ms where a period measures 299, so the mark becomes a **period**. The
+  scope is a *heading-shaped line*: it opens with a structural word (chapter / part /
+  appendix / chapitre / capítulo / parte / annexe / appendice / apêndice / partie /
+  sezione / seção / preface …) and every word before the mark starts uppercase, which
+  is what separates "CHAPTER ONE: An Unexpected Party" from a sentence that merely
+  contains a colon. Headings reach this stage as their own passage
+  (`BookSegmentation`), and a false positive costs one pause rather than a word, so
+  the heuristic is safe to ship — both properties are asserted (the corpus headings
+  transform, the prose negatives do not).
 
 ### roman-numeral-regnal-not-ordinal (regnal numerals spoken as cardinals)
 - Category: `roman-numeral`

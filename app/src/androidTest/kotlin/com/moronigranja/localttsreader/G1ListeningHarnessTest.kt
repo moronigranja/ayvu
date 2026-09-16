@@ -323,11 +323,135 @@ class G1ListeningHarnessTest {
             ),
             // The day/month pair needs a date word: a bare "3/4" is a fraction.
             Case(
-                "36-fraction-guard",
+                "36-ratio-guard",
                 "en-us",
                 "af_heart",
-                "Add 3/4 cup of sugar and win 2/1 against 5-2.",
-                listOf("3/4 cup", "2/1"),
+                "They won 2/1 and the odds were 5/2 in the 3-2 final.",
+                listOf("2/1", "5/2"),
+            ),
+            // Batch 6: fractions. Case 36 is the guard that proves a ratio stays a
+            // ratio; 37 is the owner's own example.
+            Case(
+                "37-en-fraction",
+                "en-us",
+                "af_heart",
+                "Add 3/4 cup of sugar and 1/2 cup of flour.",
+                listOf("three fourths of a cup", "half a cup"),
+            ),
+            Case(
+                "38-es-fraction",
+                "es",
+                "ef_dora",
+                "A\u00f1ade 3/4 taza de az\u00facar y 1/2 taza de harina.",
+                listOf("tres cuartos de taza", "la mitad de taza"),
+            ),
+            Case(
+                "39-fr-fraction",
+                "fr-fr",
+                "ff_siwis",
+                "Ajoutez 3/4 tasse de sucre et 1/2 tasse de farine.",
+                listOf("trois quarts de tasse", "la moiti\u00e9 de tasse"),
+            ),
+            Case(
+                "40-it-fraction",
+                "it",
+                "if_sara",
+                "Aggiungi 3/4 tazza di zucchero e 1/2 tazza di farina.",
+                listOf("tre quarti di tazza", "la met\u00e0 di tazza"),
+            ),
+            Case(
+                "41-pt-fraction",
+                "pt-br",
+                "pf_dora",
+                "Adicione 3/4 x\u00edcara de a\u00e7\u00facar e 1/2 x\u00edcara de farinha.",
+                listOf("tr\u00eas quartos de x\u00edcara", "a metade de x\u00edcara"),
+            ),
+            // Batch 7: the clause-boundary pause family, punctuation-insertion
+            // mechanism (owner-approved 2026-09-15). The A/B render proves the
+            // phonemes changed; the LISTEN sheet carries the measured gap.
+            Case(
+                "42-en-dialogue",
+                "en-us",
+                "af_heart",
+                "\"Mind the gap,\" he said. \"Mind it... every single time.\"",
+                listOf("\"Mind the gap.\""),
+            ),
+            Case(
+                "43-en-question",
+                "en-us",
+                "af_heart",
+                "One. Two... three? No \u2014 four. Four, four, four.",
+                listOf("three? \u2014 No"),
+            ),
+            Case(
+                "44-en-heading",
+                "en-us",
+                "af_heart",
+                "CHAPTER ONE: An Unexpected Party",
+                listOf("CHAPTER ONE. An Unexpected Party"),
+            ),
+            Case(
+                "45-en-gb-heading",
+                "en-gb",
+                "af_heart",
+                "CHAPTER ONE: An Unexpected Party",
+                listOf("CHAPTER ONE. An Unexpected Party"),
+            ),
+            Case(
+                "46-es-dialogue",
+                "es",
+                "ef_dora",
+                "\u00abCuidado\u00bb, dijo \u00e9l. \u00abCuidado... siempre, siempre.\u00bb",
+                listOf("\u00abCuidado.\u00bb"),
+            ),
+            Case(
+                "47-fr-dialogue",
+                "fr-fr",
+                "ff_siwis",
+                "\u00ab Attention \u00bb, dit-il. \u00ab Attention... toujours, toujours. \u00bb",
+                listOf("\u00ab Attention. \u00bb"),
+            ),
+            Case(
+                "48-it-dialogue",
+                "it",
+                "if_sara",
+                "\u00abAttento\u00bb, disse lui. \u00abAttento... sempre, sempre.\u00bb",
+                listOf("\u00abAttento.\u00bb"),
+            ),
+            Case(
+                "49-pt-dialogue",
+                "pt-br",
+                "pf_dora",
+                "\"Cuidado\", disse ele. \"Cuidado... sempre, sempre.\"",
+                listOf("\"Cuidado.\""),
+            ),
+            Case(
+                "50-es-question",
+                "es",
+                "ef_dora",
+                "Uno. Dos... \u00bftres? No \u2014 cuatro. Cuatro, cuatro, cuatro.",
+                listOf("tres? \u2014 No"),
+            ),
+            Case(
+                "51-es-heading",
+                "es",
+                "ef_dora",
+                "CAP\u00cdTULO UNO: Una fiesta inesperada",
+                listOf("CAP\u00cdTULO UNO. Una fiesta inesperada"),
+            ),
+            Case(
+                "52-fr-heading",
+                "fr-fr",
+                "ff_siwis",
+                "CHAPITRE PREMIER : Une f\u00eate inattendue",
+                listOf("CHAPITRE PREMIER. Une f\u00eate inattendue"),
+            ),
+            Case(
+                "53-pt-heading",
+                "pt-br",
+                "pf_dora",
+                "PARTE SEGUNDA \u2014 A estrada continua",
+                listOf("PARTE SEGUNDA. A estrada continua"),
             ),
         )
 
