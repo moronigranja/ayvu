@@ -4,6 +4,79 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 168. Translate-leg continuous batching: measured 2.4×, REJECTED on batch faithfulness (2026-09-16)
+
+The LFM translate leg (#162) decodes one passage per `llama_decode` call. The reader's
+display prefetch and the offline pregen walk know four or more passages ahead, and a
+batch-1 step leaves cores idle — so continuous batching was measured, implemented end to
+end, and then **rejected**: it is not faithful on the pinned model at the pinned
+revision. Per-passage decoding stays.
+
+- **Throughput measured first, on the pinned artifact.** `llama-batched-bench`
+  cross-compiled with the pinned NDK 27.2.12479018 at the pinned llama.cpp revision
+  `b75ecd1` and the app's own ggml config (`GGML_CPU_ALL_VARIANTS` + `GGML_BACKEND_DL`),
+  run on the S22 against the pinned GGUF (730,895,168 B, sha256 `b1b3de11…`). It
+  reproduced the app's own single-passage rate — **22.4–22.8 tok/s at batch 1** against
+  the recorded 22.3 in `docs/prints/beam-spike/lfm_ondevice.json` — so the sweep and the
+  app agree before any batching claim rests on it.
+  - **batch 2**: 0.97–1.04× end to end — flat.
+  - **batch 4**: decode 2.30–2.54×, full-passage wall clock 1.61–1.87× (median 1.83×).
+  - **batch 8**: no better than batch 4 (1.67–1.88×) — 4 is the knee.
+  - **threads 6 / 8** (batch 1): much worse, 14.5 / 12.6 tok/s (the SoC's 4 little cores
+    drag the barrier) — the thread count stays `ttsThreads` (4).
+  Prefill does not scale (100 → 93 tok/s), which is why the end-to-end gain sits below
+  the decode gain. **Expectation corrected in the same pass:** a real passage (≤419
+  chars) costs ~5–10 s on device, not the 2.7 s/passage of #161/#162 — those measured
+  short FLORES sentences.
+- **A batch-4 path was then built and gated.** Multi-sequence `llama_decode` in the one
+  shared session (`n_seq_max = 4`; per-slot generation budget derived from the remaining
+  context, so `N_CTX` stays 2048), with one completion entry point (a one-passage batch
+  is the old single-passage path), a blocking batch fill for the reader's display
+  prefetch and `OfflinePregen.translateAhead` windows of 4 wired in `PregenWorker`, and
+  per-passage store rows / `ready` events / #101 degrade unchanged.
+- **The faithfulness gate failed it.** Co-batching changes the pinned model's output. A
+  12-passage A/B (batch entry vs the same passage decoded alone, one session, greedy):
+  **8 identical, 4 different, 3 of those under half length** — the slot emitted EOG
+  mid-sentence (`"Quem tentou aprender uma língua"` against a 146-char decode). On the
+  S22 through the real JNI, a 448/368/687/292-char chunk came back **1 identical / 3
+  different**, while a one-passage batch was byte-identical every time. A dense control
+  model (SmolLM2-135M) is bitwise identical under the same harness, and the divergence
+  survives 1 thread, per-slot sampler chains, split prefill and `kv_unified = false` —
+  it lives in llama.cpp's hybrid (attention + short-conv) batched path for this
+  architecture, not in the calling code.
+- **Why that is a hard stop, not a caveat.** A blank generation degrades to the original
+  render (#101); a TRUNCATED one is non-blank, so it would be stored as that passage's
+  translation, shown by the reader (#166) and spoken by the target voice — a sentence
+  that stops mid-clause, persisted per passage, with no error surface.
+- **Rejected alternatives stay rejected.** Several passages concatenated into one prompt
+  saves only the 18 constant prompt tokens per call (~4% of a passage) and risks a 1.2B
+  model merging or renumbering items; batch 2 is not a fallback (measured flat); batch 8
+  is not either (no better than 4, and the same unfaithful path). Batching the live audio
+  path was never on the table: it converts per-passage latency into per-batch latency,
+  which the 30 s look-ahead must not absorb.
+- **Unblock — checked, and a revision bump is NOT it.** Rebuilt the same gate against
+  upstream `master` `c6824a9` (2026-09-16; the pin `b75ecd1` is 535 commits / 30 days
+  behind) and it fails **identically, slot for slot** (8 identical / 4 different / 3
+  truncated, `docs/prints/batch-faithfulness/host-gate-upstream-master.log`). Our session
+  runs `n_rs_seq = 0` at both revisions, so this is the plain hybrid multi-sequence
+  decode/state path, not the rollback-snapshot machinery that upstream's open #28019
+  ("multi-seq split replay corrupts recurrent state", another hybrid arch, LFM2 is on
+  `llm_arch_supports_rs_rollback()`) describes. Smaller batches do not rescue it either:
+  chunk 2 → 10/2/0, chunk 3 → 7/5/**5 truncated**, chunk 4 → 8/4/3. So the unblock is an
+  **upstream fix** — reported as ggml-org/llama.cpp#29002 with the corpus, harness and
+  failing slots, then re-run both sweeps here; a llama.cpp change also invalidates #162's
+  measured claim, so re-run that gate too. **A bump buys nothing today** (spiked
+  2026-09-16, `docs/prints/batch-faithfulness/revision-spike.md`): on the S22 the shipped
+  single-passage path is 18.7 vs 19.3 tok/s pinned-vs-master (inside the ±15 % run-to-run
+  spread), single-passage outputs and prompt token ids are byte-identical across the two
+  revisions, and our JNI compiles against master unchanged — so the pin stays.
+
+Evidence: `docs/prints/batch-faithfulness/` — the S22 `llama-batched-bench` sweep
+(batches 1/2/4/8 × threads 4/6/8), the host A/B harness (`gate.cpp`,
+`batch_harness.cpp`, reproduced independently at review time), the host findings, and the
+device gate's logcat extract. Nothing from this entry ships; no device pass of a wired
+prefetch/pregen path is claimed.
+
 ## 167. Keep-together pages, compact pickers, and the spoken translation's own voice (2026-09-16)
 
 Four follow-ups to the read-in-language display (#166), landed as slices A–D in
