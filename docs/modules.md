@@ -1,4 +1,4 @@
-# Module layout — LIVE modules as of #163; add modules only when a cycle or build isolation forces it
+# Module layout — unchanged since #163 (the cleanup passes and the G1 rounds moved no module boundary); add modules only when a cycle or build isolation forces it
 
 ```
 core-model/       Book, Chapter/Section, TextPassage, LibraryEntry (no Android deps)

@@ -4,6 +4,42 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 164. TTS pronunciation rules (G1 rounds 2-7): the four owner rulings and the constraints that now bind every rule (2026-09-15)
+
+G1's built-in correction set landed in seven ear-verified batches — the per-class record is
+`g0-findings.md`, the sequencing table is roadmap §G1. This entry exists because four of the
+rulings are load-bearing BEYOND their class, and because the constraints below now bound any
+future rule.
+
+**Rulings (owner, all 2026-09-15):**
+
+- **Roman regnal numerals: ordinals I–X, cardinals from XI up — identical for pt and es.**
+  "Isabel II" is *segunda*; "Luis XIV" stays cardinal. Gender comes from a small regnal-name
+  lexicon with masculine as the documented default, because no dictionary can know that
+  "Isabel segunda" and "Pedro segundo" differ only by the name.
+- **pt-BR currency: "deveria ser 'reais' somente."** `R$` becomes *reais* with number
+  agreement instead of "real dólar" (es/fr/it already read the currency after the amount).
+- **Fractions: "3/4 cups of sugar is three fourths of a cup of sugar; same for 1/2 being
+  half."** A proper fraction becomes words; the measure noun is absorbed and singularized for
+  English; the Romance languages use invariant halves ("la mitad de taza", never a
+  gender-dependent "media taza"); ratios and scores are never expanded.
+- **The clause-boundary pause mechanism: "inserting a punctuation mark is better."** Pauses
+  are strengthened in the TEXT, never in the audio path, and the mark is chosen by measuring
+  the shipped engine (clause comma 269 ms, colon 359, period 429, em-dash after a question
+  409 ms). The period must sit INSIDE the closing quote: outside it the pause measures 110 ms,
+  shorter than the comma it replaces. Verdict on that batch: "ok, not perfect but passable",
+  with the em-dash recorded as the lever.
+
+**Constraints that bind every future rule (each one bit us):** bounded lookbehinds (ICU
+rejects unbounded ones); `(?i)` folds ASCII on the JVM but Unicode under ICU, so an accented
+word in a case-insensitive pattern behaves differently by engine; rule tables are built
+eagerly, so declaration order is behaviour; and rules interfere — the stone/piedra unit rule
+bit the ordinal suffix ("21st" → "twenty-one stone"), so a rule's guard must be the unit's own
+shape.
+
+**Consequence:** G1's gate over D5 and over the remaining `PlaybackService` collaborator
+extraction is discharged. The unconfirmed candidate pause rules stay unshipped until the ear
+confirms one.
 ## 163. Repo cleanup passes 1–4 — architecture guard, CI lanes, lint baseline, contract boundaries, playback-edge concurrency, service dedupe (2026-09-15)
 
 Three verification defects and three contract leaks surfaced by a repo-wide audit,
