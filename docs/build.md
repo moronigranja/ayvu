@@ -623,6 +623,39 @@ the runner now fails fast without `files/bos_before_voice.f32`.** Host inputs +
 reference regenerate via `tools/gen_pocket_ref.py` (tokenization + temp-0 ORT
 mirror with the BOS; `--voice-wav` any CC0 `kyutai/tts-voices` sample).
 
+## D5 Chatterbox staging (2026-09-16, `spike-tts`)
+
+Stages the q4 multilingual export for `ChatterboxProbeBenchmarkTest` (roadmap
+D5): `BricksDisplay/chatterbox-multilingual-ONNX-q4` (MIT, the HiBreak probe
+pin) — 4 graphs + tokenizer + `default_voice.wav`. The device leg is
+host-prepared (token ids + voice + parity files via `tools/gen_chatterbox_ref.py`),
+because the on-device BPE/G2P (and the zh/ja/he/ko pre-processors) is a
+recorded D5 integration gap.
+
+```bash
+# host: hf download BricksDisplay/chatterbox-multilingual-ONNX-q4 --local-dir m/cbq4
+# host: python3 tools/gen_chatterbox_ref.py --models-dir m/cbq4 --voice-wav m/cbq4/default_voice.wav --out docs/prints/d5
+adb push m/cbq4/onnx/*.onnx docs/prints/d5/chat_voice_24k.f32 docs/prints/d5/d5_chat_inputs.json docs/prints/d5/chat_ref_meta.json docs/prints/d5/chat_ref_audio.f32 /data/local/tmp/
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
+  'mkdir -p files/models/chatterbox && \
+   cp /data/local/tmp/*.onnx files/models/chatterbox/ && \
+   cp /data/local/tmp/chat_voice_24k.f32 files/ && cp /data/local/tmp/d5_chat_inputs.json files/ && \
+   cp /data/local/tmp/chat_ref_meta.json files/ && cp /data/local/tmp/chat_ref_audio.f32 files/'"
+adb shell svc power stayon true
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.ChatterboxProbeBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d5_chatterbox_results.json
+```
+
+Measured S22 results (2026-09-16, decisions #172): short-context renders OK
+(ref 1.80 s, rms 0.072, speech); **RTF ~16.7 at 2 threads** (q4 MatMulNBits
+never reaches efficient ARM kernels — decisive cost datapoint); PSS 1.69 GB and
+**the process dies under swap pressure past ~600 context frames** (p2a/p2b
+died mid-leg) — utterance-scale only on a flagship; long-form renders are
+host-only. `embed_tokens` fp32 external-data export runs as a device fallback;
+the runner needs BASIC_OPT-free sessions for q4 efficiency. Full record:
+`docs/prints/d5/d5-chatterbox-leg.md`.
+
 ## D1 seek-horizon staging (2026-09-13, `feature-player` androidTest)
 
 Stages the device acceptance leg for roadmap D1 (decisions #155): the real

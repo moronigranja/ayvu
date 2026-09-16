@@ -632,6 +632,11 @@ and blind read exist.
   #149. It is the only candidate that could clone *inside* a phone's live budget instead
   of pregen-only: ~20× smaller than the other two, and already shipped on Android by
   NekoSpeak as five ORT sessions).
+  **Chatterbox measured on the S22 (2026-09-16, decisions #172): DROP-level.** RTF ~16.7
+  at 2 threads (q4 kernels never reach efficient ARM paths), PSS 1.69 GB, and the process
+  is killed past ~600 context frames — utterance-scale only, dead for book pregen on this
+  device class; long-form renders are host-only. Pocket TTS stands as the D5 pregen
+  candidate; CosyVoice3 renders remain pending.
 - Provenance gate first: pin revision + sha256 and verify output parity against the
   reference before measurement (the #86 fp16-stub lesson) — every candidate's export is
   community except Pocket TTS's *code*:

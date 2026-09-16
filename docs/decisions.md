@@ -4,6 +4,24 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 172. Chatterbox q4 device leg — measured (2026-09-16)
+
+The last-measured D5 candidate on the S22 (`ChatterboxProbeRunner` +
+`tools/gen_chatterbox_ref.py`; the reference driver mirrors the
+onnx-community inference script). Verdict: **RTF ~16.7 at 2 threads** (q4
+`MatMulNBits` never reaches efficient ARM kernels; host x86 3.5), PSS 1.69 GB,
+and the process is lmkd-killed past ~600 context frames — utterance-scale only.
+Short-context renders are speech (ref 1.80 s, rms 0.072), device tokens
+diverge from host (231 vs 251 — greedy argmax flips under q4 ISA kernels; the
+anti-stub gate is structural, same class as Pocket's EOS drift). Long-form and
+p2a/p2b renders exist host-only; the device shipped ref + p1 renders. Pocket
+TTS (RTF 1.5–1.8, PSS ~0.9 GB) stands decisively ahead; the D5 thread sweep
+never completed for Chatterbox (memory wall). Runner learnings landed in the
+code: the LM's step-0 logits span the whole prompt (slice the last row), the
+device GQA kernel needs the past buffer pre-grown to past+current, and
+BASIC_OPT disables q4 efficiency. Full record:
+`docs/prints/d5/d5-chatterbox-leg.md`.
+
 ## 171. D5 S22 leg + pt-BR blind-read render kit (2026-09-16)
 
 > **[CORRECTED same day — degenerate renders.]** The first S22 leg's Pocket TTS
