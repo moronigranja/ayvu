@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.moronigranja.localttsreader.spiketts"
+    namespace = "io.github.moronigranja.ayvu.spiketts"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.moronigranja.localttsreader.spiketts"
+        applicationId = "io.github.moronigranja.ayvu.spiketts"
         // 27: the QNN plugin AAR (com.qualcomm.qti:onnxruntime-android-qnn)
         // declares minSdk 27; this is a measurement-only harness.
         minSdk = 27

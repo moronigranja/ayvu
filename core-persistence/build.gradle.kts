@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.moronigranja.localttsreader.persistence"
+    namespace = "io.github.moronigranja.ayvu.persistence"
     compileSdk = 36
 
     defaultConfig {

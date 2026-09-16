@@ -15,7 +15,7 @@
 #   tools/docker-build.sh installDebug          # build + adb install to connected device
 set -euo pipefail
 
-IMAGE="${IMAGE:-localtts-android}"
+IMAGE="${IMAGE:-ayvu-android}"
 UID_NUM="$(id -u)"
 GID_NUM="$(id -g)"
 

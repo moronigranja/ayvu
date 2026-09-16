@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.moronigranja.localttsreader.featureshare"
+    namespace = "io.github.moronigranja.ayvu.featureshare"
     compileSdk = 36
 
     defaultConfig {

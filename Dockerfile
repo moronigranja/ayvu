@@ -1,11 +1,11 @@
-# Android build image for local-tts-reader.
+# Android build image for ayvu.
 #
 # Bakes in JDK 21 + Android command-line tools + SDK platform/build-tools + NDK, so the
 # SDK's tens of thousands of files never land in the workspace. Gradle/Maven caches
 # live in Docker named volumes (see tools/docker-build.sh); the project directory is
 # mounted read/write at build time and stays source-only.
 #
-#   docker build -t localtts-android .
+#   docker build -t ayvu-android .
 #   tools/docker-build.sh assembleDebug
 #
 # Version pins: platform/build-tools match the app's compileSdk; the NDK is needed by

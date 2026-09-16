@@ -172,10 +172,10 @@ agents.md     Entry point for AI agents working in this repo — read first
 ```
 
 - **Android parts**: containerized toolchain keeps the SDK's tens of thousands of
-  files out of your workspace (`tools/docker-build.sh`, image: `localtts-android`):
+  files out of your workspace (`tools/docker-build.sh`, image: `ayvu-android`):
 
 ```bash
-docker build -t localtts-android .
+docker build -t ayvu-android .
 tools/docker-build.sh :app:assembleDebug :app:assembleDebugAndroidTest
 ```
 

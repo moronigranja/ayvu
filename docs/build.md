@@ -37,13 +37,13 @@ adb install spike-tts/build/outputs/apk/debug/spike-tts-debug.apk
 # stage models (3.5 GB) into internal storage — Android 11+ FUSE hides
 # adb-pushed files under Android/data/<pkg>:
 adb push /tmp/t3/models /data/local/tmp/models          # once
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files/models && cp -r /data/local/tmp/models/. files/models/'"
-adb shell am start -n com.moronigranja.localttsreader.spiketts/.MainActivity
+adb shell am start -n io.github.moronigranja.ayvu.spiketts/.MainActivity
 adb logcat -s T3Spike                                   # RTF / stage timings
 # pull results:
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/out_run1.wav > out.wav
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/out_run1.wav > out.wav
 ```
 The prompt voice ships pre-resampled (`voices/sarah16.wav` / `sarah24.wav`);
 models are intentionally NOT committed (runtime download, decision #7).
@@ -56,7 +56,7 @@ build; the full on-device phonemization bundle is decision #32.
 
 ```bash
 tools/docker-build.sh :spike-tts:assembleDebug :spike-tts:assembleDebugAndroidTest
-adb uninstall com.moronigranja.localttsreader.spiketts 2>/dev/null; adb uninstall com.moronigranja.localttsreader.spiketts.test 2>/dev/null
+adb uninstall io.github.moronigranja.ayvu.spiketts 2>/dev/null; adb uninstall io.github.moronigranja.ayvu.spiketts.test 2>/dev/null
 adb install spike-tts/build/outputs/apk/debug/spike-tts-debug.apk
 adb install -r -t spike-tts/build/outputs/apk/androidTest/debug/spike-tts-debug-androidTest.apk
 # stage packs + corpus (Android 11+ FUSE hides adb-pushed files under Android/data):
@@ -70,21 +70,21 @@ python3 tools/quantize_kokoro_q8.py <dir>/kokoro-v1.0.onnx <dir>/kokoro-v1.0.q8.
 adb push <dir>/kokoro-v1.0.fp16.onnx /data/local/tmp/kokoro-model-fp16
 adb push <dir>/kokoro-v1.0.int8.onnx /data/local/tmp/kokoro-model-int8
 adb push <dir>/kokoro-v1.0.q8.onnx   /data/local/tmp/kokoro-model-q8
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \\
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \\
   'cp /data/local/tmp/kokoro-model-fp16 files/models/ && \\
    cp /data/local/tmp/kokoro-model-int8 files/models/ && \\
    cp /data/local/tmp/kokoro-model-q8 files/models/'"
 # run: locked/off screen is fine — instrumented tests are exempt from the
 # process freezer (a launched-but-keyguarded Activity freezes in __refrigerator):
 adb logcat -c
-adb shell am instrument -w com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s KokoroSpike   # per-run RTF + DONE
 # pull results (external files dir):
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/kokoro_results.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/kokoro_results.json
 # precision JSONs + A/B WAVs (kokoro_<label>_run1_<lang>.wav vs _oracle_<lang>.wav):
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/kokoro_precision_fp16.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/kokoro_precision_fp16.json
 ```
 
 The provider sweep includes the `qnn-htp` candidate (decisions #115): Qualcomm's
@@ -113,16 +113,16 @@ determinism check against the parallel path.
 python3 tools/gen_pregen_corpus.py --pp /tmp/pp.txt --dc /tmp/dc.txt \
   --out corpus_pregen.tsv --per-lang 8 --sentences 3
 adb push docs/corpus/corpus_pregen.tsv /data/local/tmp/corpus_pregen.tsv
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files && cp /data/local/tmp/corpus_pregen.tsv files/'"
 # build/install/run as the Kokoro benchmark above, but class-scoped:
 adb shell am instrument -w -e class \
-  com.moronigranja.localttsreader.spiketts.PregenParallelBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+  io.github.moronigranja.ayvu.spiketts.PregenParallelBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s KokoroSpike   # serial/parallel RTF, determinism check, gate
 # pull results + worst-passage A/B WAVs:
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/kokoro_pregen_parallel.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/kokoro_pregen_parallel.json
 ```
 
 Measured verdict (2026-09-03): parallel is slower (1.18× serial/parallel
@@ -147,13 +147,13 @@ memory per config, best-of-3 runs.
 adb shell svc power stayon true   # no doze mid-benchmark
 adb logcat -c
 adb shell am instrument -w -e class \
-  com.moronigranja.localttsreader.spiketts.ChunkParallelBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+  io.github.moronigranja.ayvu.spiketts.ChunkParallelBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s KokoroSpike   # per-config RTF, speedup vs 1x6, DONE
 # pull results (written incrementally after every leg, so a lmkd kill on the
 # 4-session configs keeps the earlier legs):
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/kokoro_chunk_parallel.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/kokoro_chunk_parallel.json
 ```
 
 Measured verdict (2026-09-09): serial single-session wins at every config —
@@ -180,14 +180,14 @@ seen on (`PowerProbe`).
 adb shell svc power stayon true   # no doze mid-benchmark
 adb logcat -c
 adb shell am instrument -w -e class \
-  com.moronigranja.localttsreader.spiketts.ThreadSweepBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+  io.github.moronigranja.ayvu.spiketts.ThreadSweepBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 # optional: -e threads 1,6  -e runs 2  -e corpus corpus_pregen.tsv
 # energy pass: start with the cable in, pull it when the leg logs that it is waiting:
 #   -e wait_unplugged true   (the sweep begins when the device reports on-battery)
 adb logcat -d -s KokoroSpike   # per-leg RTF, power, speedup vs t1, DONE
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/kokoro_thread_sweep.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/kokoro_thread_sweep.json
 ```
 
 **Energy legs must be run unplugged, with the screen ON.** While the device is on
@@ -317,7 +317,7 @@ adb -s $S push $MODELS/matmulnbits-probe.onnx      /data/local/tmp/matmulnbits-p
 adb -s $S push docs/corpus/corpus.tsv        /data/local/tmp/corpus.tsv
 adb -s $S push docs/corpus/corpus_pregen.tsv /data/local/tmp/corpus_pregen.tsv
 adb -s $S push docs/corpus/corpus_g.tsv      /data/local/tmp/corpus_g.tsv
-adb -s $S shell "run-as com.moronigranja.localttsreader.spiketts sh -c '
+adb -s $S shell "run-as io.github.moronigranja.ayvu.spiketts sh -c '
   mkdir -p files/models &&
   cp /data/local/tmp/kokoro-model        files/models/ &&
   cp /data/local/tmp/kokoro-voices       files/models/ &&
@@ -326,16 +326,16 @@ adb -s $S shell "run-as com.moronigranja.localttsreader.spiketts sh -c '
   cp /data/local/tmp/corpus.tsv          files/ &&
   cp /data/local/tmp/corpus_pregen.tsv   files/ &&
   cp /data/local/tmp/corpus_g.tsv        files/'"
-adb -s $S shell "run-as com.moronigranja.localttsreader.spiketts ls -l files/models files"
+adb -s $S shell "run-as io.github.moronigranja.ayvu.spiketts ls -l files/models files"
 ```
 
 ### Run one leg
 
 ```bash
 adb -s $S shell am instrument -w -e class \
-  com.moronigranja.localttsreader.spiketts.PerfSpikeBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.PerfSpikeBenchmarkTest \
   -e leg <a|b|c|d|e|f1|f2|g> [-e runs 3] [-e corpus corpus_pregen.tsv] [-e passages 16] [-e threads 6] [-e memOff 1] \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 adb -s $S logcat -d -s KokoroSpike      # per-leg progress + DONE
 ```
 
@@ -344,7 +344,7 @@ after every step; pull from the internal copy, because `/sdcard` is not reachabl
 `adb shell run-as` on a sleeping device:
 
 ```bash
-adb -s $S exec-out run-as com.moronigranja.localttsreader.spiketts cat files/perfspike_g.json
+adb -s $S exec-out run-as io.github.moronigranja.ayvu.spiketts cat files/perfspike_g.json
 ```
 
 Leg → args → what it writes:
@@ -397,8 +397,8 @@ with `adb shell svc power stayon true` + a long `screen_off_timeout` and keep th
 mkdir -p docs/prints/perfspike
 # /sdcard is not readable through run-as on every ROM (HiBreak: EACCES) — use the
 # /storage/emulated/0 path, and pull per device into its own directory.
-adb -s $S exec-out run-as com.moronigranja.localttsreader.spiketts \
-  sh -c 'cd /storage/emulated/0/Android/data/com.moronigranja.localttsreader.spiketts/files && tar cf - perfspike_*.json kokoro_precision_int8.json kokoro_results_cpu.json perfspike_a_pass*_*.wav' \
+adb -s $S exec-out run-as io.github.moronigranja.ayvu.spiketts \
+  sh -c 'cd /storage/emulated/0/Android/data/io.github.moronigranja.ayvu.spiketts/files && tar cf - perfspike_*.json kokoro_precision_int8.json kokoro_results_cpu.json perfspike_a_pass*_*.wav' \
   | tar xf - -C docs/prints/perfspike/$DEVICE
 # DEVICE=fold|s22|hibreak; one directory per device keeps the same-named WAVs apart
 python3 tools/kokoro_perceptual.py --dir docs/prints/perfspike --out docs/prints/perfspike/perceptual_summary.json
@@ -440,16 +440,16 @@ the upstream `TextCleaner`/framing for Kitten, sentencepiece for MOSS
 ```bash
 adb push /tmp/d3/models /data/local/tmp/d3-models
 adb push /tmp/d3/d3_corpus.tsv /data/local/tmp/d3_corpus.tsv
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \\
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \\
   'mkdir -p files/models && cp -r /data/local/tmp/d3-models/. files/models/ && \\
    cp /data/local/tmp/d3_corpus.tsv files/d3_corpus.tsv'"
-adb shell "run-as com.moronigranja.localttsreader.spiketts ls files/models/kitten \\
+adb shell "run-as io.github.moronigranja.ayvu.spiketts ls files/models/kitten \\
   files/models/moss/MOSS-TTS-Nano-100M-ONNX"
 adb logcat -c
-adb shell am instrument -w com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s D3Compare:V KittenSpike:V MossSpike:V
-adb exec-out run-as com.moronigranja.localttsreader.spiketts cat \\
-  /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d3_results.json
+adb exec-out run-as io.github.moronigranja.ayvu.spiketts cat \\
+  /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d3_results.json
 ```
 
 Measurement notes carried from #93: MOSS sessions require
@@ -472,14 +472,14 @@ the `onnx/` subfolder) and `Audio8/audio8-TTS-0.1B-ONNX-INT8` online set only
 # host: hf download Audio8/audio8-TTS-0.1B-ONNX-INT8 --local-dir m/a8 --include 'slow_ar_int8.onnx*' 'fast_ar_int8.onnx*' 'codec_decoder_fp16.onnx*'
 adb push m/cbq4/onnx /data/local/tmp/cb-q4-onnx
 adb push m/a8-single-dir /data/local/tmp/a8
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \\
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \\
   'mkdir -p files/models/chatterbox-q4/onnx files/models/audio8 && \\
    cp /data/local/tmp/cb-q4-onnx/* files/models/chatterbox-q4/onnx/ && \\
    cp /data/local/tmp/a8/* files/models/audio8/'"
 adb logcat -c
-adb shell am instrument -w -e class com.moronigranja.localttsreader.spiketts.OnnxProbeBenchmarkTest \\
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
-adb shell cat /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/onnx_probe_results.json
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.OnnxProbeBenchmarkTest \\
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb shell cat /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/onnx_probe_results.json
 ```
 
 Measured B6 results (2026-08-31): both candidates open + run finite — no
@@ -510,17 +510,17 @@ PY
 adb push m/piper/en/en_US/lessac/medium/en_US-lessac-medium.onnx /data/local/tmp/d4-piper.onnx
 adb push m/supertonic/onnx /data/local/tmp/d4-st-onnx
 adb push d4_inputs.json /data/local/tmp/d4_inputs.json
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files/models/piper files/models/supertonic/onnx && \
    cp /data/local/tmp/d4-piper.onnx files/models/piper/en_US-lessac-medium.onnx && \
    cp /data/local/tmp/d4-st-onnx/*.onnx files/models/supertonic/onnx/ && \
    cp /data/local/tmp/d4_inputs.json files/d4_inputs.json'"
 adb shell svc power stayon true   # #93: no doze mid-benchmark
-adb shell am instrument -w -e class com.moronigranja.localttsreader.spiketts.D4ProbeBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d4_probe_results.json
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d4_piper.wav
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d4_supertonic.wav
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.D4ProbeBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d4_probe_results.json
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d4_piper.wav
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d4_supertonic.wav
 ```
 
 Measured HiBreak results (2026-08-31, decisions #99): Piper RTF **0.50**,
@@ -548,14 +548,14 @@ python3 tools/gen_nmt_inputs.py                   # -> translate_inputs.json
 # 3. stage onto the S22
 adb push m/nmt /data/local/tmp/nmt
 adb push translate_inputs.json /data/local/tmp/translate_inputs.json
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files/models && \
    cp -r /data/local/tmp/nmt/* files/models/ && \
    cp /data/local/tmp/translate_inputs.json files/translate_inputs.json'"
 adb shell svc power stayon true   # #93: no doze mid-benchmark
-adb shell am instrument -w -e class com.moronigranja.localttsreader.spiketts.TranslateProbeBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/translate_results.json
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.TranslateProbeBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/translate_results.json
 adb logcat -d -s TranslateProbe:V
 ```
 
@@ -593,17 +593,17 @@ done
 # 4. stage onto the device
 adb push english_2026-04/*.onnx english_2026-04/tokenizer.model /data/local/tmp/
 adb push voice_24k.f32 d5_inputs.json pocket_ref_meta.json pocket_ref_latents.f32 pocket_ref_audio.f32 /data/local/tmp/
-adb shell "run-as com.moronigranja.localttsreader.spiketts sh -c \
+adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files/models/pocket/english_2026-04 && \
    cp /data/local/tmp/*.onnx files/models/pocket/english_2026-04/ && \
    cp /data/local/tmp/tokenizer.model files/models/pocket/english_2026-04/ && \
    cp /data/local/tmp/voice_24k.f32 files/ && cp /data/local/tmp/d5_inputs.json files/ && \
    cp /data/local/tmp/pocket_ref_*.f32 files/ && cp /data/local/tmp/pocket_ref_meta.json files/'"
 adb shell svc power stayon true
-adb shell am instrument -w -e class com.moronigranja.localttsreader.spiketts.PocketProbeBenchmarkTest \
-  com.moronigranja.localttsreader.spiketts.test/androidx.test.runner.AndroidJUnitRunner
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d5_pocket_results.json
-adb pull /sdcard/Android/data/com.moronigranja.localttsreader.spiketts/files/d5_ref.wav   # + d5_p1/d5_p2
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.PocketProbeBenchmarkTest \
+  io.github.moronigranja.ayvu.spiketts.test/androidx.test.runner.AndroidJUnitRunner
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d5_pocket_results.json
+adb pull /sdcard/Android/data/io.github.moronigranja.ayvu.spiketts/files/d5_ref.wav   # + d5_p1/d5_p2
 adb logcat -d -s PocketSpike:V
 ```
 
@@ -631,7 +631,7 @@ adb -s $S shell pm grant $T android.permission.READ_LOGS   # in-test Choreograph
 adb -s $S shell svc power stayon true
 adb -s $S logcat -c
 adb -s $S shell am instrument -w \
-  -e class com.moronigranja.localttsreader.featureplayer.playback.D1SeekHorizonBenchmarkTest \
+  -e class io.github.moronigranja.ayvu.featureplayer.playback.D1SeekHorizonBenchmarkTest \
   -e seeks 10 -e delta 30.0 -e strict 1 -e stage /data/local/tmp/ayvu-d1 \
   $T.test/androidx.test.runner.AndroidJUnitRunner
 adb -s $S logcat -d -s AyvuD1
@@ -680,7 +680,7 @@ The Android SDK + NDK is tens of thousands of files. Baking it into an image kee
 workspace source-only; Gradle/Maven caches live in named Docker volumes.
 
 ```bash
-docker build -t localtts-android .       # one-time; downloads several GB
+docker build -t ayvu-android .       # one-time; downloads several GB
 tools/docker-build.sh :core-locate:test  # JVM-only sanity check (no SDK needed)
 tools/docker-build.sh assembleDebug      # full APK
 ```
@@ -790,13 +790,13 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # re-stage (uninstall wiped the files) then, per class:
 R=io.github.moronigranja.ayvu.test/androidx.test.runner.AndroidJUnitRunner
-adb shell am instrument -w -e class com.moronigranja.localttsreader.PlaybackE2eTest $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.VoiceSelectionE2eTest $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.PlayPositionE2eTest $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.SharePipelineInstrumentedTest $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.OcrSmokeInstrumentedTest $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.RealEpubImportProbe $R
-adb shell am instrument -w -e class com.moronigranja.localttsreader.PtVoiceE2eTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.PlaybackE2eTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.VoiceSelectionE2eTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.PlayPositionE2eTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.SharePipelineInstrumentedTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.OcrSmokeInstrumentedTest $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.RealEpubImportProbe $R
+adb shell am instrument -w -e class io.github.moronigranja.ayvu.PtVoiceE2eTest $R
 # each asserts its slice through the real service/engine/AudioTrack on the device.
 ```
 Note: the debug keystore is pinned at the repo root (decisions #45), so app +

@@ -22,7 +22,7 @@ val keystoreProperties: Map<String, String> =
     }
 
 android {
-    namespace = "com.moronigranja.localttsreader"
+    namespace = "io.github.moronigranja.ayvu"
     compileSdk = 36
 
     defaultConfig {
@@ -152,7 +152,7 @@ dependencies {
     // has no Android natives); core-tts's jar JNA is excluded below.
     implementation(libs.onnxruntime.android)
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
-    // LocalTtsReaderApp wires WorkManager's HiltWorkerFactory (Configuration.Provider, #42).
+    // AyvuApp wires WorkManager's HiltWorkerFactory (Configuration.Provider, #42).
     implementation(libs.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)

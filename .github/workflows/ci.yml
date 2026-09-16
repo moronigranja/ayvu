@@ -3,7 +3,7 @@
 # Two lanes map cleanly onto the repo's tooling split:
 #   jvm-tests      — pure-JVM modules, no Android SDK needed (fast path).
 #   android-build  — Android modules inside the baked toolchain image
-#                    (tools/docker-build.sh, `docker build -t localtts-android .`);
+#                    (tools/docker-build.sh, `docker build -t ayvu-android .`);
 #                    builds the app + androidTest APKs and runs every module's
 #                    unit tests. Instrumented tests need a connected device and
 #                    stay manual (S22 staging workflow in build.md).
@@ -48,7 +48,7 @@ jobs:
       - name: Fetch the vendored llama.cpp (pinned revision)
         run: tools/fetch-llama-cpp.sh
       - name: Build the Android toolchain image
-        run: docker build -t localtts-android .
+        run: docker build -t ayvu-android .
       - name: Assemble both APKs + every Android unit test (Docker)
         run: |
           tools/docker-build.sh \
@@ -67,6 +67,6 @@ jobs:
       - name: Fetch the vendored llama.cpp (pinned revision)
         run: tools/fetch-llama-cpp.sh
       - name: Build the Android toolchain image
-        run: docker build -t localtts-android .
+        run: docker build -t ayvu-android .
       - name: Debug + release assemble gate
         run: tools/docker-build.sh :app:assembleDebug :app:assembleRelease

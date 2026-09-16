@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.moronigranja.localttsreader.llm"
+    namespace = "io.github.moronigranja.ayvu.llm"
     compileSdk = 36
     // Pinned to the toolchain image's NDK (Dockerfile) — the same NDK the
     // translate model was measured with on the S22 (decisions #162).

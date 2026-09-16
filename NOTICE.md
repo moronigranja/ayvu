@@ -1,6 +1,6 @@
 # Third-party notices
 
-Ayvu (local-tts-reader) — Copyright © 2026 moronigranja — is licensed under the
+Ayvu — Copyright © 2026 moronigranja — is licensed under the
 GNU General Public License v3.0 (see `LICENSE`).
 
 This distribution and its source bundle or invoke the following third-party

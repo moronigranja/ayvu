@@ -1,4 +1,4 @@
-# agents.md — local-tts-reader
+# agents.md — ayvu
 
 Context for AI coding agents working in this repo. Read this first, then the docs it
 points to. When a decision in a doc conflicts with the existing code, resolve it by

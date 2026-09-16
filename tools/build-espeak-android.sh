@@ -13,11 +13,11 @@
 #   espeak-ng-152/espeak-ng-data/                 19 MB, arch-independent
 #
 # Usage:  tools/build-espeak-android.sh
-# Requires: docker, the localtts-android image, and espeak-ng on the host.
+# Requires: docker, the ayvu-android image, and espeak-ng on the host.
 
 set -euo pipefail
 
-IMAGE="${IMAGE:-localtts-android}"
+IMAGE="${IMAGE:-ayvu-android}"
 NDK="27.2.12479018"                 # must match the toolchain image (Dockerfile)
 ABI="arm64-v8a"
 ESPEAK_TAG="${ESPEAK_TAG:-1.52.0}"  # the tag the #28 phonemizer oracle is frozen against

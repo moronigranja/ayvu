@@ -116,7 +116,7 @@ std::string render_prompt(JNIEnv * env, Session * s, const std::string & user_me
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_com_moronigranja_localttsreader_llm_LlamaTranslator_nativeLoadModel(
+Java_io_github_moronigranja_ayvu_llm_LlamaTranslator_nativeLoadModel(
     JNIEnv * env,
     jclass,
     jstring path,
@@ -167,7 +167,7 @@ Java_com_moronigranja_localttsreader_llm_LlamaTranslator_nativeLoadModel(
 }
 
 JNIEXPORT jbyteArray JNICALL
-Java_com_moronigranja_localttsreader_llm_LlamaTranslator_nativeCompleteBytes(
+Java_io_github_moronigranja_ayvu_llm_LlamaTranslator_nativeCompleteBytes(
     JNIEnv * env,
     jclass,
     jlong handle,
@@ -251,7 +251,7 @@ Java_com_moronigranja_localttsreader_llm_LlamaTranslator_nativeCompleteBytes(
 }
 
 JNIEXPORT void JNICALL
-Java_com_moronigranja_localttsreader_llm_LlamaTranslator_nativeClose(JNIEnv *, jclass, jlong handle) {
+Java_io_github_moronigranja_ayvu_llm_LlamaTranslator_nativeClose(JNIEnv *, jclass, jlong handle) {
     auto * s = reinterpret_cast<Session *>(handle);
     if (s == nullptr) {
         return;

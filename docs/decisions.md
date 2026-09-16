@@ -4,6 +4,37 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 169. Product-name alignment: Kotlin package `io.github.moronigranja.ayvu`, `AyvuApp`, repo `ayvu` (2026-09-16)
+
+Roadmap pass 8. The `applicationId` became `io.github.moronigranja.ayvu` in #128, but every
+other identity layer kept the pre-name working title — 19 modules under
+`com.moronigranja.localttsreader`, `LocalTtsReaderApp`, `rootProject.name = "local-tts-reader"`,
+the GitHub repo, and the `localtts-android` toolchain image. Renamed in one pass, before the
+first public release, so no published artifact ever carries two names.
+
+- **Code:** package → `io.github.moronigranja.ayvu` everywhere (source trees moved, all
+  `namespace`/`group` declarations, the manifest's fully-qualified `android:name`s, and
+  `core-llm`'s three hand-written JNI symbols
+  `Java_io_github_moronigranja_ayvu_llm_LlamaTranslator_*` — a stale symbol keeps the build
+  GREEN and fails at runtime with `UnsatisfiedLinkError`, so `LfmTranslateE2eTest` on the S22
+  is the acceptance gate). `LocalTtsReaderApp` → `AyvuApp`, file included (ktlint's `filename`
+  rule).
+- **Identity:** repo and `rootProject.name` → `ayvu`, Docker image → `ayvu-android`, HTTP
+  `User-Agent` → `ayvu/0.1`, `OpenTarget`'s extra keys → `io.github.moronigranja.ayvu.open.*`.
+  The four URLs pinned in code (`KokoroPacks`' espeak-ng bundle, `TranslatePacks.BASE`,
+  `AboutSection`'s source and NOTICE links) moved in the SAME commit as the repo rename:
+  those are SHA-pinned downloads and the old-URL redirect must not become the failure mode.
+- **Deliberately kept:** the Room DB file `local-tts-reader.db` (on-device data, invisible to
+  users), the host pack cache `~/.cache/local-tts-reader/` (renaming re-downloads hundreds of
+  MB), the upstream pack ids, and the old applicationId as recorded history (README
+  §Updating, release notes). Dated documents keep the old names — they are the record of what
+  was true when they were written.
+- **Alternatives:** `com.moronigranja.ayvu` (unowned domain) — rejected, same as #128.
+  Renaming module by module — rejected: a half-renamed package is a compile error at every
+  cross-module reference.
+- **Consequence:** every URL under the old repo name redirects to
+  `https://github.com/moronigranja/ayvu`; new clones use the new name.
+
 ## 168. Translate-leg continuous batching: measured 2.4×, REJECTED on batch faithfulness (2026-09-16)
 
 The LFM translate leg (#162) decodes one passage per `llama_decode` call. The reader's

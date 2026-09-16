@@ -1,0 +1,72 @@
+package io.github.moronigranja.ayvu.tts.piper
+
+import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta
+
+/**
+ * Static voice metadata for the piper-v1 voices (D4 selection wiring,
+ * decisions #154 addendum): presentation data for "choose a voice before
+ * download" — the engine instance is the contract (its config json carries
+ * the real phoneme map/scales); this table only feeds the ONE shared
+ * engine+voice picker. [KokoroVoiceMeta] is the shared presentation row
+ * shape of `buildEngineVoiceState` (renaming it is the K2
+ * engine-agnostic-rows refactor, deliberately out of scope). Gender is the
+ * rhasspy/piper-voices
+ * voice-card presentation (lessac f, thorsten m); Piper has no upstream
+ * grade, so [KokoroVoiceMeta.grade] stays null.
+ */
+object PiperVoiceMetadata {
+    val all: List<KokoroVoiceMeta> =
+        listOf(
+            KokoroVoiceMeta(
+                name = PiperVoices.LESSAC,
+                language = "English (US)",
+                gender = "Female",
+                displayName = "Lessac",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.THORSTEN,
+                language = "German",
+                gender = "Male",
+                displayName = "Thorsten",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.ES_ES_DAVEFX,
+                language = "Spanish (ES)",
+                gender = "Female",
+                displayName = "Davefx",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.IT_IT_SERENA,
+                language = "Italian",
+                gender = "Female",
+                displayName = "Serena",
+            ),
+            KokoroVoiceMeta(
+                name = PiperVoices.PT_BR_FABER,
+                language = "Portuguese (BR)",
+                gender = "Male",
+                displayName = "Faber",
+            ),
+        )
+}
+
+/**
+ * One fixed, language-appropriate audition phrase per Piper voice — the
+ * [io.github.moronigranja.ayvu.tts.kokoro.VoicePreview] pattern for the
+ * piper ids (unknown names degrade to null; the audition surfaces a typed
+ * failure, never a silent fallback).
+ */
+object PiperVoicePreview {
+    private val PHRASES: Map<String, String> =
+        mapOf(
+            PiperVoices.LESSAC to "The quick brown fox jumps over the lazy dog.",
+            PiperVoices.THORSTEN to "Der schnelle braune Fuchs springt über den faulen Hund.",
+            PiperVoices.ES_ES_DAVEFX to "El veloz zorro marrón salta sobre el perro perezoso.",
+            PiperVoices.IT_IT_SERENA to "La rapida volpe marrone salta sul cane pigro.",
+            PiperVoices.PT_BR_FABER to "A rápida raposa marrom salta sobre o cão preguiçoso.",
+        )
+
+    /** The fixed phrase for [voice], or null when the name is not a known
+     * Piper voice. */
+    fun phraseFor(voice: String): String? = PHRASES[voice]
+}

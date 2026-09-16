@@ -3,7 +3,7 @@ plugins {
     `java-library`
 }
 
-group = "com.moronigranja.localttsreader"
+group = "io.github.moronigranja.ayvu"
 version = "0.1.0"
 
 java {

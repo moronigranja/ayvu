@@ -3,7 +3,7 @@ plugins {
     `java-library`
 }
 
-group = "com.moronigranja.localttsreader"
+group = "io.github.moronigranja.ayvu"
 version = "0.1.0"
 
 java {
@@ -34,7 +34,7 @@ tasks.register<JavaExec>("kokoroBenchmark") {
     description = "Synthesize samples with the real Kokoro model via the pack cache (T2 RTF baseline)"
     group = "verification"
     classpath = sourceSets.test.get().runtimeClasspath
-    mainClass.set("com.moronigranja.localttsreader.tts.kokoro.KokoroBenchmarkKt")
+    mainClass.set("io.github.moronigranja.ayvu.tts.kokoro.KokoroBenchmarkKt")
     // The benchmark re-downloads packs into this cache on first run; point it elsewhere to reuse.
     // Optional second arg: directory with oracle_<lang>_<voice>.npy references for audio comparison.
     val launcherArgs = mutableListOf<String>()
@@ -53,7 +53,7 @@ tasks.register<JavaExec>("kokoroGrainSpike") {
     description = "Spike A: sentence-grain vs paragraph-blob synthesis measurements (decisions #31); also writes the on-device corpus"
     group = "verification"
     classpath = sourceSets.test.get().runtimeClasspath
-    mainClass.set("com.moronigranja.localttsreader.tts.kokoro.KokoroGrainSpikeKt")
+    mainClass.set("io.github.moronigranja.ayvu.tts.kokoro.KokoroGrainSpikeKt")
     // First optional arg: pack cache root (defaults to ~/.cache/local-tts-reader/packs).
     val launcherArgs = mutableListOf<String>()
     if (project.hasProperty("kokoroCache")) {
@@ -68,7 +68,7 @@ tasks.register<JavaExec>("piperSmoke") {
     description = "D4: synthesize a passage with the real PiperEngine over the pinned packs (host espeak + ORT)"
     group = "verification"
     classpath = sourceSets.test.get().runtimeClasspath
-    mainClass.set("com.moronigranja.localttsreader.tts.piper.PiperSmokeKt")
+    mainClass.set("io.github.moronigranja.ayvu.tts.piper.PiperSmokeKt")
     // First optional arg: pack cache root (defaults to ~/.cache/local-tts-reader/packs);
     // the lessac model downloads once through the pinned descriptor.
     val launcherArgs = mutableListOf<String>()
@@ -83,7 +83,7 @@ tasks.register<JavaExec>("g0Corpus") {
     description = "G0: phonemize the narration corpus into src/test/resources/g0_corpus.tsv (five columns) with the production EspeakPhonemizer"
     group = "verification"
     classpath = sourceSets.test.get().runtimeClasspath
-    mainClass.set("com.moronigranja.localttsreader.tts.kokoro.G0CorpusGenKt")
+    mainClass.set("io.github.moronigranja.ayvu.tts.kokoro.G0CorpusGenKt")
     // First optional arg: pack cache root (defaults to ~/.cache/local-tts-reader/packs),
     // forwarded for parity with kokoroGrainSpike (unused by the phonemize-only pass).
     val launcherArgs = mutableListOf<String>()

@@ -13,7 +13,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "local-tts-reader"
+rootProject.name = "ayvu"
 
 // Pure-JVM modules (testable without the Android SDK) plus the Android
 // app modules (toolchain in Docker, see tools/docker-build.sh) and the

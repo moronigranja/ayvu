@@ -11,9 +11,8 @@ Nimuendajú in 1914 (public domain). The thesis matches the name: the app turns
 written books into speech.
 
 - Launcher label wired (`app_name = Ayvu`, verified building); `applicationId`
-  is `io.github.moronigranja.ayvu` (decisions #128 — the namespace the owner
-  actually owns, not the unowned `moronigranja.com`); Kotlin `namespace`
-  remains `com.moronigranja.localttsreader` (decisions #1), invisible to users.
+  and Kotlin `namespace` are both `io.github.moronigranja.ayvu`
+  (decisions #128/#169).
 - **Origin story:** a Brazilian dev naming the app for the speech of the land —
   the Mbyá Guaraní live in southern Brazil. The name *is* the brand.
 - **Pronunciation:** Guaraní `y` is a close central vowel (IPA /ɨ/). Practical

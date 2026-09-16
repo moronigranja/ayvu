@@ -16,12 +16,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name="com.moronigranja.localttsreader.LocalTtsReaderApp"
+        android:name="io.github.moronigranja.ayvu.AyvuApp"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <!-- PregenWorker (decisions #42) is Hilt-injected: LocalTtsReaderApp is
+        <!-- PregenWorker (decisions #42) is Hilt-injected: AyvuApp is
              the Configuration.Provider that hands WorkManager the
              HiltWorkerFactory. The default initializer must not run first (it
              would initialize WorkManager with the reflection factory and win
@@ -42,7 +42,7 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
         <activity
-            android:name="com.moronigranja.localttsreader.MainActivity"
+            android:name="io.github.moronigranja.ayvu.MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
             <intent-filter>
