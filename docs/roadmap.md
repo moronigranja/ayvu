@@ -20,9 +20,10 @@ Queue order (dependency-first): the **owner's G0 listening pass** → ~~D1~~ **d
 device-verified** (2026-09-13, #155) → **D7** cross-app performance spike
 (measurement-only, decisions #148) → ~~D4~~ **adoption landed** (PiperEngine,
 #154/#155/#159 — K2 unblocked, es/it/pt-BR pinned) → ~~K5~~ **per-book voice landed**
-(#156) and ~~Phase H~~ **stats landed** (#157) → **D5** high-end engine choice with the
-ORT int4 reference. G1's rule
-set and D5 are gated on G0; H is independent, so its position
+(#156) and ~~Phase H~~ **stats landed** (#157) → ~~D5~~ **CLOSED — the voice-clone
+engine class is deferred for the app** (owner decision, decisions #173; all three
+candidates fail the run axis on the S22, and no clone engine ships). G1's rule
+set is bounded by G0; H is independent, so its position
 is preference rather than dependency. This order, the release-state correction and the
 D6 closure are recorded in decisions #145. Open defects and their acceptance criteria are
 authoritative in [open-bugs.md](open-bugs.md).
@@ -237,7 +238,9 @@ state which axis it isolates. TFLite/ExecuTorch stays "gated — no tracked TTS 
 ships one".
 
 The one remaining leg was never a cross-runtime question: an ORT int4 reference against
-the fp32 Kokoro baseline belongs to whichever engine D5 adopts, and is recorded there.
+the fp32 Kokoro baseline belongs to whichever engine D5 adopts, and is recorded there —
+**discharged with D5's closure (decisions #173); it re-opens only with a re-opened D5 or
+the D7 gate-amendment decision.**
 
 ### Peer-app cross-check — Android readers running Kokoro (decisions #148)
 
@@ -471,12 +474,15 @@ owner-calls resolved: url-code, `&&` accepted as-is; `e.g.`/`i.e.` expand to
 "for example"/"that is" (folded into `abbrev-not-expanded`). ja/cmn/hi
 are recorded as a non-native-ear limitation.
 
-**Gates:** G1's built-in rule set (bounded by the typed findings) and D5's engine choice
-(its quality gate is the G0 blind read, and the pt-BR blind read decides whether the
-*translated* render is acceptable in the read-in-language slice — that clause was written
-for SMaLL-100, which #162 deleted for LFM2.5-1.2B on llama.cpp, so the read now targets
-the shipped translator). The next action is human,
-not code: **the owner's listening pass** over the Roman-language classes.
+**Gates:** G1's built-in rule set (bounded by the typed findings) and the
+pt-BR blind read (decides whether the *translated* render is acceptable in the
+read-in-language slice — written for SMaLL-100, which #162 deleted for
+LFM2.5-1.2B on llama.cpp, so the read now targets
+the shipped translator). D5's engine choice was the third gate —
+**discharged by owner decision (decisions #173): D5 closed, the clone class
+deferred, no engine A/B needed.** The next action was human, not code: the owner's
+listening pass over the Roman-language classes; with the class deferred, the
+listening material (G1 batches 1–7) is already ear-passed.
 
 #### G1 — TTS pronunciation replacements — BUILT-IN SET COMPLETE (bounded by G0; candidates unshipped)
 
@@ -617,12 +623,22 @@ Add the narrow useful subset before building a configurable gesture editor:
 Configurable tap-zone maps remain in the idea pool until the fixed reader interactions
 have device evidence and an accessibility review.
 
-### Sequenced after G0 — D5 high-end engine choice
+### Sequenced after G0 — D5 high-end engine choice — **CLOSED**
 
-A Phase D item whose gate lives in Phase G: it does not start until G0's typed findings
-and blind read exist.
+**Owner decision (2026-09-16, decisions #173): D5 is closed and the whole
+voice-clone engine class is deferred for the app.** Every candidate fails the
+run axis on the S22 as measured: Pocket TTS RTF 1.5–1.8 / PSS 0.86–0.92 GB
+(best of the three, still ~2× Kokoro fp32), Chatterbox q4 RTF ~16.7 with a
+~600-frame context wall (process killed under swap pressure), CosyVoice3
+12.5–31.1 RTF at 3.22 GB VmHWM (#93) with its duplicated-honorific quality
+flag. None clears the runtime+memory bar for on-device cloned-voice pregen;
+Kokoro + Piper remain the shipped voices. The G0 blind read and the ORT-int4
+reference leg discharge with the closure (an int4-vs-fp32 Kokoro reference
+would belong to a re-opened D5 or the D7-gated gate amendment). The
+measurements and the §3.6 blind-set tooling below stand as the reference
+record for any future revisit; nothing in the class ships.
 
-#### D5 — High-end cloning: Chatterbox vs CosyVoice3 vs Pocket TTS
+#### D5 — High-end cloning: Chatterbox vs CosyVoice3 vs Pocket TTS (CLOSED — reference)
 
 - Candidates: **CosyVoice3** (incumbent — 9 langs incl. es/it, zero-shot + cross-lingual
   cloning, pinned pack, measured 3.22 GB VmHWM on the S22) vs **Chatterbox Multilingual
@@ -687,8 +703,10 @@ and blind read exist.
   PSS 0.86–0.92 GB, cold open ~0.6 s — the live-cloning answer is NO on both
   devices and Pocket TTS is a pregen candidate at RTF ~2× the fp32 Kokoro
   baseline on the S22; its native output is quiet (-30 dBFS, gain is an
-  integration item). The
-  Fold leg (optional second flagship) and the G0 blind read remain D5's open gates.
+  integration item). **CLOSED with the class (decisions #173); the Fold leg and
+  the G0 blind read were discharged by the owner's decision to defer clone
+  engines — no render A/B or second-device run was needed for a class that
+  does not ship.**
 
 ### Phase H — TODAY reading and listening stats — LANDED (2026-09-13, decisions #157)
 
@@ -774,7 +792,7 @@ docs (open-bugs.md, decisions #156) now record it.
 |---|---|
 | Pitch-preserving speed | WSOLA/phase-vocoder DSP and cache-key compatibility; measure CPU/battery before replacing hardware rate conversion. |
 | Translate-then-read (`core-translate`) | **LANDED 2026-09-14, decisions #160; ENGINE SWAPPED 2026-09-15, decisions #162** — implemented end-to-end and DEVICE-VERIFIED on the S22 under SMaLL-100 (pt-BR playback under the auto-picked voice at 121–1352 ms per passage, `x<lang>` cache separation incl. the Off toggle, offline pregen under translation, idle-close logcat-verified; three defects found and fixed: firstVoiceFor case mismatch, target-voice pack-readiness gate, render-truth cache keys). The translator is now **LFM2.5-1.2B-Instruct on llama.cpp** (`:core-llm`, #162): chrF 67.37 vs 62.77, ~730 MB pack, `pregen` keys carry a `t<translator>` segment, SMaLL-100 deleted with no fallback. **DEVICE-VERIFIED 2026-09-15, instrumentation + UI pass** (`LfmTranslateE2eTest`, `LfmTranslatedPlaybackE2eTest`, then the S22's own screens): sha-verified download through the Read-in dialog, Speech subscreen showing "LFM2.5-1.2B translate model — ready · installed", pt-BR playback on a real book at 2.2–4.1 s/passage under concurrent Kokoro synthesis, renders cached under `xpt-BR/tlfm12b/` (pre-#162 small-100 audio correctly not a hit), retired small-100 artifacts reclaimed, zero lmkd kills. Remaining: a full whole-book pre-gen run under the new translator (~2 h on Jumper) and the HiBreak co-residency check (not attached). |
-| High-end cloned-voice pre-generation (engine chosen by D5) | Ships only after D5 (Active work) picks the engine and clears the G0 blind read — Chatterbox Multilingual, CosyVoice3 or Pocket TTS (added 2026-09-11, decisions #149); the incumbent is DiT-gated (decisions #21/#23) and D3-quality-flagged (duplicated honorific probes; RTF 12.5–31.1), disk-only playback. A1/A4 long satisfied. Distinct from D5 itself: that item *selects*, this row *ships*. |
+| High-end cloned-voice pre-generation (engine chosen by D5) | **DEFERRED with the class (decisions #173).** D5 is closed and no clone engine ships for the app — measured on the S22: Pocket RTF 1.5–1.8 / PSS 0.86–0.92 GB (best of the three), Chatterbox ~16.7 + a ~600-frame context wall, CosyVoice3 12.5–31.1 @ 3.22 GB VmHWM with a quality flag (#93). The row re-opens only with a candidate that clears the runtime+memory bar. |
 | Kindle official export/API sync | External API/export contract and account UX; manual share/resume already covers the core use case. |
 | Word-level highlighting | Requires a stable word/phoneme timing contract beyond current sentence anchors. |
 | Auto language detection and voice routing | Needs per-language voice mappings, mixed-language policy and pack-availability UX. The manual single-book case is covered earlier by Phase K item 5 (per-book voice, decisions #144). |

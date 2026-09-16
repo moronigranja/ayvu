@@ -4,6 +4,36 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 173. D5 CLOSED — the voice-clone engine class is deferred (2026-09-16, owner)
+
+Owner decision: D5 (high-end cloning: Chatterbox vs CosyVoice3 vs Pocket TTS)
+is closed and **no clone engine ships for the app**; the whole class is
+deferred. The evidence that grounds it (all S22):
+
+- Pocket TTS: RTF 1.5–1.8 @ 2–4 threads, PSS 864–915 MB, live-cloning NO on
+  both devices — best of the three, still ~2× the fp32 Kokoro baseline
+  (#171, corrected after the BOS fix).
+- Chatterbox q4: RTF ~16.7 @ 2 threads (q4 MatMulNBits never reaches
+  efficient ARM kernels), PSS 1.69 GB, killed under swap pressure past ~600
+  context frames — utterance-scale only (#172).
+- CosyVoice3: RTF 12.5–31.1 @ 3.22 GB VmHWM with a duplicated-honorific
+  quality flag (#93) — DiT-gated, disk-only at best.
+
+None clears the runtime+memory bar for on-device cloned-voice pregeneration on
+this device class; Kokoro + Piper remain the shipped voices. Consequences:
+
+- **The G0 blind read and the ORT-int4 reference leg discharge with the
+  closure** — no render A/B, Fold leg, or second-device run is owed for a
+  class that does not ship (the §3.6 blind-set tooling and the three legs'
+  reference records stand for any future revisit).
+- The "High-end cloned-voice pre-generation" strategy row is marked DEFERRED
+  and re-opens only with a candidate that clears the run axis.
+- The pt-BR translated-render blind read is NOT part of this closure — it
+  gates the read-in-language slice on the shipped LFM2.5 translator and stays
+  open (its listening kit is `docs/prints/ptbr-blind-read/`).
+- Unrelated engine work keeps its own gates: D7 (measured spike) is
+  unaffected; the D2 int8/gate-amendment question stays a D7 decision.
+
 ## 172. Chatterbox q4 device leg — measured (2026-09-16)
 
 The last-measured D5 candidate on the S22 (`ChatterboxProbeRunner` +
