@@ -4,6 +4,39 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 171. D5 S22 leg + pt-BR blind-read render kit (2026-09-16)
+
+Two G0-gate device sessions on the S22 (SM-S908U1), both through production or
+spike harnesses, artifacts in `docs/prints/d5/` and `docs/prints/ptbr-blind-read/`.
+
+- **Pocket TTS S22 leg (D5).** The missing flagship datapoint
+  (`PocketProbeBenchmarkTest` + new tracked `tools/gen_pocket_ref.py`, which
+  regenerates the tokenized inputs and the temp-0 host parity reference —
+  pinned `KevinAHM/pocket-tts-onnx` @ `58a6d00c`, english_2026-04 int8, voice
+  `voice-zero/peter_yearsley.wav`): RTF **1.40 @ 2–4 threads** (6 is worse,
+  1.71–1.79 — the same oversubscription axis as Kokoro, decisions #147), PSS
+  834–923 MB, cold open ~0.6 s. Live-cloning is **NO on both devices** (#153
+  HiBreak 5.54–6.87 confirmed on the flagship); pregen-viable at ~2× the Kokoro
+  fp32 RTF on the S22. Parity device-vs-host: eos **±2 frames** (device 56/53 vs
+  host 58/55), RMS aligned (0.0089/0.0086) — structural, coherent, no stub
+  signature; the exact-frame claim of #153 is not reproduced on this text, so
+  the record is "eos ±2, structural" and the gate's job (catch silent stubs) is
+  served. **Remaining D5 gates: the G0 blind read** (A/B set now generatable
+  from `docs/prints/d5/d5_p1.wav` + `d5_p2.wav` vs the Kokoro baseline via
+  `tools/gen_blind_kokoro_set.py`) and the optional Fold leg. Chatterbox stays
+  device-unmeasured.
+- **pt-BR blind-read render kit.** `PtBrBlindReadHarnessTest` (new, tracked)
+  renders the Phase-J blind-read passages through the PRODUCTION path — LFM2.5
+  via `TranslateRuntime`, then Kokoro pt voice `pf_dora` over the G1
+  normalizer — writing 11 `{en,pt}.wav` pairs + the produced translations.
+  Device lesson: the harness first interleaved translation with synthesis and
+  hit `TranslateRuntime`'s 60 s idle close (#162 co-residency guard) — the
+  render loop now translates ALL passages back-to-back first (every call
+  re-arms the timer), synthesizes after. Pre-screened text flags for the ear:
+  `[01]` Spanish "O **lunes**" for "na segunda-feira"; `[11]` "enviuei" typo
+  and "no garagem" gender. Listening kit + verdict form:
+  `docs/prints/ptbr-blind-read/LISTEN.md`.
+
 ## 170. C7 txt/markdown close-out: title semantics pinned, lone-CR regression (2026-09-16)
 
 The TXT/Markdown parser (`TextParser`) shipped with C7; this pass pinned the title

@@ -609,6 +609,12 @@ adb logcat -d -s PocketSpike:V
 
 Measured HiBreak results (2026-09-11, decisions #153): RTF **5.54–6.87**, PSS ~1.40 GB,
 cold open ~6 s — see `docs/prints/d5/` when copied in; WAVs staged for the owner.
+**S22 leg measured (2026-09-16, decisions #171):** RTF **1.40 @ 2-4 threads, 1.71-1.79 @ 6**
+(PSS 834-923 MB, main open ~0.6 s, voice encode <1 s) — pregen-viable, live-cloning NO
+confirmed on the flagship too; parity eos ±2 frames (structural, rms-aligned), recorded in
+`docs/prints/d5/d5-s22-leg.md`. Host inputs + reference now regenerate via
+`tools/gen_pocket_ref.py` (tokenization + temp-0 ORT mirror; `--voice-wav` any CC0
+`kyutai/tts-voices` sample).
 
 ## D1 seek-horizon staging (2026-09-13, `feature-player` androidTest)
 
