@@ -676,9 +676,13 @@ and blind read exist.
   unit). The fp32 control (2026-09-12, decisions #153) confirms the verdict is
   precision-robust: fp32 runs RTF 5.81–7.44 at PSS ~1.64 GB, so int8 stands as the
   better Pocket config on this device (~5% faster, 15% less memory). **S22 leg measured
-  (2026-09-16, decisions #171):** RTF 1.40 @ 2/4 threads (1.71–1.79 @ 6 — oversubscribed),
-  PSS 0.83–0.92 GB, cold open ~0.6 s — the live-cloning answer is NO on both devices and
-  Pocket TTS is a pregen candidate at RTF ~2× the fp32 Kokoro baseline on the S22. The
+  (2026-09-16, decisions #171; corrected same day — the first leg's renders were
+  degenerate, the BOS conditioning embedding was dropped until the owner's ear
+  flagged them): RTF 1.53–1.81 @ 2/4 threads (2.06–2.57 @ 6 — oversubscribed),
+  PSS 0.86–0.92 GB, cold open ~0.6 s — the live-cloning answer is NO on both
+  devices and Pocket TTS is a pregen candidate at RTF ~2× the fp32 Kokoro
+  baseline on the S22; its native output is quiet (-30 dBFS, gain is an
+  integration item). The
   Fold leg (optional second flagship) and the G0 blind read remain D5's open gates.
 
 ### Phase H — TODAY reading and listening stats — LANDED (2026-09-13, decisions #157)

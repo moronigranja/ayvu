@@ -62,6 +62,7 @@ class PocketProbeRunner(
         const val EOS_THRESHOLD = -4.0f
         const val XFADE_SAMPLES = 240
         const val KV_CAPACITY = 1000L
+        const val COND_DIM = 1024
     }
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
@@ -170,9 +171,21 @@ class PocketProbeRunner(
                     mapOf("audio" to OnnxTensor.createTensor(env, FloatBuffer.wrap(pcm), longArrayOf(1, 1, pcm.size.toLong()))),
                 ).use { out ->
                     val voice = f32Of(out[0] as OnnxTensor)
+                    // insert_bos_before_voice=true (bundle.json): the voice
+                    // conditioning slots a BOS embedding AHEAD of the voice
+                    // embeddings (pocket_tts_onnx._prepare_voice_embeddings).
+                    // Dropping it renders DEGENERATE quiet audio whose "parity"
+                    // was agreement between two identically-wrong pipelines
+                    // (owner's ear + spectral check, 2026-09-16, #171). Staged
+                    // by build.md "D5 Pocket TTS staging" as a raw f32.
+                    val bos = readF32(File(context.filesDir, "bos_before_voice.f32"))
+                    check(bos.size == COND_DIM) {
+                        "bos_before_voice.f32 must be staged and have $COND_DIM floats (stage per build.md)"
+                    }
+                    val voiceWithBos = bos + voice
                     val encodeMs = System.currentTimeMillis() - tEnc
-                    legJson.put("voice_encode_ms", encodeMs).put("voice_frames", voice.size / 1024)
-                    log("voice emb: ${voice.size / 1024} frames in $encodeMs ms")
+                    legJson.put("voice_encode_ms", encodeMs).put("voice_frames", voiceWithBos.size / 1024)
+                    log("voice emb: ${voiceWithBos.size / 1024} frames (incl. BOS) in $encodeMs ms")
 
                     val runs = JSONArray()
                     legJson.put("runs", runs)
@@ -180,7 +193,7 @@ class PocketProbeRunner(
                         val passage = passages.getJSONObject(p)
                         val res =
                             try {
-                                synthesizePassage(main, dec, flowS, txt, voice, passage, rng, outDir, log)
+                                synthesizePassage(main, dec, flowS, txt, voiceWithBos, passage, rng, outDir, log)
                             } catch (e: Throwable) {
                                 log("passage ${passage.optString("id")} FAILED: $e")
                                 Log.e(TAG, "passage failed", e)

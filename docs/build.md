@@ -591,13 +591,14 @@ done
 # 3. host parity reference (python ORT + sentencepiece): temp-0 AR over the ref
 #    sentence -> pocket_ref_{meta.json,latents.f32,audio.f32}.
 # 4. stage onto the device
-adb push english_2026-04/*.onnx english_2026-04/tokenizer.model /data/local/tmp/
+adb push english_2026-04/*.onnx english_2026-04/tokenizer.model bos_before_voice.f32 /data/local/tmp/
 adb push voice_24k.f32 d5_inputs.json pocket_ref_meta.json pocket_ref_latents.f32 pocket_ref_audio.f32 /data/local/tmp/
 adb shell "run-as io.github.moronigranja.ayvu.spiketts sh -c \
   'mkdir -p files/models/pocket/english_2026-04 && \
    cp /data/local/tmp/*.onnx files/models/pocket/english_2026-04/ && \
    cp /data/local/tmp/tokenizer.model files/models/pocket/english_2026-04/ && \
    cp /data/local/tmp/voice_24k.f32 files/ && cp /data/local/tmp/d5_inputs.json files/ && \
+   cp /data/local/tmp/bos_before_voice.f32 files/ && \
    cp /data/local/tmp/pocket_ref_*.f32 files/ && cp /data/local/tmp/pocket_ref_meta.json files/'"
 adb shell svc power stayon true
 adb shell am instrument -w -e class io.github.moronigranja.ayvu.spiketts.PocketProbeBenchmarkTest \
@@ -609,12 +610,18 @@ adb logcat -d -s PocketSpike:V
 
 Measured HiBreak results (2026-09-11, decisions #153): RTF **5.54–6.87**, PSS ~1.40 GB,
 cold open ~6 s — see `docs/prints/d5/` when copied in; WAVs staged for the owner.
-**S22 leg measured (2026-09-16, decisions #171):** RTF **1.40 @ 2-4 threads, 1.71-1.79 @ 6**
-(PSS 834-923 MB, main open ~0.6 s, voice encode <1 s) — pregen-viable, live-cloning NO
-confirmed on the flagship too; parity eos ±2 frames (structural, rms-aligned), recorded in
-`docs/prints/d5/d5-s22-leg.md`. Host inputs + reference now regenerate via
-`tools/gen_pocket_ref.py` (tokenization + temp-0 ORT mirror; `--voice-wav` any CC0
-`kyutai/tts-voices` sample).
+Renders from before 2026-09-16 are DEGENERATE (see below).
+**S22 leg measured (2026-09-16, decisions #171, corrected):** RTF **1.53–1.81 @ 2-4
+threads, 2.06-2.57 @ 6** (PSS 864-915 MB, main open ~0.6 s) — pregen-viable,
+live-cloning NO confirmed on the flagship too; anti-stub parity exact on
+frames/EOS with envelope-level waveform agreement (int8 ISA drift), recorded in
+`docs/prints/d5/d5-s22-leg.md`. **The runner + host mirror dropped the bundle's
+BOS embedding (`insert_bos_before_voice`) until the owner's ear flagged the
+renders as blank/noise on 2026-09-16 — pre-fix renders, incl. #153's HiBreak
+WAVs, are degenerate (their RTF/PSS stand as cost; their audio/parity do not);
+the runner now fails fast without `files/bos_before_voice.f32`.** Host inputs +
+reference regenerate via `tools/gen_pocket_ref.py` (tokenization + temp-0 ORT
+mirror with the BOS; `--voice-wav` any CC0 `kyutai/tts-voices` sample).
 
 ## D1 seek-horizon staging (2026-09-13, `feature-player` androidTest)
 

@@ -6,6 +6,26 @@ not a spec (specs live in architecture.md / feature docs).
 
 ## 171. D5 S22 leg + pt-BR blind-read render kit (2026-09-16)
 
+> **[CORRECTED same day — degenerate renders.]** The first S22 leg's Pocket TTS
+> renders were silent/noisy, flagged by the owner's ear. Root cause: the runner
+> AND its host reference both dropped the bundle's `insert_bos_before_voice`
+> BOS embedding (`bos_before_voice.npy`) from the voice conditioning
+> (pocket_tts_onnx `_prepare_voice_embeddings` prepends it), so both pipelines
+> produced identically-wrong near-silent audio and the "parity" was agreement
+> between two equally-wrong pipelines. **Fix landed:** the runner prepends the
+> BOS (fail-fast on a missing `files/bos_before_voice.f32`, staged per build.md)
+> and `tools/gen_pocket_ref.py` mirrors it; corrected renders calibrate to the
+> export's own `reference_sample.wav` (rms 0.030 vs 0.029, speech flatness
+> 0.013–0.024 vs 0.033). Pre-fix renders — including #153's HiBreak WAVs — are
+> degenerate; #153's RTF/PSS stand as cost measurements, its audio/parity do
+> not. **Corrected S22 numbers:** RTF 1.53–1.81 @ 2–4 threads (2.06–2.57 @ 6),
+> PSS 864–915 MB; anti-stub parity exact on frames/EOS (34/31 = 34/31) with
+> envelope-level waveform agreement (latents 16% mean rel, per-frame audio corr
+> 0.45 — int8-kernel ISA drift through the stateful decoder; NOT sample-exact,
+> stronger than #153's claim). Live-cloning NO on both devices stands;
+> pregen-viable at ~2× the Kokoro fp32 RTF. Pocket's native output is quiet
+> (-30 dBFS); gain handling stays on the integration-cost audit.
+
 Two G0-gate device sessions on the S22 (SM-S908U1), both through production or
 spike harnesses, artifacts in `docs/prints/d5/` and `docs/prints/ptbr-blind-read/`.
 

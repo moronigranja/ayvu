@@ -174,7 +174,14 @@ def run(
 
     # voice encoding — identical bytes the runner feeds.
     encoded = enc.run(None, {"audio": voice_pcm[None, None, :]})[0]  # [1,F,1024]
-    voice = encoded[0]
+
+    # insert_bos_before_voice=true (bundle.json): the voice conditioning slots a
+    # BOS embedding AHEAD of the voice embeddings. Dropping it (the first
+    # version of this tool AND the device runner did) makes the whole
+    # generation degenerate — near-silent renders whose "parity" was agreement
+    # between two identically-wrong pipelines (owner's ear, 2026-09-16).
+    bos = np.load(models_dir / "bos_before_voice.npy")  # [1,1,1024]
+    voice = np.concatenate([bos[0], encoded[0]], axis=0)  # [F+1,1024]
 
     ref_meta = None
     ref_latents = None
@@ -334,6 +341,10 @@ def main() -> int:
     print(f"d5_inputs.json: {len(passages_json)} passages, threads legs {THREADS_LEGS}")
 
     # 3. host temp-0 reference + sanity WAVs.
+    # The device stage needs the BOS embedding as a raw f32 (the Kotlin runner
+    # has no .npy parser): same bytes the mirror concatenates ahead of the voice.
+    bos_npy = np.load(args.models_dir / "bos_before_voice.npy")
+    (out / "bos_before_voice.f32").write_bytes(bos_npy.astype("<f4").tobytes())
     meta, latents, audio, wavs = run(args.models_dir, sp, voice_pcm, PASSAGES, out, args.threads)
     (out / "pocket_ref_meta.json").write_text(json.dumps(meta))
     (out / "pocket_ref_latents.f32").write_bytes(latents.astype("<f4").tobytes())
