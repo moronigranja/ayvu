@@ -132,81 +132,22 @@ shared snippet → normalize → word n-grams → recall vs every indexed passag
 
 ## 6. Contracts that must not silently break
 
-1. **One domain model** — core-model types everywhere; no parallel Book/Passage.
-2. **Content-hash identity** — id comes from bytes, not metadata or file name.
-3. **Import ⇒ index** — parsing without segment+index silently kills share-and-identify.
-4. **Passages stable & bounded** — segmentation output must not drift between
-   re-parses of the same file.
-5. **TTS assets never bundled** — models/language packs are runtime downloads,
-   explicit and resumable (docs/hard-facts.md).
-6. **DRM never in-app** — encrypted files rejected up front; deDRM stays out-of-app.
-7. **Share result = location** — MatchResult carries (bookId, chapter, passage);
-   the player resumes there.
+Every contract names what enforces it TODAY. "Review-only" is stated rather than implied:
+a contract with no mechanical guard is one refactor away from breaking silently, and the
+value of this table is that the gap is visible instead of assumed. When a change bends a
+contract, update this table and the doc it points at, in the same change.
 
-2026-08-28 (final lean-up batch, decisions #76-#79): the G2 admission rule
-lands as a full-session window — `PlaybackActive` (feature-player) spans session
-start through the post-stop fill's completion: `markStopped` fires in the fill's
-`onDone` before `stopSelf`, with an `onDestroy` safety-net; `PregenWorker` is
-single-mode manual (overnight arm deleted — `ensureOvernightScheduled` + the
-`MODE_OVERNIGHT` budget/yield/notification variants gone, `OVERNIGHT_NAME` kept
-for the QW5d startup cancel) and yields to an engaged session for ALL runs (#76).
-S5 (#77): `PregenKey` gains the engine dimension (v2 path
-`<bookId>/<engine>/<voice>/<speed>/…`, legacy v1 paths parse and resolve as
-kokoro — CR-4 preserved, cross-engine collision prevented);
-`PregenSpaceEstimator` keys per-engine sample rates in core-player (core-tts
-import dropped); the service's `liveOffsetSeconds` and completion margin use the
-last rendered sample rate (`frameMargin(rate) = rate/100`). S3+QW4 (#78):
-`publish()` is the structural snapshot (state + MediaSession + notification)
-while `publishDetails()` is the per-second StateFlow-only feed through the single
-`stateCopy` field computation (the CR-8/CR-9 parity guard stays); the three fill
-loops merge into one `startFill(from, followPlayhead, deadlineMs, onDone)` — the
-post-stop fill clears the G2 window and self-stops. S4 (#79):
-`AudioTrackPassageOutput` retains one MODE_STATIC track, re-fed on
-sample-rate+channel+capacity match, rebuilt on mismatch; speed stays out of the
-identity via `setPlaybackRate`. core-player stays pure — the estimator no longer
-imports core-tts.
+| # | Contract | Enforced by |
+|---|---|---|
+| 1 | **One domain model** — `core-model` types everywhere; no parallel Book/Passage. | **Review-only.** `checkFeatureBoundaries` guards feature→feature edges, not model duplication. The mechanical evidence is that exactly one `Book`/`Chapter`/`TextPassage` exists across every `src/main` (verified 2026-09-15); the other `Book*`/`Chapter*` types are persistence entities and view types. |
+| 2 | **Content-hash identity** — the id comes from bytes, not metadata or file name. | `EpubParserTest` ("book id is a stable content hash"), `MobiParserTest` ("stable content hash across parses"). |
+| 3 | **Import ⇒ index** — parsing without segment+index silently kills share-and-identify. | `ImportCoordinatorTest` plus the index assertions in the `core-locate` / `core-persistence` suites. |
+| 4 | **Passages stable & bounded** — segmentation output must not drift between re-parses of the same file. | **Half-enforced.** The bounded half is pinned by `BookSegmentationTest` (front/back-matter windows, the whole-book guard, contiguous renumbering); the "the same file parses to identical passages" half has NO test — recorded here as a gap rather than hidden. |
+| 5 | **TTS assets never bundled** — models/language packs are runtime downloads, explicit and resumable. | **By construction:** there is no `app/src/main/assets`, and every pack descriptor is a remote URL (hard-facts.md). A unit test cannot inspect the APK. |
+| 6 | **DRM never in-app** — encrypted files are rejected up front; deDRM stays out-of-app. | `IntakeRoutingTest`, `EBookFormatsTest`, `FolderScanPolicyTest`, and the device-side `ExternalIntakeInstrumentedTest`. |
+| 7 | **Share result = location** — a match carries (bookId, chapter, passage) and the player resumes there. | `IndexRebuilderTest` (bookId / chapterIndex / passageIndex), `ShareSnippetResolverTest`. |
 
-2026-08-28 (lean-up batch 2, decisions #73/#74/#75): measurement probes —
-`AyvuTap`/`AyvuGap` debug-gated logcat in PlaybackService (goals §Measurement,
-non-blocking, CR-ordering untouched); `KokoroRuntime.engine()` retry seam
-(prerequisite-missing re-checks, genuine open failures capped at
-`MAX_FAILED_OPEN_ATTEMPTS`, failure cleared on success — QW3, relaxes #25/#32
-once-wording); process-scoped `close()` doc notes on
-`KokoroEngine`/`OrtKokoroSession` (QW5c); startup overnight leftover cancel via
-`PregenManager.cancelOvernight()` (`cancelUniqueWork(OVERNIGHT_NAME)`, QW5d);
-shared `PregenPlanner` in core-player (pure spine walk, `plan()`/`walk()`)
-consumed by `OfflinePregen.run` and `PregenQueue.ensure` (S1/O3; executors kept).
-
-2026-08-28: the reading-speed selector is removed — playback pinned 1.0×,
-stored per-book speeds ignored on resume (decisions #71). The speed model is
-retained unchanged: progress `speed` column, `PregenKey` speed + path layout,
-`SynthesisRequest.speed`, `PlayerStateMachine.setSpeed`, and
-`PassageOutput.play` tempo (setPlaybackRate, decisions #52) — "per-request
-engine speed" (below) remains the engine contract. Revisit planned.
-
-2026-08-26 (later): T4-2 lands — feature-player PlaybackService (MediaSession,
-audio focus/ducking, becoming-noisy, media notification, 1 s sleep tick),
-per-request engine speed, machine-advance LOADING fix, head-polling AudioTrack
-completion, and the docked ReaderScreen with #31 sentence highlighting; verified
-end-to-end on the S22 (instrumented full-book playback, decisions #34).
-
-2026-08-26: core-player lands (T4-1, decisions #33) — the v1 player state
-machine on top of schema v2 (progress offset/speed, bookmarks, position
-ring); 37 new tests (20 core-player + 17 persistence). T4-2 (feature-player:
-MediaSession, audio output, docked Compose) consumes it via LOADING →
-PLAYING + PassageAdvanced/PauseRequested/PlaybackCompleted events.
-
-2026-08-25: core-model, core-ebook (epub + mobi/kf8 + segmentation + importer),
-core-locate, core-persistence (P1/P2 Room), and core-tts — TTSEngine interface,
-pack registry, download manager (T1) **and the Kokoro-82M engine (T2, decisions
-#25/#28)**: espeak-ng phonemization via JNA, vocab-filtered tokens, balanced
-≤510-phoneme windows, ORT inference behind a compileOnly Java-API seam, librosa
-trim port, timing-aware pauses, PCM16 out; first pinned pack descriptors
-(kokoro-model fp32 + kokoro-voices, model-files-v1.1, exact SHA-256s). **179
-tests green** (core-locate 32 + core-ebook 50 + core-persistence 9 +
-feature-library 7 + core-tts 81). `app` scaffold (F1), `feature-library`
-(C5/C6), and the launch-time index rebuild (P2) are live in the Docker
-toolchain. Since then (2026-08-25 → 08-27): core-ocr (S1, #36), the share
-receiver + resume wiring (S2/S3, #37/#38), the player (T4, #33/#34/#51/#52), and
-the Android adapters (`AndroidHttpTransport` #36, espeak-ng phonemizer bundle as
-a downloadable pack #32/#50) are all live — nothing pending in this paragraph.
+The dated narrative this section used to carry (2026-08-26 → 08-28, plus the provenance
+paragraph) was the decision ledger's material duplicated — every entry cited its own
+decisions #N — so it lives in exactly one place, docs/decisions.md, which is the record of
+what changed and when. This section holds only what must not break.
