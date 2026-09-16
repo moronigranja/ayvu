@@ -8,8 +8,8 @@ import com.moronigranja.localttsreader.player.DisplayKind
 import com.moronigranja.localttsreader.player.DisplayMode
 import com.moronigranja.localttsreader.player.TranslationState
 import org.junit.Assert.assertEquals
-import org.junit.Assert.fail
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -30,7 +30,11 @@ class PageTextBuildReproTest {
     fun `page text with paragraph styles never exceeds its own length`() {
         // Realistic shapes: a long original, a long translation, a pending block.
         val original1 = ("The Svalbard seed vault was a pleasant surprise and could be a real boon for terraforming. ".repeat(4)).trimEnd()
-        val translated1 = "O armazém de sementes de Svalbard foi uma surpresa agradável e poderia ser um verdadeiro benefício ".repeat(8).trimEnd()
+        val translated1 =
+            "O armazém de sementes de Svalbard foi uma surpresa agradável e poderia ser um verdadeiro benefício "
+                .repeat(
+                    8,
+                ).trimEnd()
         val original2 = "But the most exciting item was a variant of a SURGE drive that could be used on large ships. ".repeat(3).trimEnd()
         val passages = listOf(original1, original2)
         val blocks =
@@ -41,7 +45,11 @@ class PageTextBuildReproTest {
             )
         val chapterText = ChapterDisplay.join(blocks)
         val offsets = ChapterDisplay.offsets(blocks)
-        assertEquals("chunked build must reproduce the joined text", chapterText.length, offsets.last() + ChapterDisplay.renderedLength(blocks.last()))
+        assertEquals(
+            "chunked build must reproduce the joined text",
+            chapterText.length,
+            offsets.last() + ChapterDisplay.renderedLength(blocks.last()),
+        )
 
         for (window in listOf(0 to chapterText.length, 100 to 400, chapterText.length - 40 to chapterText.length)) {
             val startChar = window.first.coerceIn(0, chapterText.length)
@@ -82,7 +90,7 @@ class PageTextBuildReproTest {
             // The crash was Compose's ParagraphStyle expansion past the text;
             // with the indent gone only character styles remain — assert the
             // bounds invariant that the paragraph styles violated.
-assertEquals("no paragraph styles on the page text", 0, pageText.paragraphStyles.size)
+            assertEquals("no paragraph styles on the page text", 0, pageText.paragraphStyles.size)
         }
     }
 

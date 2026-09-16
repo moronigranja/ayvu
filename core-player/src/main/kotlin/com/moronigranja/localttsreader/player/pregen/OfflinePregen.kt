@@ -213,7 +213,14 @@ class OfflinePregen(
                     terminal = PregenTerminal.CacheSaturated
                     false
                 } else {
-                    when (val outcome = synthesize(book.chapters[key.chapterIndex].passages[passageIndex].text, key.chapterIndex, passageIndex)) {
+                    when (
+                        val outcome =
+                            synthesize(
+                                book.chapters[key.chapterIndex].passages[passageIndex].text,
+                                key.chapterIndex,
+                                passageIndex,
+                            )
+                    ) {
                         is SynthesisOutcome.Audio -> {
                             cache.put(key, PregenAudio(outcome.pcm, outcome.sampleRateHz, outcome.segments))
                             // 16-bit mono PCM: bytes / (rate × 2) = listening seconds

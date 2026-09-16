@@ -56,9 +56,10 @@ fun LabeledDropdown(
                     contentDescription = if (expanded) "Close $label list" else "Open $label list",
                 )
             },
-            modifier = modifier
-                .fillMaxWidth()
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
@@ -75,15 +76,16 @@ fun LabeledDropdown(
                             }
                         }
                     },
-                    trailingIcon = option.trailing?.let {
-                        {
-                            Text(
-                                it,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
+                    trailingIcon =
+                        option.trailing?.let {
+                            {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
                     onClick = {
                         onSelect(option.id)
                         expanded = false

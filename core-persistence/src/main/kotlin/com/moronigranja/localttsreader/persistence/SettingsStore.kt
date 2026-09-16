@@ -169,8 +169,11 @@ class SettingsStore(
     suspend fun translateVoice(): String? = settingsDao.get(KEY_TRANSLATE_VOICE)?.takeIf { it.isNotBlank() }
 
     suspend fun setTranslateVoice(value: String?) {
-        if (value.isNullOrBlank()) settingsDao.delete(KEY_TRANSLATE_VOICE)
-        else settingsDao.put(SettingEntity(KEY_TRANSLATE_VOICE, value))
+        if (value.isNullOrBlank()) {
+            settingsDao.delete(KEY_TRANSLATE_VOICE)
+        } else {
+            settingsDao.put(SettingEntity(KEY_TRANSLATE_VOICE, value))
+        }
     }
 
     /** UI theme: system / light / dark (V1). */

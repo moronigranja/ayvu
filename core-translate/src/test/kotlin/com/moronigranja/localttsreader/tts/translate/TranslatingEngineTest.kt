@@ -103,7 +103,10 @@ class TranslatingEngineTest {
         runBlocking {
             val e = engine()
             val windows = mutableListOf<ByteArray>()
-            val outcome = e.engine.synthesizeStreaming(SynthesisRequest("Hello", "en_voice", chapterIndex = 0, passageIndex = 0)) { windows.add(it) }
+            val outcome =
+                e.engine.synthesizeStreaming(
+                    SynthesisRequest("Hello", "en_voice", chapterIndex = 0, passageIndex = 0),
+                ) { windows.add(it) }
             assertTrue(outcome is SynthesisOutcome.Audio, "was $outcome")
             assertEquals(0, e.original.requests.size)
             assertEquals("traduzido: Hello", e.target.lastRequest!!.text)
@@ -216,7 +219,9 @@ class TranslatingEngineTest {
             val e = engine(targetFactory = { FailingOnVoiceDelegate(it, "pt_voice") })
             val windows = mutableListOf<ByteArray>()
             val outcome =
-                e.engine.synthesizeStreaming(SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0)) { windows.add(it) }
+                e.engine.synthesizeStreaming(
+                    SynthesisRequest("Hello world", "en_voice", chapterIndex = 0, passageIndex = 0),
+                ) { windows.add(it) }
             assertTrue(outcome is SynthesisOutcome.Audio)
             assertEquals(1, windows.size)
             assertEquals(1, e.target.requests.size)

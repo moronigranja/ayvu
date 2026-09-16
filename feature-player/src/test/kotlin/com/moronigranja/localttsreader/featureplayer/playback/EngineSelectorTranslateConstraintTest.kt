@@ -75,7 +75,15 @@ class EngineSelectorTranslateConstraintTest {
                 .build()
         settings = AppSettings(SettingsStore(database.settingsDao()))
         translateRuntime = TranslateRuntime(context, settings)
-        selector = EngineSelector(FakeKokoroRuntime(context, settings), PiperRuntime(context, settings), translateRuntime, onUnusedSystemTts, settings, FakeTranslationService())
+        selector =
+            EngineSelector(
+                FakeKokoroRuntime(context, settings),
+                PiperRuntime(context, settings),
+                translateRuntime,
+                onUnusedSystemTts,
+                settings,
+                FakeTranslationService(),
+            )
     }
 
     @After
@@ -157,7 +165,8 @@ class EngineSelectorTranslateConstraintTest {
             assertEquals("interleaved", com.moronigranja.localttsreader.player.DisplayMode.INTERLEAVED.key)
             assertEquals(
                 com.moronigranja.localttsreader.player.DisplayMode.INTERLEAVED,
-                com.moronigranja.localttsreader.player.DisplayMode.from("interleaved"),
+                com.moronigranja.localttsreader.player.DisplayMode
+                    .from("interleaved"),
             )
             assertEquals(com.moronigranja.localttsreader.player.DisplayMode.INTERLEAVED, settings.displayMode())
             settings.setDisplayMode(com.moronigranja.localttsreader.player.DisplayMode.TRANSLATED_ONLY)

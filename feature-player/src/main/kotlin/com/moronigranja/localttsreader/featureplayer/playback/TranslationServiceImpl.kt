@@ -118,7 +118,10 @@ class TranslationServiceImpl
             target: TranslationTarget,
         ) {
             if (passages.isEmpty()) return
-            android.util.Log.d("Translate", "prefetch: $bookId/$chapter ${passages.size} passages lang=${target.lang} engineInUse=${PlaybackActive.engineInUse}")
+            android.util.Log.d(
+                "Translate",
+                "prefetch: $bookId/$chapter ${passages.size} passages lang=${target.lang} engineInUse=${PlaybackActive.engineInUse}",
+            )
             currentPrefetch = PrefetchId(bookId, chapter, target)
             scope.launch {
                 // Display work yields to playback and pregen: never start a

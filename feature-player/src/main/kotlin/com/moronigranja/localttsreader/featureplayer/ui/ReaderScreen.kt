@@ -80,10 +80,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import com.moronigranja.localttsreader.player.ChapterDisplay
-
-import com.moronigranja.localttsreader.player.DisplayBlock
-import com.moronigranja.localttsreader.player.DisplayKind
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -91,6 +87,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.moronigranja.localttsreader.player.ChapterDisplay
+import com.moronigranja.localttsreader.player.DisplayBlock
+import com.moronigranja.localttsreader.player.DisplayKind
 import com.moronigranja.localttsreader.player.PlaybackUiState
 import com.moronigranja.localttsreader.player.PlayerCommands
 import com.moronigranja.localttsreader.player.PlayerPhase
@@ -752,8 +751,9 @@ private fun PaginatedChapter(
             val old = lastGeometry
             val blocksChanged = lastBlocks != null && lastBlocks != blocks
             if (blocksChanged || (old != null && old != current)) {
-                val anchor = firstBlockOfPassage.getOrNull(anchorPassage)?.let { anchorPassage }
-                    ?: firstBlockOfPassage.getOrNull(state.passageIndex)?.let { state.passageIndex }
+                val anchor =
+                    firstBlockOfPassage.getOrNull(anchorPassage)?.let { anchorPassage }
+                        ?: firstBlockOfPassage.getOrNull(state.passageIndex)?.let { state.passageIndex }
                 val offset = anchor?.let { passageOffsets.getOrNull(firstBlockOfPassage[it]) }
                 val line =
                     offset?.let {
@@ -806,7 +806,7 @@ private fun PaginatedChapter(
             val anchor =
                 activeSpan?.first
                     ?: passageOffsets.getOrNull(firstBlockOfPassage.getOrNull(state.passageIndex) ?: return null)
-                        ?: return null
+                    ?: return null
             val line = bodyLayout.getLineForOffset(anchor.coerceAtMost(maxOf(0, chapterText.length - 1)))
             return pages.pageOf(line.coerceAtMost(maxOf(0, totalLines - 1)))
         }
@@ -865,8 +865,10 @@ private fun PaginatedChapter(
         // the reading place while the page re-paginates). The service dedupes
         // by passage, so repeated entries are cheap.
         LaunchedEffect(bookId, state.chapterIndex, page, totalPages, pages, passageStartLines) {
-            fun passagesIn(lineStart: Int, lineEnd: Int): List<Int> =
-                passageStartLines.indices.filter { passageStartLines[it] in lineStart until lineEnd }
+            fun passagesIn(
+                lineStart: Int,
+                lineEnd: Int,
+            ): List<Int> = passageStartLines.indices.filter { passageStartLines[it] in lineStart until lineEnd }
             val currentStart = pages.startLine(page)
             val currentEnd = if (page + 1 < totalPages) pages.startLine(page + 1) else totalLines
             val current =
@@ -915,7 +917,19 @@ private fun PaginatedChapter(
                 animatedPendingDots(pendingDots, length)
             }
         val pageText =
-            remember(pageSlice, startChar, endChar, activeSpan, highlightColor, pressedPassage, pressedColor, blocks, passageOffsets, mutedColor, pendingDotsText) {
+            remember(
+                pageSlice,
+                startChar,
+                endChar,
+                activeSpan,
+                highlightColor,
+                pressedPassage,
+                pressedColor,
+                blocks,
+                passageOffsets,
+                mutedColor,
+                pendingDotsText,
+            ) {
                 buildAnnotatedString {
                     // The page's text, rebuilt from the block chunks inside
                     // [startChar, endChar): non-pending content is the exact

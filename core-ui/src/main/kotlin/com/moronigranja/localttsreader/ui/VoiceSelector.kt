@@ -90,7 +90,10 @@ private const val SYSTEM_ENGINE_ID = "system-tts"
  * Fixed engine order: Kokoro (default), Piper, Device voice (system). Labels
  * and subs mirror the Settings SpeechPane's engine rows verbatim.
  */
-fun engineOptions(engineId: String, readyFor: (String) -> Boolean): List<EngineOptionUi> =
+fun engineOptions(
+    engineId: String,
+    readyFor: (String) -> Boolean,
+): List<EngineOptionUi> =
     listOf(
         EngineOptionUi(
             id = DefaultEngines.kokoro.id,

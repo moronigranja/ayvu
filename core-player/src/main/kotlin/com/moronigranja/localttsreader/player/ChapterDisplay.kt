@@ -44,7 +44,9 @@ data class DisplayBlock(
 /** A passage's per-session translation state (the reader-owned map). */
 sealed interface TranslationState {
     /** The stored translation text — the reader merged it from [TranslationReady]. */
-    data class Ready(val text: String) : TranslationState
+    data class Ready(
+        val text: String,
+    ) : TranslationState
 
     /** A decode is possible but the text has not landed yet (loading dots). */
     data object Pending : TranslationState
@@ -98,7 +100,9 @@ object ChapterDisplay {
                     blocks += DisplayBlock(i, DisplayKind.Original, passages[i])
                     if (state != null) blocks += stateBlock(i, state)
                 }
-                DisplayMode.TRANSLATED_ONLY -> blocks += state?.let { stateBlock(i, it) } ?: DisplayBlock(i, DisplayKind.Original, passages[i])
+                DisplayMode.TRANSLATED_ONLY ->
+                    blocks +=
+                        state?.let { stateBlock(i, it) } ?: DisplayBlock(i, DisplayKind.Original, passages[i])
             }
         }
         return blocks

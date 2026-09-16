@@ -66,8 +66,7 @@ object TranslateLanguages {
                 val code = langCode(meta.language)?.let(::normalize) ?: return@filter false
                 code == normalized ||
                     (normalized.count { it == '-' } == 0 && code.substringBefore('-') == normalized)
-            }
-            .map { it.name }
+            }.map { it.name }
     }
 
     /** [preferred] when it is a voice of [target], else the catalog's first — null when none matches. */

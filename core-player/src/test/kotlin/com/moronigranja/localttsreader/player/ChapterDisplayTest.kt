@@ -42,7 +42,18 @@ class ChapterDisplayTest {
 
         assertEquals(5, blocks.size, "2 passages translate -> 3 originals + 2 translations")
         assertEquals(listOf(0, 1, 1, 2, 2), blocks.map { it.passageIndex })
-        assertEquals(listOf(DisplayKind.Original, DisplayKind.Original, DisplayKind.Translation, DisplayKind.Original, DisplayKind.Translation), blocks.map { it.kind })
+        assertEquals(
+            listOf(
+                DisplayKind.Original,
+                DisplayKind.Original,
+                DisplayKind.Translation,
+                DisplayKind.Original,
+                DisplayKind.Translation,
+            ),
+            blocks.map {
+                it.kind
+            },
+        )
         assertEquals("BETA-traduzido", blocks[2].text)
         // firstBlockOfPassage names the ORIGINAL block of each passage.
         assertArrayEquals(intArrayOf(0, 1, 3), ChapterDisplay.firstBlockOfPassage(blocks, passages.size))

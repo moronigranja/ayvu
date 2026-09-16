@@ -12,10 +12,10 @@ import com.moronigranja.localttsreader.player.StoredTranslation
 import com.moronigranja.localttsreader.player.TranslationStore
 import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -50,8 +50,7 @@ class TranslationServiceImplTest {
             this.passages.addAll(passages)
         }
 
-        override suspend fun forBook(bookId: String): List<PassageEntity> =
-            passages.filter { it.bookId == bookId }
+        override suspend fun forBook(bookId: String): List<PassageEntity> = passages.filter { it.bookId == bookId }
 
         override suspend fun all(): List<PassageEntity> = passages
 

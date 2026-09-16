@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moronigranja.localttsreader.featureplayer.playback.EngineSelector
 import com.moronigranja.localttsreader.featureplayer.playback.PlaybackService
-import com.moronigranja.localttsreader.player.pregen.TranslationService
 import com.moronigranja.localttsreader.persistence.AppSettings
 import com.moronigranja.localttsreader.persistence.SettingsStore
 import com.moronigranja.localttsreader.player.AuditionUiState
@@ -19,6 +18,7 @@ import com.moronigranja.localttsreader.player.PlayerCommands
 import com.moronigranja.localttsreader.player.TranslationState
 import com.moronigranja.localttsreader.player.VoiceAudition
 import com.moronigranja.localttsreader.player.VoicePackDownloader
+import com.moronigranja.localttsreader.player.pregen.TranslationService
 import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.PackRegistry
 import com.moronigranja.localttsreader.tts.PackState
@@ -26,9 +26,9 @@ import com.moronigranja.localttsreader.tts.PackStatus
 import com.moronigranja.localttsreader.tts.kokoro.KokoroVoiceMetadata
 import com.moronigranja.localttsreader.tts.piper.PiperVoiceMetadata
 import com.moronigranja.localttsreader.tts.setup.SetupEnginePacks
+import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
 import com.moronigranja.localttsreader.tts.translate.TranslatePackStager
 import com.moronigranja.localttsreader.tts.translate.TranslatePacks
-import com.moronigranja.localttsreader.tts.translate.TranslateLanguages
 import com.moronigranja.localttsreader.ui.EngineVoiceUiState
 import com.moronigranja.localttsreader.ui.ReadInLanguageUiState
 import com.moronigranja.localttsreader.ui.VoiceRowUi
@@ -192,7 +192,10 @@ class ReaderViewModel
         /** The translation map under display: chapter-scoped so a stale map
          * can never project against a different chapter (passage indices
          * overlap across chapters). */
-        private val chapterTranslations = kotlinx.coroutines.flow.MutableStateFlow(ChapterTranslations(chapterIndex = -1, entries = emptyMap()))
+        private val chapterTranslations =
+            kotlinx.coroutines.flow.MutableStateFlow(
+                ChapterTranslations(chapterIndex = -1, entries = emptyMap()),
+            )
 
         private data class ChapterTranslations(
             val chapterIndex: Int,
@@ -306,7 +309,8 @@ class ReaderViewModel
             val entries = LinkedHashMap<Int, TranslationState>(passageCount)
             for (p in 0 until passageCount) {
                 entries[p] =
-                    translationService.cached(bookId, chapter, p, target)
+                    translationService
+                        .cached(bookId, chapter, p, target)
                         ?.let { TranslationState.Ready(it) }
                         ?: if (unavailable) TranslationState.Unavailable else TranslationState.Pending
             }

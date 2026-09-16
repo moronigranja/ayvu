@@ -168,8 +168,7 @@ class EngineSelector
 
         /** The stored target-language voice, validated against the book's
          * in-force target and the active engine's catalog; null = automatic. */
-        fun translateVoice(bookId: String): String? =
-            storedTranslateVoice(bookId) ?: translateTarget(bookId)?.let { bestVoiceFor(it) }
+        fun translateVoice(bookId: String): String? = storedTranslateVoice(bookId) ?: translateTarget(bookId)?.let { bestVoiceFor(it) }
 
         /** The voice the book's audio is CONFIGURED under — the cache-key
          * voice. The request voice (the original's, see [resolve]) never

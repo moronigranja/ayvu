@@ -235,18 +235,18 @@ class PregenWorker
                     OfflinePregen(
                         cache = pregenCache.cache,
                         synthesize = { text, chapterIndex, passageIndex ->
-                        // The render's passage identity — the read-in-language
-                        // key dimension (same artifact as the reader display).
-                        engineForBook.synthesize(
-                            SynthesisRequest(
-                                text,
-                                voice,
-                                speed,
-                                chapterIndex = chapterIndex,
-                                passageIndex = passageIndex,
-                            ),
-                        )
-                    },
+                            // The render's passage identity — the read-in-language
+                            // key dimension (same artifact as the reader display).
+                            engineForBook.synthesize(
+                                SynthesisRequest(
+                                    text,
+                                    voice,
+                                    speed,
+                                    chapterIndex = chapterIndex,
+                                    passageIndex = passageIndex,
+                                ),
+                            )
+                        },
                         target = translateLang?.let { TranslationTarget(it) },
                         // G2: yield to an engaged playback session (manual runs too).
                         shouldContinue = { !PlaybackActive.engineInUse },

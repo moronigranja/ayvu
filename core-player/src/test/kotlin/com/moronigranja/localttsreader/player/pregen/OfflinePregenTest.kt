@@ -295,10 +295,10 @@ class OfflinePregenTest {
     fun `cancellation propagates at the synthesis boundary`() =
         runTest {
             suspend fun gate(
-            text: String,
-            @Suppress("UNUSED_PARAMETER") chapterIndex: Int,
-            @Suppress("UNUSED_PARAMETER") passageIndex: Int,
-        ): SynthesisOutcome {
+                text: String,
+                @Suppress("UNUSED_PARAMETER") chapterIndex: Int,
+                @Suppress("UNUSED_PARAMETER") passageIndex: Int,
+            ): SynthesisOutcome {
                 awaitCancellation()
             }
             val blocker = OfflinePregen(cache(), ::gate)

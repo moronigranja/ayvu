@@ -82,9 +82,23 @@ class TranslationsMigrationTest {
         try {
             runBlocking {
                 // v3 data survived the migration.
-                assertEquals("Anna", migrated.bookDao().all().single().title)
+                assertEquals(
+                    "Anna",
+                    migrated
+                        .bookDao()
+                        .all()
+                        .single()
+                        .title,
+                )
                 assertEquals(1, migrated.progressDao().get("b1")?.chapterIndex)
-                assertEquals(1, migrated.bookmarkDao().all("b1").single().passageIndex)
+                assertEquals(
+                    1,
+                    migrated
+                        .bookmarkDao()
+                        .all("b1")
+                        .single()
+                        .passageIndex,
+                )
                 assertEquals(
                     90,
                     migrated

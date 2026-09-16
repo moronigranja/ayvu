@@ -49,8 +49,8 @@ import com.moronigranja.localttsreader.player.passageText
 import com.moronigranja.localttsreader.player.pregen.CoverageEncoder
 import com.moronigranja.localttsreader.player.pregen.PregenAudio
 import com.moronigranja.localttsreader.player.pregen.PregenKey
-import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.player.pregen.PregenQueue
+import com.moronigranja.localttsreader.player.pregen.TranslationTarget
 import com.moronigranja.localttsreader.tts.SegmentAnchor
 import com.moronigranja.localttsreader.tts.SynthesisOutcome
 import com.moronigranja.localttsreader.tts.SynthesisRequest

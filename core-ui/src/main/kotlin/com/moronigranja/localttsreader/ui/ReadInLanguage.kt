@@ -180,19 +180,20 @@ fun ReadInLanguagePicker(
                             AUTO_ID,
                             "Automatic (best for ${languageLabel(state.target)})",
                         ),
-                    ) + state.translateVoices.map { row ->
-                        DropdownOption(
-                            id = row.name,
-                            label = row.displayName.ifEmpty { row.name },
-                            description = "${row.language} · ${row.gender}",
-                            trailing =
-                                if (row.ready) {
-                                    "downloaded"
-                                } else {
-                                    "${formatBytes(row.bytes)} — needs download"
-                                },
-                        )
-                    },
+                    ) +
+                        state.translateVoices.map { row ->
+                            DropdownOption(
+                                id = row.name,
+                                label = row.displayName.ifEmpty { row.name },
+                                description = "${row.language} · ${row.gender}",
+                                trailing =
+                                    if (row.ready) {
+                                        "downloaded"
+                                    } else {
+                                        "${formatBytes(row.bytes)} — needs download"
+                                    },
+                            )
+                        },
                 onSelect = { id -> translateVoiceSelect(id.takeUnless { it == AUTO_ID }) },
                 modifier = Modifier.padding(bottom = AyvuSpacing.SM),
             )

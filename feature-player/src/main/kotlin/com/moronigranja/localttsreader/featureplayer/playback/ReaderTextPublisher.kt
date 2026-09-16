@@ -25,8 +25,7 @@ internal class ReaderTextPublisher {
         internal set
 
     /** The current passage's text (the read-along surface). */
-    fun passageText(position: PlayerPosition?): String =
-        position?.let { p -> book?.passageText(p.chapterIndex, p.passageIndex) } ?: ""
+    fun passageText(position: PlayerPosition?): String = position?.let { p -> book?.passageText(p.chapterIndex, p.passageIndex) } ?: ""
 
     /** The current chapter's passage texts, ORIGINAL language, index == passage
      * index — the published surface the reader's block projection consumes. */

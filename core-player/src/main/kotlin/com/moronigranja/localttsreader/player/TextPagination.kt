@@ -55,17 +55,30 @@ object TextPagination {
         keepTogether: List<IntRange>,
     ): PageLayout {
         if (totalLines <= 0) return PageLayout(intArrayOf(0))
-        val starts = ArrayList<Int>(); starts += 0
+        val starts = ArrayList<Int>()
+        starts += 0
         var line = 0
-        var cap = maxOf(1, firstPageLines)          // lines left on the current page
+        var cap = maxOf(1, firstPageLines) // lines left on the current page
         while (line < totalLines) {
-            if (cap <= 0) { starts += line; cap = fullPageLines; continue }
+            if (cap <= 0) {
+                starts += line
+                cap = fullPageLines
+                continue
+            }
             val g = keepTogether.firstOrNull { it.first == line }
             if (g != null) {
                 val len = g.last - g.first + 1
-                if (len <= cap) { line = g.last + 1; cap -= len; continue }
+                if (len <= cap) {
+                    line = g.last + 1
+                    cap -= len
+                    continue
+                }
                 val fullCapacity = if (starts.size == 1) firstPageLines else fullPageLines
-                if (cap < fullCapacity) { starts += line; cap = fullPageLines; continue }
+                if (cap < fullCapacity) {
+                    starts += line
+                    cap = fullPageLines
+                    continue
+                }
                 // the group alone exceeds a full page: fall through and split by capacity
             }
             val nextGroup = keepTogether.firstOrNull { it.first > line }?.first ?: totalLines

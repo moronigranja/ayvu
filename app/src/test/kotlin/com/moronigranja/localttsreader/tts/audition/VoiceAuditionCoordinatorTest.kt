@@ -110,18 +110,21 @@ class VoiceAuditionCoordinatorTest {
             override val translatePossible: Boolean = true
             override val ready: kotlinx.coroutines.flow.Flow<com.moronigranja.localttsreader.player.pregen.TranslationReady> =
                 kotlinx.coroutines.flow.emptyFlow()
+
             override suspend fun cached(
                 bookId: String,
                 chapter: Int,
                 passage: Int,
                 target: com.moronigranja.localttsreader.player.pregen.TranslationTarget,
             ): String? = null
+
             override suspend fun translate(
                 bookId: String,
                 chapter: Int,
                 passage: Int,
                 target: com.moronigranja.localttsreader.player.pregen.TranslationTarget,
             ): String? = null
+
             override fun prefetch(
                 bookId: String,
                 chapter: Int,
