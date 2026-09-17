@@ -1,3 +1,9 @@
+/*
+ * Ported from KindleUnpack — https://github.com/kevinhendricks/KindleUnpack
+ * (GPL-3.0). This is a Kotlin reimplementation of its NCX indexing semantics
+ * (MobiIndex/mobi_ncx), adapted to Ayvu's parser contracts; see NOTICE.md.
+ */
+
 package io.github.moronigranja.ayvu.ebook
 
 /**

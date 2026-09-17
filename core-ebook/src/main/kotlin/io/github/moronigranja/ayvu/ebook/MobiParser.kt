@@ -1,3 +1,10 @@
+/*
+ * Ported from KindleUnpack — https://github.com/kevinhendricks/KindleUnpack
+ * (GPL-3.0). This is a Kotlin reimplementation of its MOBI parsing semantics
+ * (text-record handling and trailing-data trim), adapted to Ayvu's parser
+ * contracts; see NOTICE.md.
+ */
+
 package io.github.moronigranja.ayvu.ebook
 
 import io.github.moronigranja.ayvu.ebook.ZipEntries.lookup
@@ -36,14 +43,25 @@ object MobiParser : EBookParser {
     fun parse(
         bytes: ByteArray,
         fallbackTitle: String = "Untitled",
+    ): Book = parse(bytes, fallbackTitle, ImportLimits.DEFAULT)
+
+    /**
+     * Raw-bytes parse with injectable ceilings. The app path always reads through the
+     * [EBookSource] overload (which caps the container); tests inject small limits instead of
+     * building a decompression bomb.
+     */
+    internal fun parse(
+        bytes: ByteArray,
+        fallbackTitle: String,
+        limits: ImportLimits,
     ): Book {
         val id = Bytes.sha256Hex(bytes)
         val container = MobiContainer(bytes)
         val mobiHeader = container.mobiHeader()
         if (mobiHeader != null && isKf8Type(mobiHeader)) {
-            return parseKf8(id, container, mobiHeader, fallbackTitle)
+            return parseKf8(id, container, mobiHeader, fallbackTitle, limits)
         }
-        return parseMobi7(id, container, mobiHeader, fallbackTitle)
+        return parseMobi7(id, container, mobiHeader, fallbackTitle, limits)
     }
 
     private fun isKf8Type(mobiHeader: ByteArray): Boolean =
@@ -58,12 +76,13 @@ object MobiParser : EBookParser {
         container: MobiContainer,
         mobiHeader: ByteArray,
         fallbackTitle: String,
+        limits: ImportLimits,
     ): Book {
         if (container.compression == 2) {
             throw EBookParseException("KF8 with PalmDOC compression is invalid")
         }
         val huff = if (container.compression == MobiContainer.HUFF_CDIC) loadHuffCdic(container) else null
-        val zipBytes = readTextRecords(container, huff)
+        val zipBytes = readTextRecords(container, huff, limits)
         val entries = ZipEntries.readUntilBroken(zipBytes)
         val opfPath =
             entries.keys.firstOrNull { it.lowercase().endsWith(".opf") }
@@ -80,9 +99,10 @@ object MobiParser : EBookParser {
         container: MobiContainer,
         mobiHeader: ByteArray?,
         fallbackTitle: String,
+        limits: ImportLimits,
     ): Book {
         val huff = if (container.compression == MobiContainer.HUFF_CDIC) loadHuffCdic(container) else null
-        val rawMl = readTextRecords(container, huff)
+        val rawMl = readTextRecords(container, huff, limits)
         val charset =
             if (mobiHeader != null && mobiHeader.size >= 0x20 && Bytes.u32(mobiHeader, 0x1C) == 65001L) {
                 Charsets.UTF_8
@@ -221,21 +241,32 @@ object MobiParser : EBookParser {
         return reader
     }
 
+    /**
+     * The book's decompressed text: every text record is expanded through [limits], with the
+     * per-record ceiling AND the cumulative one over the whole book, so one crafted record — or a
+     * long run of them — raises [EBookLimitExceededException] instead of filling the heap.
+     */
     private fun readTextRecords(
         container: MobiContainer,
         huff: HuffCdicDecoder?,
+        limits: ImportLimits,
     ): ByteArray {
         val out = ByteArrayOutputStream()
         val mobiHeader = container.mobiHeader()
         val trim = trailingTrimSetup(mobiHeader)
+        var expanded = 0L
         for (i in 0 until container.textRecords) {
             val record = container.records.getOrNull(1 + i) ?: break
-            var data = trim?.let { trimTrailingDataEntries(record, it.first, it.second) } ?: record
-            when (container.compression) {
-                1 -> out.write(data)
-                2 -> out.write(Palmdoc.unpack(data))
-                MobiContainer.HUFF_CDIC -> out.write(huff!!.unpack(data))
-            }
+            val data = trim?.let { trimTrailingDataEntries(record, it.first, it.second) } ?: record
+            val decoded =
+                when (container.compression) {
+                    1 -> data
+                    2 -> Palmdoc.unpack(data, expanded, limits)
+                    // HUFF_CDIC — [MobiContainer] admits no other compression.
+                    else -> huff!!.unpack(data, expanded, limits)
+                }
+            expanded += decoded.size
+            out.write(decoded)
         }
         return out.toByteArray()
     }

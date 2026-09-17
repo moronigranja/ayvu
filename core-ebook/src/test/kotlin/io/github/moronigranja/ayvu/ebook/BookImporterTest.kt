@@ -213,6 +213,33 @@ class BookImporterTest {
         }
     }
 
+    @Test
+    fun `an out of memory after the parse fails that file, not the process`() {
+        // The parse itself succeeds: the SECOND open — the E1 source-bytes/cover capture that runs
+        // after segmentation — is where the heap runs out, outside the parse-only block that used
+        // to be guarded, so the Error escaped the importer and killed the app.
+        var opens = 0
+        val starved =
+            EBookSource("Novel.epub") {
+                if (opens++ == 0) ByteArrayInputStream(epubBook("Novel", "Chapter 1", "Prose here.")) else StarvedStream()
+            }
+
+        val outcome = importer().import(starved)
+
+        val failed = assertInstanceOf(ImportOutcome.Failed::class.java, outcome)
+        val reason = assertInstanceOf(ImportFailureReason.ParseError::class.java, failed.reason)
+        assertEquals("not enough memory to read this book", reason.message)
+
+        // The Error was contained inside the one file: the next import still runs.
+        val next = importer().import(source("Novel.epub", epubBook("Novel", "Chapter 1", "Prose here.")))
+        assertInstanceOf(ImportOutcome.Added::class.java, next)
+    }
+
+    @Test
+    fun `an out of memory while hashing a source yields no id, not a crash`() {
+        assertNull(importer().sourceId(EBookSource("Book.epub") { StarvedStream() }))
+    }
+
     /** Heap exhaustion raised where a real one lands: inside a file's read/parse. */
     private class StarvedStream : ByteArrayInputStream(ByteArray(0)) {
         override fun read(): Int = throw OutOfMemoryError("simulated heap exhaustion")

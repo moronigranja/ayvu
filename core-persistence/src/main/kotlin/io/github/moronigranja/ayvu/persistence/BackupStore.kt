@@ -20,7 +20,8 @@ import io.github.moronigranja.ayvu.backup.BackupTranslation
  * - bookmarks/history: idempotent append (a second restore adds no rows);
  * - passages: only written for books whose cache is missing (existing cached
  *   parses are never clobbered, never re-parsed);
- * - book files: opt-in copy, written back verbatim.
+ * - book files: opt-in copy, written back verbatim, only for a stem that matches a
+ *   restored book id.
  *
  * [bookFileStore] is nullable so pure-JVM tests can exercise the merge
  * without the sidecar tier.
@@ -127,9 +128,16 @@ class BackupStore(
             // on that PK, so the settings precedence falls out of the DAO.
             snapshot.translations.forEach { database.translationDao().put(it.toEntity()) }
 
-            // 7. Book files — opt-in sidecar copy.
+            // 7. Book files — opt-in sidecar copy, restricted to books this archive
+            // actually restores: a name whose stem is not a restored id is dropped
+            // (the codec already refuses a traversal name and the store refuses one
+            // that resolves outside `files/books`; this is the layer that keeps a
+            // sidecar and a library row in step).
             bookFileStore?.let { store ->
-                snapshot.bookFiles.forEach { (name, bytes) -> store.save(name, bytes) }
+                val restoredIds = snapshot.library.map { it.id }.toSet()
+                snapshot.bookFiles.forEach { (name, bytes) ->
+                    if (name.substringBeforeLast('.') in restoredIds) store.save(name, bytes)
+                }
             }
 
             BackupMergeResult(

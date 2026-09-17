@@ -1,13 +1,16 @@
 package io.github.moronigranja.ayvu.persistence
 
 import androidx.room.Room
+import io.github.moronigranja.ayvu.backup.BackupBook
 import io.github.moronigranja.ayvu.backup.BackupCodec
 import io.github.moronigranja.ayvu.backup.BackupHistory
+import io.github.moronigranja.ayvu.backup.BackupReadError
 import io.github.moronigranja.ayvu.backup.BackupReadResult
 import io.github.moronigranja.ayvu.backup.BackupSnapshot
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -15,7 +18,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.io.path.createTempDirectory
 
 /**
@@ -354,6 +360,75 @@ class BackupStoreTest {
         }
 
     @Test
+    fun `merge writes only the sidecars whose stem is a restored book id`() =
+        runTest {
+            val libraryRoot = createTempDirectory("backup-store-filter").toFile()
+            try {
+                val files = BookFileStore(File(libraryRoot, "books"))
+                val snapshot =
+                    BackupSnapshot(
+                        version = BackupCodec.BACKUP_VERSION,
+                        appVersion = "0.1.0",
+                        exportedAtEpochMillis = FIXED_NOW,
+                        settings = emptyMap(),
+                        library = listOf(BackupBook("b1", "B", emptyList(), 1_000L)),
+                        passages = emptyList(),
+                        progress = emptyList(),
+                        bookmarks = emptyList(),
+                        positionHistory = emptyList(),
+                        // A hostile name (it would land outside the store root) and a sidecar
+                        // for a book the archive does not restore: neither is written.
+                        bookFiles =
+                            mapOf(
+                                "b1.epub" to EPUB_BYTES,
+                                "b9.epub" to EPUB_BYTES,
+                                "../escape.txt" to "pwned".toByteArray(),
+                            ),
+                    )
+
+                BackupStore(database, "0.1.0", files, now = { FIXED_NOW }).merge(snapshot)
+
+                assertEquals(listOf("books"), libraryRoot.listFiles()!!.map { it.name })
+                assertEquals(setOf("b1.epub"), files.all().keys)
+            } finally {
+                libraryRoot.deleteRecursively()
+            }
+        }
+
+    @Test
+    fun `an archive whose book entry escapes the sidecar root is refused typed`() =
+        runTest {
+            // The end-to-end shape of the zip-slip attempt: the codec is the first of the
+            // three layers, and a refused archive is never handed to a merge at all.
+            val sidecarParent = createTempDirectory("backup-store-slip").toFile()
+            try {
+                val archive =
+                    zipOf(
+                        "manifest.json" to """{"version":1,"appVersion":"0.1.0","exportedAtEpochMillis":1}""",
+                        "settings.json" to "{}",
+                        "library.json" to """[{"id":"b1","title":"T","authors":[],"importedAtEpochMillis":1}]""",
+                        "passages.json" to "[]",
+                        "progress.json" to "[]",
+                        "bookmarks.json" to "[]",
+                        "position_history.json" to "[]",
+                        "books/../escape.txt" to "pwned",
+                    )
+
+                val read = BackupCodec.read(archive)
+
+                assertTrue("expected Error, got $read", read is BackupReadResult.Error)
+                assertEquals(
+                    BackupReadError.UnsafeBookFile("books/../escape.txt"),
+                    (read as BackupReadResult.Error).reason,
+                )
+                assertFalse(File(sidecarParent, "escape.txt").exists())
+                assertTrue(sidecarParent.listFiles()!!.isEmpty())
+            } finally {
+                sidecarParent.deleteRecursively()
+            }
+        }
+
+    @Test
     fun `deleteForBook removes every sidecar of the book`() {
         val target = BookFileStore(bookFiles)
         target.save("b1.epub", EPUB_BYTES)
@@ -365,6 +440,19 @@ class BackupStoreTest {
         val remaining = target.all()
         assertEquals(setOf("b2.epub"), remaining.keys)
         assertTrue(remaining["b2.epub"]!!.contentEquals(EPUB_BYTES))
+    }
+
+    /** A hand-built archive: the hostile-archive cases cannot be produced by the codec. */
+    private fun zipOf(vararg entries: Pair<String, String>): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            entries.forEach { (name, content) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(content.toByteArray())
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
     }
 
     companion object {

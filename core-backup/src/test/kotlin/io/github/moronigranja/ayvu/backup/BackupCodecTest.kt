@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -234,6 +237,234 @@ class BackupCodecTest {
             ),
             "book bytes must round-trip verbatim",
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Hostile archives: zip slip, duplicate entries, ceilings
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `a book file name that is not a single safe path segment is refused`() {
+        listOf(
+            "books/../escape.txt",
+            "books/../../databases/ayvu.db",
+            "books/sub/b1.epub",
+            "books/..\\escape.txt",
+            "books/.hidden",
+            "books/..",
+            "books/a b.epub",
+        ).forEach { entry ->
+            val result = BackupCodec.read(zipBytes(validSections() + (entry to "pwned".toByteArray())))
+
+            assertTrue(result is BackupReadResult.Error, "$entry must fail the read")
+            assertEquals(BackupReadError.UnsafeBookFile(entry), (result as BackupReadResult.Error).reason)
+        }
+    }
+
+    @Test
+    fun `a book file name at the safe edge still reads`() {
+        val result = BackupCodec.read(zipBytes(validSections() + ("books/b1.a-b_c.D.EPUB" to "bytes".toByteArray())))
+
+        assertTrue(result is BackupReadResult.Ok, "expected Ok, got $result")
+        assertEquals(
+            setOf("b1.a-b_c.D.EPUB"),
+            (result as BackupReadResult.Ok).snapshot.bookFiles.keys,
+        )
+    }
+
+    @Test
+    fun `a duplicate entry name is refused instead of silently keeping the last`() {
+        val result = BackupCodec.read(zipWithDuplicate("settings.json"))
+
+        assertTrue(result is BackupReadResult.Error, "expected Error, got $result")
+        assertEquals(BackupReadError.DuplicateEntry("settings.json"), (result as BackupReadResult.Error).reason)
+    }
+
+    @Test
+    fun `an archive over the entry-count ceiling is refused`() {
+        val sections = validSections()
+        val archive = zipBytes(sections)
+
+        // Exactly at the ceiling is a legitimate archive…
+        assertTrue(BackupCodec.read(archive, BackupLimits(maxEntryCount = sections.size)) is BackupReadResult.Ok)
+        // …one entry more is not.
+        val result = BackupCodec.read(archive, BackupLimits(maxEntryCount = sections.size - 1))
+
+        assertEquals(BackupReadError.TooManyEntries(sections.size - 1), (result as BackupReadResult.Error).reason)
+    }
+
+    @Test
+    fun `an archive over the byte ceiling is refused`() {
+        val archive = zipBytes(validSections())
+
+        assertTrue(BackupCodec.read(archive, BackupLimits(maxArchiveBytes = archive.size)) is BackupReadResult.Ok)
+        val result = BackupCodec.read(archive, BackupLimits(maxArchiveBytes = archive.size - 1))
+
+        assertEquals(BackupReadError.ArchiveTooLarge(archive.size - 1), (result as BackupReadResult.Error).reason)
+    }
+
+    @Test
+    fun `an archive stream over the byte ceiling stops at the ceiling`() {
+        val limits = BackupLimits(maxArchiveBytes = 1024 * 1024)
+        // A stream with no trustworthy length (available() lies): only the bytes it
+        // actually hands over count — and a restore must not drain a huge file to find out.
+        val stream = CountingStream(ByteArray(8 * limits.maxArchiveBytes) { 'x'.code.toByte() })
+
+        val result = BackupCodec.read(stream, limits)
+
+        assertEquals(BackupReadError.ArchiveTooLarge(limits.maxArchiveBytes), (result as BackupReadResult.Error).reason)
+        assertTrue(
+            stream.consumed <= limits.maxArchiveBytes + IO_BUFFER_BYTES,
+            "the read must stop at the ceiling, not drain the stream (read ${stream.consumed} bytes)",
+        )
+    }
+
+    @Test
+    fun `an entry that inflates past the per-entry ceiling is refused while it inflates`() {
+        // A 1 GiB bomb in a few MB of archive: buffered whole it could not fit the test
+        // heap at all, so reaching the typed failure proves the ceiling is applied AS the
+        // entry streams in (never after it has been materialised).
+        val archive = zipBomb(1024L * 1024 * 1024)
+
+        val result = BackupCodec.read(archive, BackupLimits(maxEntryBytes = 1024 * 1024))
+
+        assertEquals(
+            BackupReadError.EntryTooLarge("books/big.bin", 1024 * 1024),
+            (result as BackupReadResult.Error).reason,
+        )
+    }
+
+    @Test
+    fun `entries together inflating past the cumulative ceiling are refused`() {
+        val limits = BackupLimits(maxTotalExpandedBytes = 3L * 1024 * 1024, maxEntryBytes = 2 * 1024 * 1024)
+
+        // 1 MB + 1 MB: neither entry breaks its own ceiling, together they stay inside.
+        val within = zipBytes(validSections() + listOf("books/a.bin" to zeros(1), "books/b.bin" to zeros(1)))
+        assertTrue(BackupCodec.read(within, limits) is BackupReadResult.Ok, "inside the ceiling must read")
+
+        // + 2 MB: still no single entry over its ceiling, the total is.
+        val over =
+            zipBytes(
+                validSections() + listOf("books/a.bin" to zeros(1), "books/b.bin" to zeros(1), "books/c.bin" to zeros(2)),
+            )
+        val result = BackupCodec.read(over, limits)
+
+        assertEquals(BackupReadError.ExpandedTooLarge(limits.maxTotalExpandedBytes), (result as BackupReadResult.Error).reason)
+    }
+
+    @Test
+    fun `a manifest padded past its ceiling is refused`() {
+        val padded = """{"version":1,"appVersion":"0.1.0","exportedAtEpochMillis":1,"pad":"${"x".repeat(4096)}"}"""
+        val archive =
+            zipBytes(
+                validSections().map { (name, content) ->
+                    name to (if (name == "manifest.json") padded.toByteArray() else content)
+                },
+            )
+
+        // At the ceiling the padded manifest still parses (unknown keys are ignored)…
+        assertTrue(
+            BackupCodec.read(archive, BackupLimits(maxManifestBytes = padded.toByteArray().size)) is BackupReadResult.Ok,
+        )
+        // …past it the read refuses before the string is materialised.
+        val result = BackupCodec.read(archive, BackupLimits(maxManifestBytes = 256))
+
+        assertEquals(BackupReadError.ManifestTooLarge(256), (result as BackupReadResult.Error).reason)
+    }
+
+    // ------------------------------------------------------------------
+    // Hostile-archive helpers
+    // ------------------------------------------------------------------
+
+    /** The seven mandatory sections, minimal but valid — the base every hostile case extends. */
+    private fun validSections(): List<Pair<String, ByteArray>> =
+        listOf(
+            "manifest.json" to """{"version":1,"appVersion":"0.1.0","exportedAtEpochMillis":1}""".toByteArray(),
+            "settings.json" to """{"voice":"af_heart"}""".toByteArray(),
+            "library.json" to """[{"id":"b1","title":"T","authors":[],"importedAtEpochMillis":1}]""".toByteArray(),
+            "passages.json" to "[]".toByteArray(),
+            "progress.json" to "[]".toByteArray(),
+            "bookmarks.json" to "[]".toByteArray(),
+            "position_history.json" to "[]".toByteArray(),
+        )
+
+    private fun zipBytes(entries: List<Pair<String, ByteArray>>): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            entries.forEach { (name, content) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(content)
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
+    }
+
+    private fun zeros(megabytes: Int): ByteArray = ByteArray(megabytes * 1024 * 1024)
+
+    /**
+     * A valid archive plus one entry that inflates to [size] zeros, deflated in chunks so
+     * the TEST never allocates the expansion either: a few MB of archive, [size] bytes of
+     * contents.
+     */
+    private fun zipBomb(size: Long): ByteArray {
+        val chunk = ByteArray(64 * 1024)
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.setLevel(Deflater.BEST_SPEED)
+            validSections().forEach { (name, content) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(content)
+                zip.closeEntry()
+            }
+            zip.putNextEntry(ZipEntry("books/big.bin"))
+            var written = 0L
+            while (written < size) {
+                val n = minOf(chunk.size.toLong(), size - written).toInt()
+                zip.write(chunk, 0, n)
+                written += n
+            }
+            zip.closeEntry()
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * A zip carrying [name] twice. [ZipOutputStream] refuses to write a duplicate, so a decoy
+     * name of the same length is patched in afterwards: entry names appear verbatim in both the
+     * local header and the central directory, and ISO-8859-1 maps bytes to chars 1:1.
+     */
+    private fun zipWithDuplicate(name: String): ByteArray {
+        val decoy = "duplicate.txt" // same length as "settings.json"
+        check(decoy.length == name.length) { "the decoy must be the same length as $name" }
+        val bytes = zipBytes(validSections() + (decoy to "{}".toByteArray()))
+        val glued = String(bytes, Charsets.ISO_8859_1)
+        var at = glued.indexOf(decoy)
+        check(at > 0) { "the decoy entry name must be findable in the archive" }
+        while (at >= 0) {
+            name.toByteArray().copyInto(bytes, at)
+            at = glued.indexOf(decoy, at + 1)
+        }
+        return bytes
+    }
+
+    /** An archive source with no trustworthy length: it reports what was actually read. */
+    private class CountingStream(
+        bytes: ByteArray,
+    ) : InputStream() {
+        private val delegate = ByteArrayInputStream(bytes)
+        var consumed = 0
+            private set
+
+        override fun read(): Int = delegate.read().also { if (it >= 0) consumed++ }
+
+        override fun read(
+            b: ByteArray,
+            off: Int,
+            len: Int,
+        ): Int = delegate.read(b, off, len).also { if (it > 0) consumed += it }
+
+        override fun available(): Int = 0
     }
 
     private fun zipOf(vararg entries: Pair<String, String>): ByteArray {

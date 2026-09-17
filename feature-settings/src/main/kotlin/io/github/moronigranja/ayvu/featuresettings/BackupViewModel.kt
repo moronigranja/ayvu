@@ -16,6 +16,7 @@ import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.BackupMergeResult
 import io.github.moronigranja.ayvu.persistence.BackupStore
 import io.github.moronigranja.ayvu.player.IoDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,7 +71,7 @@ class BackupViewModel
             viewModelScope.launch {
                 val result =
                     withContext(ioDispatcher) {
-                        runCatching {
+                        attempt {
                             val snapshot = backupStore.snapshot(includeBooks)
                             val bytes = BackupCodec.write(snapshot)
                             context.contentResolver.openOutputStream(destination)?.use { it.write(bytes) }
@@ -93,18 +94,21 @@ class BackupViewModel
 
         /** Restores [source] into the local database with merge precedence:
          * local progress wins, restored settings overwrite matching keys, and
-         * bookmarks/history merge idempotently. After the merge the settings
+         * bookmarks/history merge idempotently. The archive is streamed in under
+         * [BackupCodec]'s ceiling (a stream length is not trusted — only the bytes
+         * actually delivered), and a typed read failure is surfaced as such; an
+         * `Error` from a bomb never escapes to the UI. After the merge the settings
          * mirror and the search index are resynced (no relaunch needed). */
         fun restore(source: Uri) {
             _state.value = BackupUiState.Restoring
             viewModelScope.launch {
                 val result =
                     withContext(ioDispatcher) {
-                        runCatching {
-                            val bytes =
-                                context.contentResolver.openInputStream(source)?.use { it.readBytes() }
+                        attempt {
+                            val r =
+                                context.contentResolver.openInputStream(source)?.use { BackupCodec.read(it) }
                                     ?: error("cannot open input stream")
-                            when (val r = BackupCodec.read(bytes)) {
+                            when (r) {
                                 is BackupReadResult.Ok -> {
                                     val merged = backupStore.merge(r.snapshot)
                                     appSettings.reload()
@@ -132,6 +136,21 @@ class BackupViewModel
             _state.value = BackupUiState.Idle
         }
 
+        /**
+         * Runs [block] and turns EVERY failure into a `Result` failure, `Error` included:
+         * [BackupCodec] reports a zip bomb's `OutOfMemoryError` as a typed failure, and one
+         * raised anywhere else on this path must not take the app down either. Cancellation
+         * is not a failure — it propagates untouched.
+         */
+        private suspend fun <T> attempt(block: suspend () -> T): Result<T> =
+            try {
+                Result.success(block())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Result.failure(e)
+            }
+
         private fun summary(merged: BackupMergeResult) =
             BackupUiState.Finished(
                 "Restored ${merged.booksAdded} books, ${merged.bookmarksAdded} bookmarks, " +
@@ -145,5 +164,13 @@ class BackupViewModel
                 is BackupReadError.MissingSection -> "archive is missing sections: ${reason.sections.joinToString()}"
                 is BackupReadError.MalformedSection -> "corrupt archive (${reason.section})"
                 is BackupReadError.UnsupportedVersion -> "unsupported archive version ${reason.version}"
+                is BackupReadError.ArchiveTooLarge -> "backup file is too large"
+                is BackupReadError.TooManyEntries -> "archive has too many entries"
+                is BackupReadError.EntryTooLarge -> "archive entry is too large (${reason.name})"
+                is BackupReadError.ExpandedTooLarge -> "archive expands too far"
+                is BackupReadError.ManifestTooLarge -> "corrupt archive (manifest)"
+                is BackupReadError.DuplicateEntry -> "corrupt archive (duplicate entry ${reason.name})"
+                is BackupReadError.UnsafeBookFile -> "archive has an unsafe book file name"
+                is BackupReadError.OutOfMemory -> "backup file is too large to open"
             }
     }

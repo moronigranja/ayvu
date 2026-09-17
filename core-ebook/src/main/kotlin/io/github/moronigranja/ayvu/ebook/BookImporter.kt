@@ -15,7 +15,10 @@ import io.github.moronigranja.ayvu.model.LibraryEntry
  * whether parsing is necessary at all.
  *
  * Every failure maps to a typed [ImportOutcome.Failed] with a user-facing
- * reason; the pipeline never throws for bad input.
+ * reason; the pipeline never throws for bad input. The guarded block covers
+ * the WHOLE per-file pipeline — parse → segment → source-bytes capture →
+ * cover — because an [OutOfMemoryError] is an `Error`: contained per file it
+ * fails one book, uncontained it kills the process.
  */
 class BookImporter(
     private val now: () -> Long = System::currentTimeMillis,
@@ -33,6 +36,10 @@ class BookImporter(
             Bytes.sha256Hex(source.readCapped())
         } catch (e: EBookLimitExceededException) {
             throw e
+        } catch (e: OutOfMemoryError) {
+            // An OOM is an Error, so `catch (Exception)` misses it: the source simply has no id and
+            // the coordinator fails THIS file (Unreadable) instead of the process dying.
+            null
         } catch (e: Exception) {
             null
         }
@@ -44,36 +51,37 @@ class BookImporter(
             EBookFormats.parserFor(source.fileName)
                 ?: return ImportOutcome.Failed(source.fileName, ImportFailureReason.UnsupportedFormat)
 
-        val book =
-            try {
-                parser.parse(source) // EBookSource.open() is a factory: a fresh stream per call
-            } catch (e: EBookParseException) {
-                return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError(e.message ?: "parse failed"))
-            } catch (e: OutOfMemoryError) {
-                // An OOM is an Error: one file's parse must fail that file, never the process.
-                return ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError("not enough memory to read this book"))
-            } catch (e: Exception) {
-                // Stream/open failures land here (the pre-import bytes read is gone; the coordinator owns id/lookup).
-                return ImportOutcome.Failed(source.fileName, ImportFailureReason.Unreadable)
-            }
-
-        val segmented = BookSegmentation.segment(book) // index/segmentation contract (C4)
-        // E1: ONE capped read reused for the cover + source-bytes capture; a source that cannot be re-read has no sidecar.
-        val raw =
-            try {
-                source.readCapped()
-            } catch (e: Exception) {
-                null
-            }
-        val cover =
-            raw?.let { bytes ->
+        // The WHOLE per-file pipeline is one guarded block — parse, segment, source-bytes capture and
+        // cover — so an OutOfMemoryError anywhere in it fails this one file instead of killing the app.
+        // Nothing before the return mutates state, so bailing out at any stage leaks nothing.
+        return try {
+            val book = parser.parse(source) // EBookSource.open() is a factory: a fresh stream per call
+            val segmented = BookSegmentation.segment(book) // index/segmentation contract (C4)
+            // E1: ONE capped read reused for the cover + source-bytes capture; a source that cannot be re-read has no sidecar.
+            val raw =
                 try {
-                    parser.coverOf(bytes)
+                    source.readCapped()
                 } catch (e: Exception) {
                     null
                 }
-            }
-        return ImportOutcome.Added(LibraryEntry(segmented, now()), cover, raw, source.fileName)
+            val cover =
+                raw?.let { bytes ->
+                    try {
+                        parser.coverOf(bytes)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            ImportOutcome.Added(LibraryEntry(segmented, now()), cover, raw, source.fileName)
+        } catch (e: EBookParseException) {
+            ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError(e.message ?: "parse failed"))
+        } catch (e: OutOfMemoryError) {
+            // An OOM is an Error: one file's parse must fail that file, never the process.
+            ImportOutcome.Failed(source.fileName, ImportFailureReason.ParseError("not enough memory to read this book"))
+        } catch (e: Exception) {
+            // Stream/open failures land here (the pre-import bytes read is gone; the coordinator owns id/lookup).
+            ImportOutcome.Failed(source.fileName, ImportFailureReason.Unreadable)
+        }
     }
 }
 

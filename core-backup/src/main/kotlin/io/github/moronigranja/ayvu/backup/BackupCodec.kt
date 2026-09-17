@@ -12,6 +12,7 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -32,13 +33,21 @@ import java.util.zip.ZipOutputStream
  * bookmarks.json        [ { bookId, chapterIndex, passageIndex, offsetSeconds, label, createdAtEpochMillis } ]
  * position_history.json [ { bookId, chapterIndex, passageIndex, offsetSeconds, createdAtEpochMillis } ]
  * translations.json     optional: [ { bookId, chapterIndex, passageIndex, lang, translator, text, createdAtEpochMillis } ]
- * books/                optional: <bookId>.<ext> only when book files were included
+ * books/<name>          optional: <bookId>.<ext> only when book files were included
  * ```
  *
  * Reading validates [BACKUP_VERSION] FIRST — an unknown/future version fails
  * with [BackupReadError.UnsupportedVersion] before any section is parsed, so
  * a newer archive can never partially apply. Unknown extra keys inside a
  * section object are ignored (forward-tolerant within a version).
+ *
+ * Reading is hardened for untrusted input (an archive is a file the user picked): the
+ * archive's own size, its entry count, each entry's size, the cumulative inflation and the
+ * manifest each have a ceiling enforced WHILE inflating — [BackupLimits], local to this pure
+ * JVM module — duplicate entry names are refused instead of silently keeping the last, a
+ * `books/` name must be ONE safe path segment (a `books/../../databases/ayvu.db` entry is a
+ * zip-slip attempt, refused as [BackupReadError.UnsafeBookFile]), and an `OutOfMemoryError`
+ * from a bomb is reported as [BackupReadError.OutOfMemory], never left to crash the process.
  */
 object BackupCodec {
     const val BACKUP_VERSION = 1
@@ -58,6 +67,9 @@ object BackupCodec {
     private const val HISTORY = "position_history.json"
     private const val TRANSLATIONS = "translations.json"
     private const val BOOKS_DIR = "books/"
+
+    /** A book-file name is one path segment — no separator, no traversal, no leading dot. */
+    private val BOOK_FILE_NAME = Regex("[A-Za-z0-9._-]+")
 
     private val REQUIRED_SECTIONS = setOf(MANIFEST, SETTINGS, LIBRARY, PASSAGES, PROGRESS, BOOKMARKS, HISTORY)
 
@@ -193,79 +205,116 @@ object BackupCodec {
     // Read
     // ------------------------------------------------------------------
 
-    fun read(bytes: ByteArray): BackupReadResult =
+    fun read(bytes: ByteArray): BackupReadResult = attempt { readArchive(bytes, BackupLimits.DEFAULT) }
+
+    /**
+     * Reads the archive straight off [input] (the SAF source), capped as it fills — the
+     * stream is NOT closed here; the caller owns it. This is the restore path's way in:
+     * a `ContentResolver` length is never trusted, only the bytes actually delivered.
+     */
+    fun read(input: InputStream): BackupReadResult = attempt { readArchive(input.readCapped(), BackupLimits.DEFAULT) }
+
+    internal fun read(
+        bytes: ByteArray,
+        limits: BackupLimits,
+    ): BackupReadResult = attempt { readArchive(bytes, limits) }
+
+    internal fun read(
+        input: InputStream,
+        limits: BackupLimits,
+    ): BackupReadResult = attempt { readArchive(input.readCapped(limits), limits) }
+
+    /**
+     * Every read failure, typed: a [BackupReadError] as-is, an [OutOfMemoryError] (a zip
+     * bomb) as [BackupReadError.OutOfMemory] — an `Error` must never reach the UI or the
+     * process — and anything else as [BackupReadError.NotAZip].
+     */
+    private fun attempt(block: () -> BackupReadResult): BackupReadResult =
         try {
-            val entries = readEntries(bytes)
-            val present = entries.keys
-
-            val missing = REQUIRED_SECTIONS - present
-            if (missing.isNotEmpty()) {
-                return BackupReadResult.Error(BackupReadError.MissingSection(missing))
-            }
-
-            val manifest = parseObject(parseSection(entries, MANIFEST), MANIFEST)
-            val version =
-                manifest["version"]?.jsonPrimitive?.int
-                    ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'version'"))
-            if (version != BACKUP_VERSION) {
-                return BackupReadResult.Error(BackupReadError.UnsupportedVersion(version))
-            }
-            val appVersion =
-                manifest["appVersion"]?.jsonPrimitive?.contentOrNull()
-                    ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'appVersion'"))
-            val exportedAt =
-                manifest["exportedAtEpochMillis"]?.jsonPrimitive?.content?.toLongOrNull()
-                    ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'exportedAtEpochMillis'"))
-
-            val settings =
-                parseObject(parseSection(entries, SETTINGS), SETTINGS)
-                    .mapNotNull { (k, v) ->
-                        if (v is JsonNull) {
-                            null
-                        } else {
-                            (v as? JsonPrimitive)?.content?.let { k to it }
-                                ?: throw BackupReadError.MalformedSection(SETTINGS, "value not a JSON primitive")
-                        }
-                    }.toMap()
-            val library = parseArray(parseSection(entries, LIBRARY), LIBRARY).map { parseBook(it, LIBRARY) }
-            val passages = parseArray(parseSection(entries, PASSAGES), PASSAGES).map { parsePassage(it, PASSAGES) }
-            val progress = parseArray(parseSection(entries, PROGRESS), PROGRESS).map { parseProgress(it, PROGRESS) }
-            val bookmarks = parseArray(parseSection(entries, BOOKMARKS), BOOKMARKS).map { parseBookmark(it, BOOKMARKS) }
-            val history = parseArray(parseSection(entries, HISTORY), HISTORY).map { parseHistory(it, HISTORY) }
-            // translations is an OPTIONAL section: a v1 archive (7 required
-            // sections, no translations.json) restores cleanly with none.
-            val translations =
-                entries[TRANSLATIONS]
-                    ?.let { parseArray(parseSection(entries, TRANSLATIONS), TRANSLATIONS).map { parseTranslation(it, TRANSLATIONS) } }
-                    ?: emptyList()
-            // book files are OPAQUE bytes — never JSON-parsed; only the books/ prefix
-            // marks them, so a binary body cannot be misread as a section.
-            val bookFiles =
-                entries
-                    .filterKeys { it.startsWith(BOOKS_DIR) }
-                    .mapKeys { it.key.removePrefix(BOOKS_DIR) }
-                    .filterKeys { it.isNotBlank() }
-
-            BackupReadResult.Ok(
-                BackupSnapshot(
-                    version = version,
-                    appVersion = appVersion,
-                    exportedAtEpochMillis = exportedAt,
-                    settings = settings,
-                    library = library,
-                    passages = passages,
-                    progress = progress,
-                    bookmarks = bookmarks,
-                    positionHistory = history,
-                    translations = translations,
-                    bookFiles = bookFiles,
-                ),
-            )
+            block()
         } catch (e: BackupReadError) {
             BackupReadResult.Error(e)
+        } catch (e: OutOfMemoryError) {
+            BackupReadResult.Error(BackupReadError.OutOfMemory)
         } catch (e: Exception) {
             BackupReadResult.Error(BackupReadError.NotAZip(e))
         }
+
+    private fun readArchive(
+        bytes: ByteArray,
+        limits: BackupLimits,
+    ): BackupReadResult {
+        if (bytes.size > limits.maxArchiveBytes) {
+            throw BackupReadError.ArchiveTooLarge(limits.maxArchiveBytes)
+        }
+        val entries = readEntries(bytes, limits)
+        val present = entries.keys
+
+        val missing = REQUIRED_SECTIONS - present
+        if (missing.isNotEmpty()) {
+            return BackupReadResult.Error(BackupReadError.MissingSection(missing))
+        }
+        // The manifest is parsed first and is three fields: refuse a padded one before
+        // its string is ever materialised.
+        if (entries.getValue(MANIFEST).size > limits.maxManifestBytes) {
+            throw BackupReadError.ManifestTooLarge(limits.maxManifestBytes)
+        }
+
+        val manifest = parseObject(parseSection(entries, MANIFEST), MANIFEST)
+        val version =
+            manifest["version"]?.jsonPrimitive?.int
+                ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'version'"))
+        if (version != BACKUP_VERSION) {
+            return BackupReadResult.Error(BackupReadError.UnsupportedVersion(version))
+        }
+        val appVersion =
+            manifest["appVersion"]?.jsonPrimitive?.contentOrNull()
+                ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'appVersion'"))
+        val exportedAt =
+            manifest["exportedAtEpochMillis"]?.jsonPrimitive?.content?.toLongOrNull()
+                ?: return BackupReadResult.Error(BackupReadError.MalformedSection(MANIFEST, "missing 'exportedAtEpochMillis'"))
+
+        val settings =
+            parseObject(parseSection(entries, SETTINGS), SETTINGS)
+                .mapNotNull { (k, v) ->
+                    if (v is JsonNull) {
+                        null
+                    } else {
+                        (v as? JsonPrimitive)?.content?.let { k to it }
+                            ?: throw BackupReadError.MalformedSection(SETTINGS, "value not a JSON primitive")
+                    }
+                }.toMap()
+        val library = parseArray(parseSection(entries, LIBRARY), LIBRARY).map { parseBook(it, LIBRARY) }
+        val passages = parseArray(parseSection(entries, PASSAGES), PASSAGES).map { parsePassage(it, PASSAGES) }
+        val progress = parseArray(parseSection(entries, PROGRESS), PROGRESS).map { parseProgress(it, PROGRESS) }
+        val bookmarks = parseArray(parseSection(entries, BOOKMARKS), BOOKMARKS).map { parseBookmark(it, BOOKMARKS) }
+        val history = parseArray(parseSection(entries, HISTORY), HISTORY).map { parseHistory(it, HISTORY) }
+        // translations is an OPTIONAL section: a v1 archive (7 required
+        // sections, no translations.json) restores cleanly with none.
+        val translations =
+            entries[TRANSLATIONS]
+                ?.let { parseArray(parseSection(entries, TRANSLATIONS), TRANSLATIONS).map { parseTranslation(it, TRANSLATIONS) } }
+                ?: emptyList()
+        // book files are OPAQUE bytes — never JSON-parsed; only the books/ prefix
+        // marks them, so a binary body cannot be misread as a section.
+        val bookFiles = entries.bookFiles()
+
+        return BackupReadResult.Ok(
+            BackupSnapshot(
+                version = version,
+                appVersion = appVersion,
+                exportedAtEpochMillis = exportedAt,
+                settings = settings,
+                library = library,
+                passages = passages,
+                progress = progress,
+                bookmarks = bookmarks,
+                positionHistory = history,
+                translations = translations,
+                bookFiles = bookFiles,
+            ),
+        )
+    }
 
     // ------------------------------------------------------------------
     // Parsing helpers
@@ -415,7 +464,10 @@ object BackupCodec {
     // Zip helpers
     // ------------------------------------------------------------------
 
-    private fun readEntries(bytes: ByteArray): Map<String, ByteArray> {
+    private fun readEntries(
+        bytes: ByteArray,
+        limits: BackupLimits,
+    ): Map<String, ByteArray> {
         // Hostile-input guard: a non-zip blob must fail as NotAZip, not be read
         // as an empty archive (ZipInputStream silently yields no entries).
         val magic = bytes.take(4)
@@ -425,11 +477,24 @@ object BackupCodec {
             throw BackupReadError.NotAZip(null)
         }
         val entries = linkedMapOf<String, ByteArray>()
+        var expanded = 0L
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             var entry = zip.nextEntry
+            var count = 0
             while (entry != null) {
                 if (!entry.isDirectory) {
-                    entries[entry.name] = zip.readBytes()
+                    count++
+                    if (count > limits.maxEntryCount) {
+                        throw BackupReadError.TooManyEntries(limits.maxEntryCount)
+                    }
+                    // A repeated name is ambiguous — the last would silently win — so it is
+                    // refused, like every other malformed-container shape.
+                    if (entries.containsKey(entry.name)) {
+                        throw BackupReadError.DuplicateEntry(entry.name)
+                    }
+                    val data = inflate(zip, entry.name, expanded, limits)
+                    expanded += data.size
+                    entries[entry.name] = data
                 }
                 zip.closeEntry()
                 entry = zip.nextEntry
@@ -437,6 +502,56 @@ object BackupCodec {
         }
         return entries
     }
+
+    /**
+     * One entry's bytes. [expandedSoFar] is what the earlier entries already cost; both the
+     * per-entry and the cumulative ceiling are checked AS the entry streams in, so an archive
+     * that inflates past a ceiling throws before its bomb is ever held in memory — the same
+     * discipline `core-ebook`'s ZipEntries applies to ebook containers.
+     */
+    private fun inflate(
+        zip: ZipInputStream,
+        name: String,
+        expandedSoFar: Long,
+        limits: BackupLimits,
+    ): ByteArray {
+        val buffer = ByteArray(IO_BUFFER_BYTES)
+        val out = ByteArrayOutputStream(IO_BUFFER_BYTES)
+        var size = 0L
+        while (true) {
+            val read = zip.read(buffer)
+            if (read < 0) break
+            size += read
+            if (size > limits.maxEntryBytes) {
+                throw BackupReadError.EntryTooLarge(name, limits.maxEntryBytes)
+            }
+            if (expandedSoFar + size > limits.maxTotalExpandedBytes) {
+                throw BackupReadError.ExpandedTooLarge(limits.maxTotalExpandedBytes)
+            }
+            out.write(buffer, 0, read)
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * The `books/` entries as `<name>` → bytes, refusing any name that is not ONE safe path
+     * segment: `books/../../databases/ayvu.db` reaches the sidecar store as
+     * `../../databases/ayvu.db` and would be written outside `files/books` (zip slip), so a
+     * separator, a `..`, a leading dot or any character outside `[A-Za-z0-9._-]` fails the
+     * whole read.
+     */
+    private fun Map<String, ByteArray>.bookFiles(): Map<String, ByteArray> {
+        val files = linkedMapOf<String, ByteArray>()
+        for ((path, content) in this) {
+            if (!path.startsWith(BOOKS_DIR)) continue
+            val name = path.removePrefix(BOOKS_DIR)
+            if (!isSafeBookFileName(name)) throw BackupReadError.UnsafeBookFile(path)
+            files[name] = content
+        }
+        return files
+    }
+
+    private fun isSafeBookFileName(name: String): Boolean = name.isNotEmpty() && !name.startsWith(".") && BOOK_FILE_NAME.matches(name)
 
     private fun parseSection(
         entries: Map<String, ByteArray>,
@@ -482,6 +597,52 @@ sealed class BackupReadError(
     data class UnsupportedVersion(
         val version: Int,
     ) : BackupReadError("unsupported archive version $version (supported: ${BackupCodec.BACKUP_VERSION})")
+
+    /** The archive exceeds the whole-archive ceiling — refused while it is read, never buffered. */
+    data class ArchiveTooLarge(
+        val maxBytes: Int,
+    ) : BackupReadError("archive is too large (over ${megabytes(maxBytes.toLong())} MB)")
+
+    /** More entries than the ceiling — a container that would not fit a real library. */
+    data class TooManyEntries(
+        val max: Int,
+    ) : BackupReadError("archive has too many entries (over $max)")
+
+    /** One entry inflates past the per-entry ceiling. */
+    data class EntryTooLarge(
+        val name: String,
+        val maxBytes: Int,
+    ) : BackupReadError("archive entry is too large (over ${megabytes(maxBytes.toLong())} MB): $name")
+
+    /** The entries together inflate past the cumulative ceiling, though no single one does. */
+    data class ExpandedTooLarge(
+        val maxBytes: Long,
+    ) : BackupReadError("archive expands too far (over ${megabytes(maxBytes)} MB)")
+
+    /** The manifest is padded past its ceiling — three fields never need that much. */
+    data class ManifestTooLarge(
+        val maxBytes: Int,
+    ) : BackupReadError("manifest is too large (over $maxBytes bytes)")
+
+    /** The same entry name appears twice: ambiguous, so the archive is refused outright. */
+    data class DuplicateEntry(
+        val name: String,
+    ) : BackupReadError("duplicate archive entry: $name")
+
+    /**
+     * A `books/` entry name is not a single safe path segment — a zip-slip attempt
+     * (`books/../../databases/ayvu.db`) that must never reach the sidecar store.
+     */
+    data class UnsafeBookFile(
+        val name: String,
+    ) : BackupReadError("unsafe book file name: $name")
+
+    /**
+     * The archive exhausted the heap (a zip bomb). A singleton, not a data class: an
+     * [OutOfMemoryError] is caught here, and building a message string at that moment is
+     * exactly the allocation that must not be attempted.
+     */
+    data object OutOfMemory : BackupReadError("archive exhausted memory")
 }
 
 sealed class BackupReadResult {

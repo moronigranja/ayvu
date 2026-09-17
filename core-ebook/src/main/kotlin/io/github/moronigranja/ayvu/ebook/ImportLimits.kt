@@ -1,15 +1,17 @@
 package io.github.moronigranja.ayvu.ebook
 
 import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 
 /**
- * The import ceilings in ONE place: the numbers, the failure a breach raises, and the capped
- * read every call site goes through.
+ * The import ceilings in ONE place: the numbers, the failure a breach raises, the capped read
+ * every call site goes through, and the capped sink every decompression path writes into.
  *
  * Why they exist: a container is untrusted input. Without ceilings a zip bomb — or simply an
  * absurd file — allocates until the process dies, and an [OutOfMemoryError] is an `Error`, so
  * it escapes every `catch (Exception)` on the import path and takes the app down with it. The
- * guard is applied DURING the read/inflate, never after, so the bomb is never materialised.
+ * guard is applied DURING the read/inflate/decompress, never after, so the bomb is never
+ * materialised.
  *
  * Defaults are sized against real books: the repo's own fixtures top out at ~3 KB and the
  * fattest commercial EPUB/AZW3 files (image- and font-heavy) stay under ~100 MB, so these
@@ -79,4 +81,62 @@ internal fun EBookSource.readCapped(limits: ImportLimits = ImportLimits.DEFAULT)
         }
     }
     return out.toByteArray()
+}
+
+/**
+ * Cumulative accounting for ONE MOBI text record's decompression. The record's stream and every
+ * nested phrase expansion it triggers draw on the same budget, so a phrase that expands into
+ * itself (or a header word that asks for a huge table) is refused by one check no matter how the
+ * expansion is nested. Counts every byte written into every buffer the record's decompression
+ * fills — the bound is on what the record can make the heap hold, not just on its final size.
+ */
+internal class TextExpansionBudget(
+    private val limits: ImportLimits,
+    private val expandedSoFar: Long,
+) {
+    private var produced = 0L
+
+    fun account(added: Int) {
+        produced += added
+        if (produced > limits.maxEntryBytes) {
+            val cap = megabytes(limits.maxEntryBytes.toLong())
+            throw EBookLimitExceededException("text record is too large (over $cap MB)")
+        }
+        if (expandedSoFar + produced > limits.maxTotalExpandedBytes) {
+            val cap = megabytes(limits.maxTotalExpandedBytes)
+            throw EBookLimitExceededException("book text expands too far (over $cap MB)")
+        }
+    }
+}
+
+/**
+ * The sink every decompression path writes into ([Palmdoc], [HuffCdicDecoder]), the decompression
+ * twin of [ZipEntries.inflate]: the per-record and cumulative ceilings are checked AS the bytes are
+ * produced, so a crafted record that expands past a ceiling throws before its output is ever held
+ * in memory. Real MOBI text records are ≤ 4 KB uncompressed, so the archive's two ceilings cover
+ * them unchanged — the numbers are shared, not reinvented.
+ */
+internal class CappedTextOutput(
+    private val budget: TextExpansionBudget,
+    initialBytes: Int = IO_BUFFER_BYTES,
+) : OutputStream() {
+    private val out = ByteArrayOutputStream(initialBytes)
+
+    override fun write(b: Int) {
+        budget.account(1)
+        out.write(b)
+    }
+
+    override fun write(
+        b: ByteArray,
+        off: Int,
+        len: Int,
+    ) {
+        budget.account(len)
+        out.write(b, off, len)
+    }
+
+    fun size(): Int = out.size()
+
+    fun toByteArray(): ByteArray = out.toByteArray()
 }
