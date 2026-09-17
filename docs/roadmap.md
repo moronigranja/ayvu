@@ -848,7 +848,19 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
-**v0.1.1 is published (2026-09-17)** — <https://github.com/moronigranja/ayvu/releases/tag/v0.1.1>.
+**v0.1.2 is published (2026-09-17)** —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.2>. The long-operation slice
+(#177, decisions #177/#178): downloads, pack unpacking and book import now run as
+foreground operations with progress notifications and a **Stop**, the existing pregen
+(43) and generation (44) notifications gained Stop, and the stagers are cooperatively
+cancellable. Shipped `Ayvu-0.1.2.apk`, 51,826,670 B, sha256 `c81ea7c4…`, cert
+`a5057984…` — same key as 0.1.1, so it updates in place. The mechanism was proven on an
+Android 14 emulator (download progress + Stop + background survival + resume from
+`.part`, import while the setup wizard was on screen) and the S22 took the update; the
+full pre-publish smoke list below was not repeated this time (device locked, owner data)
+— see decisions #178.
+
+**v0.1.1 was published (2026-09-17)** — <https://github.com/moronigranja/ayvu/releases/tag/v0.1.1>.
 The signed release build is **arm64-v8a only** (the espeak-ng phonemizer is an arm64
 native library, so the other ABIs' libs were ~114 MB of dead weight and would have
 installed a non-functional app) — 165.2 MB → ≈52 MB payload (51,812,354 B, sha256
@@ -875,7 +887,10 @@ What the publish run did, for the next one:
    `startsWith(github.ref, 'refs/tags/')` condition was unreachable (fixed 2026-09-17,
    `open-bugs.md`). For 0.1.1 the gate was exercised by a dispatch on the tag.
 
-The next release increments `versionCode` (2 → 3, v0.1.2).
+The next release increments `versionCode` (3 → 4, v0.1.3). Note from the 0.1.2 run: the
+draft upload rebuilds `packageRelease`, so the digest that goes into the notes must be
+the one printed by `tools/release.sh --upload` (a local build of the same commit had a
+different digest), and the `assemble-on-tag` gate does fire on the publish now (#174).
 
 Deferred until a store listing is actually wanted: AAB + Play Data Safety, store privacy
 policy, listing/screenshots, supported-devices declaration. Native crash symbols and

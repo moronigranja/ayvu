@@ -4,6 +4,32 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 178. v0.1.2 published (2026-09-17)
+
+Executes the distribution decision #126 for the long-operation slice (#177). The release
+is live: <https://github.com/moronigranja/ayvu/releases/tag/v0.1.2> — signed, unminified,
+arm64-v8a, shipped as `Ayvu-0.1.2.apk` (decisions #176), 51,826,670 B, sha256
+`c81ea7c4…`, release cert `a5057984…` (the 0.1.1 key, so it updates in place); tag
+`v0.1.2` cut on `main` at the digest-pin commit, so the GPL source offer the notes make
+points at code that contains the shipped slice.
+
+The run followed #175's ordering, and two of its rules earned their keep: the draft
+upload **rebuilt** `packageRelease`, so the shipped bytes (`c81ea7c4…`) differ from a
+local build of the same commit made minutes earlier (`197f8933…`) — the digest pinned in
+the notes is the one `tools/release.sh --upload` printed for the artifact it uploaded,
+and `gh release edit --notes-file … --draft=false` re-attached the corrected notes before
+the flip. The tag push also fired the `assemble-on-tag` CI gate on a real release for the
+first time (#174's trigger fix), and push-before-publish held: the tag exists on the
+remote at the digest-pin commit.
+
+Device state: the S22 (SM-S908U1) was updated in place with the same release key — no
+uninstall, library/progress/settings kept. The #177 mechanism itself was proven on an
+Android 14 emulator before publishing (download progress + Stop, background survival,
+resume from `.part`, import through the operation); the pre-publish smoke list in the
+roadmap (playback, preview, export/restore on the signed APK) was NOT repeated for this
+release — the device was locked and carrying the owner's library, so those paths rest on
+the 0.1.1 pass plus the host suites.
+
 ## 177. Long-running operations get a foreground host, progress + Stop (2026-09-17)
 
 Pack downloads (325 MB Kokoro, 730 MB translate), their staging unzip (which ran
