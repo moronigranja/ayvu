@@ -5,7 +5,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
-/** Destructive/confirm dialog: title, body, confirm and dismiss actions. */
+/** Destructive/confirm dialog: title, body, confirm and dismiss actions. A null
+ *  [dismissLabel] renders a single-action acknowledgement (the body is a result to
+ *  read, not a choice to make) — otherwise the dialog would show two identical
+ *  buttons when the only sensible action is "OK". */
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -13,13 +16,16 @@ fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    dismissLabel: String = "Cancel",
+    dismissLabel: String? = "Cancel",
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel) } },
+        dismissButton =
+            dismissLabel?.let { label ->
+                { TextButton(onClick = onDismiss) { Text(label) } }
+            },
     )
 }

@@ -86,13 +86,14 @@ fun BackupSection(viewModel: BackupViewModel = hiltViewModel()) {
             BackupUiState.Exporting -> LoadingState("Exporting\u2026", Modifier.padding(vertical = AyvuSpacing.SM))
             BackupUiState.Restoring -> LoadingState("Restoring\u2026", Modifier.padding(vertical = AyvuSpacing.SM))
             is BackupUiState.Finished ->
+                // Terminal result: one acknowledgement, not a choice.
                 ConfirmDialog(
                     title = if (current.isError) "Backup failed" else "Backup complete",
                     text = current.message,
                     confirmLabel = "OK",
                     onConfirm = viewModel::consumeResult,
                     onDismiss = viewModel::consumeResult,
-                    dismissLabel = "OK",
+                    dismissLabel = null,
                 )
         }
 
