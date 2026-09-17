@@ -4,6 +4,29 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 176. The shipped APK is named `Ayvu-<versionName>.apk` (2026-09-17)
+
+The release asset was `app-release.apk` — AGP's output name, which says nothing about
+what the file is. The shipped artifact is now `Ayvu-<versionName>.apk` (`Ayvu-0.1.1.apk`),
+so a downloaded file is self-describing.
+
+**Where the rename lives, and why.** In `tools/release.sh`, at the shipping step — not in
+`app/build.gradle.kts`. AGP 9's public API cannot do it: `VariantOutput` (gradle-api 9.0.1)
+exposes only `versionCode`/`versionName`/`enabled`, no `outputFileName`, and the legacy
+`applicationVariants.all { outputs.all { outputFileName = … } }` DSL is deprecated and
+disappears when the project migrates to `android.newDsl=true`. A build-file rename would
+therefore be a migration landmine for a cosmetic gain.
+
+The name change is a **copy**, byte-identical to the signed output (a filename is not
+inside an APK), so the digest and signature checks now run on the shipped copy and are the
+values the notes publish. Debug builds keep AGP's names (`app-debug.apk`) — `build.md`'s
+staging paths are unchanged.
+
+**The already-published 0.1.1 asset was renamed in place** via the releases API
+(`PATCH …/releases/assets/<id> {name}`), which preserves the bytes: the asset digest stayed
+`9320273c…`, so the pinned digest in the notes remained valid and only the filename in the
+verify lines changed.
+
 ## 175. v0.1.1 published (2026-09-17)
 
 Executes the distribution decision #126. The release is live:

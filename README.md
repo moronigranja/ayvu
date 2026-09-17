@@ -58,7 +58,7 @@ PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProb
 (signed release build, unminified, arm64-v8a; the release notes carry the SHA-256 and the
 signing-certificate fingerprint). The `v0.1.1` tag points at the shipped tree.
 
-1. Download the release APK (signed release build, unminified, **≈52 MB** — ONNX Runtime
+1. Download `Ayvu-0.1.1.apk` (signed release build, unminified, **≈52 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
    (API 26)**: the build is arm64-only because the espeak-ng phonemizer it ships is an
    arm64 native library, so 32-bit and x86 installs are not supported.

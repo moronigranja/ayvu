@@ -863,7 +863,8 @@ What the publish run did, for the next one:
    voice preview, import, playback, About → Licences, and an export + restore (the S22
    pass, 2026-09-17; both bugs it surfaced are fixed and in `open-bugs.md`).
 2. **Draft, then pin the digest.** `tools/release.sh --upload --notes docs/release-notes-0.1.1.md`
-   drafts the release and prints the digest of the artifact it uploaded; bytes are NOT
+   drafts the release and prints the digest of the artifact it uploaded — the shipped copy is
+   `build/release/Ayvu-<versionName>.apk` (decisions #176). Bytes are NOT
    reproducible across `assembleRelease` runs, so that printed value — not a value from an
    earlier build — goes into the notes (commit + push) before flipping the draft live.
 3. **Publish the draft** (`gh release edit v0.1.1 --notes-file … --draft=false`) — this

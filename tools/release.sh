@@ -6,6 +6,12 @@
 # CI only gate-assembles the release build UNSIGNED on tags. Never publish the
 # unsigned app-release-unsigned.apk.
 #
+# The SHIPPED artifact is named after the product and the version
+# (`Ayvu-<versionName>.apk`, decisions #176) so a downloaded file says what it
+# is. AGP's public variant API no longer exposes the output file name and the
+# legacy `applicationVariants` DSL is deprecated, so the rename happens here, at
+# the shipping step, and the digest/signature checks run on the shipped copy.
+#
 # Usage:
 #   tools/release.sh                  # build + verify the signed APK
 #   tools/release.sh --upload         # build + create a DRAFT GitHub release v$VERSION
@@ -33,19 +39,25 @@ done
 
 VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
 APK=app/build/outputs/apk/release/app-release.apk
+SHIP=build/release/Ayvu-$VERSION.apk
 
 ./gradlew :app:assembleRelease
 [ -f "$APK" ] || { echo "no APK at $APK" >&2; exit 1; }
 
+# The shipped name is a copy of the signed output, byte-identical (the filename
+# is not inside the APK), so the digest below is the digest of what is uploaded.
+mkdir -p "$(dirname "$SHIP")"
+cp -f "$APK" "$SHIP"
+
 SDK_DIR=$(sed -n 's/^sdk\.dir=//p' local.properties 2>/dev/null || true)
 APKSIGNER=$(ls "$SDK_DIR"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1 || true)
 
-echo "== $APK ($(du -h "$APK" | cut -f1))"
-sha256sum "$APK"
+echo "== $SHIP ($(du -h "$SHIP" | cut -f1))"
+sha256sum "$SHIP"
 if [ -n "$APKSIGNER" ]; then
-  "$APKSIGNER" verify --print-certs "$APK" | head -8
+  "$APKSIGNER" verify --print-certs "$SHIP" | head -8
 else
-  keytool -printcert -jarfile "$APK" 2>/dev/null | sed -n '1,3p'
+  keytool -printcert -jarfile "$SHIP" 2>/dev/null | sed -n '1,3p'
 fi
 
 if [ "$UPLOAD" -eq 1 ]; then
@@ -59,6 +71,6 @@ if [ "$UPLOAD" -eq 1 ]; then
   fi
   DRAFT_ARGS=()
   [ "$PUBLISH" -eq 1 ] || DRAFT_ARGS=(--draft)
-  gh release create "v$VERSION" "$APK" "${NOTES_ARGS[@]}" "${DRAFT_ARGS[@]}" --title "Ayvu v$VERSION"
+  gh release create "v$VERSION" "$SHIP" "${NOTES_ARGS[@]}" "${DRAFT_ARGS[@]}" --title "Ayvu v$VERSION"
   echo "Release v$VERSION $([ "$PUBLISH" -eq 1 ] && echo published || echo drafted)."
 fi

@@ -55,7 +55,7 @@ The APK attached to this release:
 sha256  9320273cc68fd177dea17d25a845811f9e51eae2d6fa14273c4dc6c98fa984ce
 ```
 
-Check it with `sha256sum app-release.apk` (compare the value above — `tools/release.sh`
+Check it with `sha256sum Ayvu-0.1.1.apk` (compare the value above — `tools/release.sh`
 prints the digest of the exact artifact it uploads, so re-read it there if this tree
 changes before the release is cut), and confirm the signer is this project's release
 certificate:
@@ -65,8 +65,8 @@ Signer #1 certificate DN: CN=Ayvu, O=moronigranja, C=BR
 Signer #1 certificate SHA-256 digest: a5057984c0c285898a619b76c397f72030df124e55db88616de5e1a241902ae5
 ```
 
-(`apksigner verify --print-certs app-release.apk` prints the same fingerprint; `keytool
--printcert -jarfile app-release.apk` works without the Android SDK.)
+(`apksigner verify --print-certs Ayvu-0.1.1.apk` prints the same fingerprint; `keytool
+-printcert -jarfile Ayvu-0.1.1.apk` works without the Android SDK.)
 
 ### First run
 
