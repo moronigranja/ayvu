@@ -23,7 +23,16 @@ class FakeTranslationService : TranslationService {
 
     private val rows = mutableMapOf<String, String>()
 
-    override val ready: Flow<TranslationReady> = MutableSharedFlow<TranslationReady>().asSharedFlow()
+    private val readyFlow = MutableSharedFlow<TranslationReady>()
+
+    override val ready: Flow<TranslationReady> = readyFlow.asSharedFlow()
+
+    /** Hands one landed translation to the [ready] collectors — a decode landing
+     *  out of band (the reader's display-target test drives the leak window with
+     *  this instead of a real ~1 s LLM decode). */
+    suspend fun emit(ready: TranslationReady) {
+        readyFlow.emit(ready)
+    }
 
     override suspend fun cached(
         bookId: String,

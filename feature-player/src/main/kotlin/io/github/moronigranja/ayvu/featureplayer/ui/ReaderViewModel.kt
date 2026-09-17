@@ -285,13 +285,28 @@ class ReaderViewModel
             viewModelScope.launch {
                 translationService.ready.collect { ready ->
                     val current = PlaybackStateHolder.state.value
-                    if (ready.bookId == current.bookId && ready.chapter == current.chapterIndex) {
-                        chapterTranslations.update { ct ->
-                            if (ct.chapterIndex == ready.chapter) {
-                                ct.copy(entries = ct.entries + (ready.passage to TranslationState.Ready(ready.text)))
-                            } else {
-                                ct
-                            }
+                    // A landed decode carries the target it STARTED for, and it
+                    // can land after that target was cleared or switched:
+                    // clearing the display language starts no new prefetch, so
+                    // nothing supersedes the in-flight one (the service
+                    // supersedes on a NEW target only). Merging such a late text
+                    // rendered a translated block while display was OFF, and the
+                    // entry survived until the next re-seed — the whole chapter
+                    // read as a rewrite of the original (device report
+                    // 2026-09-17). Only the book's CURRENT display target's own
+                    // text may enter the display map.
+                    val display = settings.bookDisplay(ready.bookId)
+                    val belongs =
+                        display != null &&
+                            ready.target == TranslationTarget(display) &&
+                            ready.bookId == current.bookId &&
+                            ready.chapter == current.chapterIndex
+                    if (!belongs) return@collect
+                    chapterTranslations.update { ct ->
+                        if (ct.chapterIndex == ready.chapter) {
+                            ct.copy(entries = ct.entries + (ready.passage to TranslationState.Ready(ready.text)))
+                        } else {
+                            ct
                         }
                     }
                 }
