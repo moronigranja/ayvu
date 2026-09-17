@@ -38,15 +38,15 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `feature-library` | SAF multi-file + folder import (F3 tree grant), external-file intake (F4: ACTION_VIEW / shared book files land on MainActivity), one import overlay with progress + stage (reading/parsing/saving/indexing) + typed failures, idempotent; library list UI |
 | `core-ui` | AyvuTheme design tokens (brand light/dark roles, typography, shapes, spacing, motion) + shared stateless components (SectionHeader, PillButton, PlayerCard, BookCover, VoiceSelector — the one voice-picking surface); no business logic/ViewModels; depends on core-player + core-tts |
 | `core-llm` | The translate runtime's native leg: llama.cpp vendored into a gitignored build dir by `tools/fetch-llama-cpp.sh` + AGP `externalNativeBuild` (arm64-v8a only), and `LlamaTranslator` (JNI session, single-flight, greedy) |
-| `feature-settings` | Settings screen (root + Speech subscreen, Android-settings-style panes): engine/voice/OCR pack downloads (engine-agnostic rows), voice picker + favorites (collapsible by language, display names + upstream grades, decisions #143), match threshold, OCR languages, theme, offline pre-generation audio, playback volume, synthesis thread count, backup & restore (SAF export/import), About (version, GPL-3.0 source link, NOTICE, privacy); Android HTTP transport |
+| `feature-settings` | Settings screen (root + Speech subscreen, Android-settings-style panes): engine/voice/OCR pack downloads (engine-agnostic rows), voice picker + favorites (collapsible by language, display names + upstream grades, decisions #143), match threshold, OCR languages, theme, offline pre-generation audio, playback volume, synthesis thread count, backup & restore (SAF export/import), About (version, in-app Licences viewer for the bundled GPL-3.0 + NOTICE texts, GPL-3.0 source link, NOTICE, privacy); Android HTTP transport |
 | `feature-share` | ACTION_SEND gateway (text + image, plus F4 book-file routing to the import gateway), typed resolver (found / not-found with closest hint), OpenTarget contract |
 | `feature-ocr` | TessTwoOcrEngine (tess-two 9.1.0) + tessdata stager, Hilt wiring |
 | `feature-player` | PlaybackService (MediaSession, audio focus, foreground notification) + docked read-along ReaderScreen with sentence highlighting, pre-generation wiring |
 | `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
 
-Test sources: **821 `@Test` methods** (778 under `src/test`, 43 under `src/androidTest`;
-counted 2026-09-15 with `grep -rn '@Test\b'`), 0 failed. Android unit suites (Docker): green across
+Test sources: **883 `@Test` methods** (838 under `src/test`, 45 under `src/androidTest`;
+counted 2026-09-17 with `grep -rn '@Test\b'`), 0 failed. Android unit suites (Docker): green across
 app + all features. Device instrumented set (S22 staging, see docs/build.md):
 PlaybackE2e (full-book completion + pre-generation fast path), VoiceSelectionE2e,
 PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProbe
@@ -59,13 +59,14 @@ the publish step — the GitHub release and its `v0.1.1` tag — has not been ru
 is nothing to download here yet; the details and the remaining gate live in
 [docs/roadmap.md](docs/roadmap.md) §Release readiness.
 
-1. Download the release APK (signed release build, unminified, **≈51 MB** — ONNX Runtime
+1. Download the release APK (signed release build, unminified, **≈52 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
    (API 26)**: the build is arm64-only because the espeak-ng phonemizer it ships is an
    arm64 native library, so 32-bit and x86 installs are not supported.
 2. Install it, allowing "install unknown apps" for your browser or file manager.
 3. First run downloads the free packs — Kokoro model + voices, the espeak-ng phonemizer
-   bundle and (optionally) OCR languages — explicitly, resumably and SHA-256-verified.
+   bundle and (optionally) OCR languages and, for read-in-language, the LFM2.5-1.2B
+   translate model — explicitly, resumably and SHA-256-verified.
    After the TTS packs land the app is fully offline.
 
 **Updating (when it ships):** the signing key is stable across releases, so a newer APK

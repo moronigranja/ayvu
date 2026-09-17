@@ -9,7 +9,9 @@ until they are promoted here.
 
 v0.1.1 is release-ready but **not published**. The signed-APK pipeline, the on-device
 sanity pass on the signed build and `docs/release-notes-0.1.1.md` are all done
-(decisions #126, #128); the one remaining step is publishing the GitHub release — no
+(decisions #126, #128), and the release gate (pass 7 — untrusted-input hardening,
+licence/NOTICE completeness) closed 2026-09-17 (decisions #174); what remains is the
+device smoke on the freshly built signed APK and then publishing the GitHub release — no
 `v0.1.1` tag exists on the remote (see "Release readiness" below). The v1 capability
 spine is complete and device-verified: import → index → local TTS playback with
 read-along → share-and-resume, plus settings, OCR, offline pre-generation, storage
@@ -142,7 +144,7 @@ Decisions #163 logs what landed; this table is the sequencing.
 | 5b — doc reconciliation | **done (2026-09-15).** Re-deriving every claim against the CODE (not against the audit row) found that passes 1-4 had already fixed most of the list: README's release claim is honest ("release-ready but not published"), `modules.md` is "as of #163" with Room v3 + both migrations, `conventions.md` documents the real `ktlintCheck` (1.7.2, no baseline), `architecture.md` already declares its graph "representative, not exhaustive" and names each module's `build.gradle.kts` + `checkFeatureBoundaries` as authoritative, and `agents.md`'s engine primacy is CORRECT (code: Kokoro PRIMARY, Piper PRIMARY, CosyVoice3 FALLBACK-gated). What the pass actually changed: README's test counts 785/743/42 → **816/773/43**, re-derived with `grep -rn '@Test\b'` (the word boundary is why `@TestInstance` is not counted; no commented-out annotations exist); and the approved disk hygiene, with ONE plan correction — the corpus moved to `core-tts/src/test/resources/` instead of `src/main/resources/`, because a main-source resource **ships inside the app** and this is dev-only evidence (`G0CorpusGen` resolves its output from whichever source root it found, so the task works from either CWD). | **done** |
 | 6 — build convention | `build-logic` convention plugins: `compileSdk` re-typed ×10, `minSdk` ×9, Java 17 ×18, JUnit boilerplate ×17, and `spike-tts` has already diverged (minSdk 27) | **open** (only if the churn justifies it) |
 | 8 — product-name alignment | Owner question 2026-09-15 ("should I rename the classes and repo to match the new product name?"). **Identity layer:** repo rename → `ayvu`, plus the FOUR repo URLs pinned in code in the same commit — `KokoroPacks`' espeak-ng bundle, `TranslatePacks.BASE`, and `AboutSection`'s source + NOTICE links — because those are SHA-pinned DOWNLOADS and a rename redirect must not become the failure mode; the `localtts-android` Docker image; README/docs references. **Code layer:** package `io.github.moronigranja.ayvu` → `io.github.moronigranja.ayvu` (one name everywhere — it is already the applicationId) across **396 files / 1,857 occurrences**, `AyvuApp` → `AyvuApp`, the manifest `android:name`, the app `namespace`. **One trap is silent:** `core-llm`'s three hand-written JNI symbols (`Java_io_github_moronigranja_ayvu_llm_LlamaTranslator_*`) — a stale symbol keeps the build GREEN and fails at runtime with `UnsatisfiedLinkError`, so the device `LfmTranslateE2eTest` is the acceptance gate. Two usual traps are absent today (verified): no exported Room schema JSONs and no R8 keep rules. **Deliberately NOT renamed:** the Room DB file `local-tts-reader.db` (on-device data, invisible to users, a file migration for zero gain), the upstream pack ids, the old applicationId + its migration, and the host pack cache `~/.cache/local-tts-reader/packs` (renaming re-downloads hundreds of MB). | **done** (#169) — package/namespace/class + repo identity landed; deliberately kept: the DB file, the host pack cache, the old applicationId and the upstream pack ids. |
-| 7 — pre-release gate | belongs to the publish decision, not to cleanup: a **security pass over the five untrusted-input entry points** (zip/decompression bombs in EPUB and the backup archive, path traversal on restore, whether the pack registry's SHA-256 pin is enforced at install or advisory, JNI model-file paths); **licence/NOTICE completeness once bytes are distributed** (GPL-3 source offer, KindleUnpack-derived parser attribution, the CC-BY-NC voice gate); and **exercising the old-id → `io.github.moronigranja.ayvu` migration for real**. None of it is triggered until distribution — which is why it is cheap now and expensive after | **open** |
+| 7 — pre-release gate | belongs to the publish decision, not to cleanup: a **security pass over the five untrusted-input entry points** (zip/decompression bombs in EPUB and the backup archive, path traversal on restore, whether the pack registry's SHA-256 pin is enforced at install or advisory, JNI model-file paths); **licence/NOTICE completeness once bytes are distributed** (GPL-3 source offer, KindleUnpack-derived parser attribution, the CC-BY-NC voice gate); and **exercising the old-id → `io.github.moronigranja.ayvu` migration for real**. None of it is triggered until distribution — which is why it is cheap now and expensive after | **code + licence half discharged (2026-09-17, decisions #174).** The pack SHA-256 pin was already a hard install gate (not advisory) and JNI model paths are fixed internal paths. Fixed: restore zip-slip + archive ceilings + OOM + atomic sidecars; MOBI PalmDOC/HUFF-CDIC expansion ceilings and complete per-file OOM containment; `NOTICE.md` completed (KindleUnpack, llama.cpp, tess-two, the LFM pack) with in-code GPL provenance headers; `LICENSE` + `NOTICE.md` now ship **inside the APK** and render at About → Licences; the published espeak-ng archive carries its licence + source offer (re-pinned). No CC-BY-NC voice ships (the Korean piper voice stays unpinned). Cross-id restore verified: the backup codec carries no app id and reattaches by content-hash book id. **Remaining is mechanical** — the device smoke and the publish (which creates the `v0.1.1` tag) |
 
 Two audit findings are deliberately NOT queued: `spike-tts` stays (load-bearing —
 the ledger cites its measurements throughout — and it ships in nothing), and the
@@ -824,9 +826,18 @@ import, restore and pre-generation. Existing XXE hardening is a baseline, not th
 resource-exhaustion contract.
 
 Partially closed 2026-09-10 (decisions #146): container/entry/per-entry/cumulative-expanded
-ceilings on the EPUB/KF8 path plus OOM containment at the per-file parse boundary. Still
-open: proactive MOBI `HuffCdic`/`PalmDoc` expansion ceilings, backup-archive limits, pack
-archive limits and disk-full behavior.
+ceilings on the EPUB/KF8 path plus OOM containment at the per-file parse boundary.
+
+Further closed 2026-09-17 (decisions #174): the MOBI `HuffCdic`/`PalmDoc` expansion
+ceilings (per-record + book-wide, plus the CDIC phrase-table bound) and complete
+per-file OOM containment on the import pipeline; the backup archive's own limits
+(archive/entry/entry-count/cumulative/manifest ceilings, duplicate-entry rejection,
+typed OOM) and restore path traversal; sidecar writes are now temp-file + rename, so
+a failed restore leaves no partial file.
+
+Still open: pack-archive limits (the downloaded zips extract through the staged
+`canonicalPath` zip-slip guard but have no expanded-size ceiling of their own) and
+disk-full behaviour during pre-generation.
 
 ### Release readiness
 
@@ -836,20 +847,27 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
-**v0.1.1 is not published.** The artifact is now prepared at HEAD (decisions #146): the
-signed release build is **arm64-v8a only** (the espeak-ng phonemizer is an arm64 native
-library, so the other ABIs' libs were ~114 MB of dead weight and would have installed a
-non-functional app) — 165.2 MB → 50.8 MB payload, the notes carry the SHA-256 and the
-signing-certificate fingerprint, and the import path now has resource ceilings + OOM
-containment (a zip bomb fails one file instead of killing the process).
+**v0.1.1 is not published.** The artifact is prepared at HEAD: the signed release build is
+**arm64-v8a only** (the espeak-ng phonemizer is an arm64 native library, so the other
+ABIs' libs were ~114 MB of dead weight and would have installed a non-functional app) —
+165.2 MB → ≈52 MB payload, the notes carry the SHA-256 and the signing-certificate
+fingerprint, the import path has resource ceilings + OOM containment, and (decisions #174,
+2026-09-17) the release gate closed: restore hardening, MOBI decompression ceilings,
+`NOTICE.md` completed and `LICENSE` + `NOTICE.md` shipped inside the APK, the espeak-ng
+archive carrying its own licence + source offer.
 
 Remaining before publishing, in order:
 
-1. **Device smoke on the signed 0.1.1 APK** — the previously verified signed build
-   predates 21 commits; no device was attached during the prep session, so this is owed.
-2. **Publish:** `tools/release.sh --upload --publish --notes docs/release-notes-0.1.1.md`
+1. **Device smoke on the signed 0.1.1 APK** — owed: no device was attached during the
+   release-gate pass. Re-build at HEAD first (`tools/release.sh`), then install and
+   exercise the reader/player on the S22.
+2. **Refresh the notes' SHA-256** from the `tools/release.sh` output for the exact
+   artifact being uploaded (the value in `docs/release-notes-0.1.1.md` is from the
+   previous build), then
+3. **Publish:** `tools/release.sh --upload --publish --notes docs/release-notes-0.1.1.md`
    (the script defaults to **draft** — `--publish` is required). Publishing creates tag
-   `v0.1.1`, which fires the CI `assemble-on-tag` gate.
+   `v0.1.1`, which fires the CI `assemble-on-tag` gate and satisfies the GPL source offer
+   the notes make.
 
 The next release after that increments `versionCode` (2 → 3, v0.1.2).
 

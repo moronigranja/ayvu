@@ -25,15 +25,22 @@ ebooks and listen to them narrated on-device. No account, no telemetry, no cloud
   voice sheet (collapsible language sections, display names, upstream data grades,
   favourites, one-tap preview); settings grouped into Speech, Reading & sharing,
   Storage & data, Appearance, and Backup & restore.
+- **Read in another language** — the optional LFM2.5-1.2B translate model renders a book
+  read-aloud in a target language independently of the displayed text, and can project
+  the translation into the reader (interleaved or translated-only) behind a per-book
+  toggle.
 - **Data safety** — Backup & restore export/import (optionally including the book
   files), with content-hash book ids so a restored library reattaches to its progress.
+  Restore validates the archive (entry names, entry count and expanded-size ceilings) and
+  fails cleanly on a malformed or hostile file instead of copying anything outside its
+  own storage.
 
 ## Install
 
 - **Requires a 64-bit ARM device (arm64-v8a) running Android 8.0+ (API 26).** The build
   is arm64-only because the espeak-ng phonemizer it ships is an arm64 native library;
   32-bit and x86 devices are not supported and the APK will not install there.
-- Unminified signed release build, **≈51 MB** (ONNX Runtime and JNA are inside).
+- Unminified signed release build, **≈52 MB** (ONNX Runtime and JNA are inside).
 - Install the APK from this release (allow "install unknown apps" for your browser or
   file manager). The signing key is stable across releases, so later versions install
   straight over this one — no uninstall, and your library, progress, bookmarks and
@@ -45,11 +52,13 @@ ebooks and listen to them narrated on-device. No account, no telemetry, no cloud
 The APK attached to this release:
 
 ```
-sha256  4b017db45160d2ad8d0ee8e4c09653b88688293d938b631d27e2e83acb601e37
+sha256  ff8b7c82c997e911688a19aad0ac76f2e8c90c10659e055d7d5da69a22ba7fa8
 ```
 
-Check it with `sha256sum app-release.apk` (compare the value above), and confirm the
-signer is this project's release certificate:
+Check it with `sha256sum app-release.apk` (compare the value above — `tools/release.sh`
+prints the digest of the exact artifact it uploads, so re-read it there if this tree
+changes before the release is cut), and confirm the signer is this project's release
+certificate:
 
 ```
 Signer #1 certificate DN: CN=Ayvu, O=moronigranja, C=BR
@@ -62,17 +71,18 @@ Signer #1 certificate SHA-256 digest: a5057984c0c285898a619b76c397f72030df124e55
 ### First run
 
 The app downloads its packs on first run — explicit, resumable and SHA-256-verified —
-from three hosts, none of which is bundled (decisions #7):
+from four pinned sources, none of which is bundled (decisions #7):
 
-| Pack | Size | Host |
+| Pack | Size | Source |
 |---|---|---|
 | Kokoro-82M model `kokoro-v1.0.onnx` | 325 MB | `thewh1teagle/kokoro-onnx` release `model-files-v1.1` |
 | Kokoro v1.0 voices (54) `voices-v1.0.bin` | 28 MB | same release |
 | espeak-ng 1.52.0 phonemizer bundle | 9.9 MB | this project's `espeak-ng-1.52.0` release |
+| LFM2.5-1.2B translate model (optional, read-in-language) | 730 MB | this project's `translate-lfm12b-v1` release |
 | OCR language packs (per language, optional) | 13–22 MB each | `tesseract-ocr/tessdata` (tag `3.04.00`) |
 
 After the TTS packs land, everything works offline — no network is used again unless you
-add OCR languages.
+add OCR languages or the translation model.
 
 ## Upgrading from a pre-release build
 
@@ -96,12 +106,17 @@ add OCR languages.
   scripts are not supported by the matcher yet), and very short snippets are rejected by
   the confidence threshold.
 - **Distribution**: unminified APK published as a GitHub Release (no Play listing, no
-  AAB, no auto-update), and a native translation decorator (read a book aloud in another
-  language) is not in this build.
+  AAB, no auto-update).
+- **Translation model licence**: the optional read-in-language model (LFM2.5-1.2B) is
+  distributed under the **LFM Open License v1.0**, not Ayvu's GPL-3.0 — that licence's
+  terms (including its revenue threshold for commercial use) apply to the model itself.
+  Its licence text ships in the model's release archive.
 
 ## Licenses
 
 Ayvu is GPL-3.0; the corresponding source for this build is this repository at the
-`v0.1.1` tag — <https://github.com/moronigranja/local-tts-reader>. Bundled runtimes
-(ONNX Runtime, JNA, AndroidX/Kotlin) and every downloaded pack are attributed in
-[`NOTICE.md`](../NOTICE.md), including their upstream hosts.
+`v0.1.1` tag — <https://github.com/moronigranja/ayvu>. The full licence and the
+third-party notices ship **inside the app** (About → Licences) and in the repository
+([`LICENSE`](../LICENSE), [`NOTICE.md`](../NOTICE.md)). They cover the bundled runtimes
+(ONNX Runtime, JNA, llama.cpp, tess-two, AndroidX/Kotlin), the KindleUnpack-derived
+MOBI/KF8 parser, and every downloaded pack with its upstream host and licence.

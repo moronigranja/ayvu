@@ -2,7 +2,7 @@
 
 ```
 core-model/       Book, Chapter/Section, TextPassage, LibraryEntry (no Android deps)
-core-ebook/       EBookParser interface + format parsers (epub, azw3/kf8, mobi/azw: PalmDOC LZ77 + HUFF/CDIC), passage segmentation + BookImporter (parse→segment→index); defensive
+core-ebook/       EBookParser interface + format parsers (epub, azw3/kf8, mobi/azw: PalmDOC LZ77 + HUFF/CDIC), passage segmentation + BookImporter (parse→segment→index); defensive parsing of untrusted containers — ImportLimits ceilings (container, per-entry, cumulative expanded, MOBI record expansion) + per-file OOM containment (decisions #146, #174)
 core-locate/      TextIndex + matcher (n-gram recall over indexed books); no Android deps
 core-tts/         LIVE — TTSEngine + Kokoro-82M impl (T2, decisions #25/#28): espeak-ng phonemization (JNA), ORT session behind a compileOnly seam, pinned fp32 packs (kokoro-model + kokoro-voices @ model-files-v1.1). Piper impl (D4, #154): one-voice-per-instance VITS engines + pinned rhasspy/piper-voices packs (model + voice-config per voice), stock export = passage-level read-along (#30b). CosyVoice3 stays gated metadata-only
 core-persistence/ LIVE — Room schema v4 (books, cached passages, progress + offset/speed, settings, bookmarks, position_history, activity_seconds, translations — MIGRATION_1_2 + MIGRATION_2_3 + MIGRATION_3_4), DAOs, LibraryStore + PlayerStore impls, launch-time index rebuild (P1/P2, T4-1 #33), BackupStore snapshot/merge + BookFileStore sidecars (E1 #111)

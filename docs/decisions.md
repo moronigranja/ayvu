@@ -4,6 +4,90 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 174. Release gate (pass 7) discharged: untrusted-input hardening + licence completeness (2026-09-17)
+
+Context: v0.1.1 was release-ready but unpublished, and roadmap pass 7 held the
+publish behind a security pass over the untrusted-input entry points, licence/
+NOTICE completeness, and the cross-id migration exercise. An audit of HEAD
+`8becbf7` found three real blockers and four licence gaps; all are fixed and
+regression-tested (the tests below are the evidence, not this entry).
+
+**Restore (core-backup / core-persistence / feature-settings)** — a picked
+"backup" is untrusted input:
+- **zip-slip.** `books/<name>` names were prefix-stripped and written with
+  `File(root, name)`, so `books/../../databases/ayvu.db` escaped `files/books`.
+  Three layers now: the codec refuses any name that is not one safe segment
+  (`[A-Za-z0-9._-]+`; typed `BackupReadError.UnsafeBookFile`), `BookFileStore.save`
+  requires the canonical path to stay inside the root (the `EspeakStager`
+  idiom), and `BackupStore.merge` writes only a name whose stem is a restored
+  book id.
+- **ceilings.** New `BackupLimits` (256 MB archive / 4096 entries / 128 MB entry
+  / 512 MB cumulative / 64 KB manifest) enforced WHILE inflating; duplicate
+  entry names are refused (they used to overwrite, last-wins);
+  `BackupViewModel.restore` streams through `BackupCodec.read(InputStream)` so a
+  SAF stream's untrusted length never decides what the heap holds.
+- **OOM.** A zip bomb raised `OutOfMemoryError`, which `catch (Exception)` missed
+  and which killed the process; it is now a typed `BackupReadError.OutOfMemory`,
+  and the view-model converts every `Throwable` (rethrowing
+  `CancellationException`).
+- **atomicity.** `BookFileStore.save` writes a temp file and renames into place,
+  so a disk-full or unreplaceable target leaves the previous sidecar untouched
+  and no partial file.
+
+Residual (accepted): the archive is still parsed whole in memory — the ceilings
+are the bound, and were sized for real backups.
+
+**Import (core-ebook)** — EPUB/KF8 had ceilings since #146; MOBI had none:
+- `HuffCdicDecoder.loadCdic` allocated `1 shl bits` placeholder slots from an
+  18-byte header (up to 2^31 entries); the table is now bounded by the record's
+  own 2-byte-per-phrase capacity and a 2^16 phrase cap, with range-checked reads.
+- PalmDOC/HUFF-CDIC output writes through `CappedTextOutput` under a shared
+  `TextExpansionBudget` (per-record `maxEntryBytes`, book-wide
+  `maxTotalExpandedBytes`), threaded across records by `readTextRecords`;
+  breaches raise the existing typed `EBookLimitExceededException`.
+- OOM containment: `BookImporter.import` guards parse → segment →
+  source-bytes capture → cover as ONE block, and `sourceId` catches OOM — no
+  single file can kill the process (`StackOverflowError` still propagates).
+
+Residual (accepted): a crafted container whose CDIC records all carry in-range
+offsets can still grow the phrase dictionary by ~20× the CDIC bytes; that is now
+a typed per-file failure, never a process kill.
+
+**Licences** (obligations that attach at distribution):
+- `NOTICE.md` gained the missing attributions — KindleUnpack (GPL-3.0; the
+  MOBI/KF8 ports, now also headed in-code), llama.cpp/ggml (MIT, vendored
+  `b75ecd1971`), tess-two 9.1.0 (Apache-2.0), the LFM2.5-1.2B translate pack
+  (LFM Open License v1.0, its commercial-revenue threshold stated) — and the
+  "three hosts" count and espeak-ng's licence label were corrected.
+- The APK now carries `LICENSE` + `NOTICE.md` as assets copied from the repo
+  root by `:app`'s `copyLicenceAssets` (single source of truth — no second copy
+  that can drift), rendered in-app at Settings → About → Licences. GPL §4 is
+  satisfied without a browser or network.
+- The **published** `espeak-ng-1.52.0` archive was repacked with `COPYING` +
+  `SOURCE-OFFER.txt` (lib/data byte-identical), its release body gained the §6
+  source directions, and the pack pin was re-pinned (`9a65f6cf…`, 10,144,828 B)
+  in `KokoroPacks`, `DefaultEnginesTest` and `NOTICE.md`.
+  `tools/build-espeak-android.sh` emits the licence + source offer for future
+  bundles.
+
+**Release mechanics:** `docs/release-notes-0.1.1.md` corrected (pre-rename source
+URL, the false "translation not in this build" claim, the four-source pack table,
+the LFM licence limitation); `.gitignore`'s corrupted negation restored
+(`!m/nmt/manifest.json`).
+
+Consequences:
+- Pass 7's **code + licence half is discharged**; what remains is mechanical —
+  device smoke on the signed 0.1.1 APK (owed: no device attached during the pass)
+  and the publish itself, which creates the `v0.1.1` tag.
+- The notes carry a build-time SHA-256; it must be refreshed from
+  `tools/release.sh` output at publish.
+- Verified artifact: release APK 51.8 MB, signed with the unchanged release
+  certificate (`a5057984…`), `assets/LICENSE` + `assets/NOTICE.md` byte-identical
+  to the repo root.
+- Deliberately NOT changed: `PersistenceModule.DATABASE_NAME` stays
+  `local-tts-reader.db`. Renaming is a filename change that would orphan every
+  existing install's library; the name is cosmetic.
+
 ## 173. D5 CLOSED — the voice-clone engine class is deferred (2026-09-16, owner)
 
 Owner decision: D5 (high-end cloning: Chatterbox vs CosyVoice3 vs Pocket TTS)

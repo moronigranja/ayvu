@@ -63,7 +63,7 @@ Thumbs.db
 # paths and the tools' defaults keep working; the symlinks themselves stay
 # untracked, which is what these rules now cover.
 m/nmt/*
-__omp_shell("m/nmt/manifest.json")
+!m/nmt/manifest.json
 m/nmt_stage
 m/flores
 
