@@ -4,6 +4,27 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 179. Release notes drop the verification and pre-release-upgrade sections (2026-09-17, owner)
+
+Owner decision, taken after the 0.1.2 publish: **future** release notes omit two sections
+the 0.1.1 and 0.1.2 notes carried — *Verify the download* (the `sha256sum` /
+`apksigner verify --print-certs` instruction block) and *Upgrading from a pre-release
+build* (the `com.moronigranja.localttsreader` legacy-id and debug-key guidance).
+
+Consequences, recorded rather than implied:
+
+- The notes' shape is now: intro, what changed, install requirements, first-run pack
+  table, that build's known limitations, licences/source line (roadmap §Release
+  readiness holds the rule, next to the publish-run steps).
+- The uploaded digest stays pinned in the notes' own text — roadmap step 2 still requires
+  the value `tools/release.sh --upload` printed for the artifact it uploaded, and it is
+  the record the next releaser diffs against. `tools/release.sh` keeps printing the digest
+  and the signer certificates, so verification stays possible from the script's output;
+  it is no longer spelled out for users in the notes.
+- The already-published 0.1.1 and 0.1.2 notes (repo files and the live GitHub releases) are
+  NOT edited: they document what shipped, and a shipped release's body is a historical
+  artifact. The rule applies from v0.1.3 on.
+
 ## 178. v0.1.2 published (2026-09-17)
 
 Executes the distribution decision #126 for the long-operation slice (#177). The release

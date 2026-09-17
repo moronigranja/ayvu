@@ -887,6 +887,16 @@ What the publish run did, for the next one:
    `startsWith(github.ref, 'refs/tags/')` condition was unreachable (fixed 2026-09-17,
    `open-bugs.md`). For 0.1.1 the gate was exercised by a dispatch on the tag.
 
+**Release-notes shape (owner decision, 2026-09-17 — decisions #179).** A release's notes
+carry the intro, what changed since the previous release, the install requirements, the
+first-run pack table, that build's known limitations, and the licences/source line. They do
+**not** carry a *Verify the download* section (the sha256 + certificate instructions block)
+or an *Upgrading from a pre-release build* section (the legacy-id / debug-key guidance).
+The uploaded digest still gets pinned in the notes' own text — step 2's rule, and the
+artifact record the next releaser diffs against; `tools/release.sh` keeps printing the
+digest and the signer certificates for anyone who wants them. The 0.1.1 and 0.1.2 notes
+keep their copies of both sections: those files record what actually shipped.
+
 The next release increments `versionCode` (3 → 4, v0.1.3). Note from the 0.1.2 run: the
 draft upload rebuilds `packageRelease`, so the digest that goes into the notes must be
 the one printed by `tools/release.sh --upload` (a local build of the same commit had a
