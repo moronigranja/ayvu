@@ -913,7 +913,15 @@ player state machinery.
   virtual-time test could wait forever for a resumption that lands in real time. **Fixed
   2026-09-17:** `PackRegistry` takes an injectable `ioDispatcher` (composition passes the
   app's `@IoDispatcher`), and the test drives downloads on its own scheduler — the class
-  then passed eight consecutive `--rerun-tasks` runs and CI went green.
+  then passed eight consecutive `--rerun-tasks` runs, and the settings suite is green in
+  the Docker lane.
+- **The Docker lane re-downloads its whole dependency graph on every push** (the named
+  `android-gradle`/`android-local` volumes are empty on a fresh CI runner): each run takes
+  ~10 minutes and any Maven hiccup fails the lane — it flaked once on Robolectric's
+  `android-all` fetch (`ActivitySecondsDaoTest > initializationError`, `SocketException`,
+  2026-09-17), not on any test. **Deferred to the next release (owner call, 2026-09-17):**
+  cache the volumes (or bake the Robolectric runtime into the image) so the lane stops
+  re-downloading and stops flaking on the network.
 
 The A1/A2/A4/A5–A7/A6/F2 device-evidence rows and the ktlint gate are all closed
 (decisions #105, 2026-08-31/09-01); B4/C2 device checks are complete (decisions
