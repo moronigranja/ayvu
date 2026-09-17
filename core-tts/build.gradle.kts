@@ -19,6 +19,8 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.core) // status flow, cancellable downloads
+    // The long-operation contract (progress + Stop) the pack installer reports through.
+    api(project(":core-ops"))
     implementation(libs.jna) // espeak-ng phonemization (JVM + Android; explicit library path)
     implementation(libs.kotlinx.serialization.json) // model metadata + vocab config (no codegen)
     // ONNX Runtime is platform-specific: the JVM jar for host tests/benchmark, the

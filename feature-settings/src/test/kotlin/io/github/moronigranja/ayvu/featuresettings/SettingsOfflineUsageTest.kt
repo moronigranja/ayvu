@@ -13,8 +13,9 @@ import io.github.moronigranja.ayvu.tts.DownloadTransport
 import io.github.moronigranja.ayvu.tts.OpenResult
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.PackDownloader
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
+import io.github.moronigranja.ayvu.tts.PackStager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -100,11 +101,11 @@ class SettingsOfflineUsageTest {
         storage: OfflineStorage,
     ): SettingsViewModel {
         val cache = PackCache(tempDir)
+        val registry = PackRegistry(cache, PackDownloader(cache, UnusedTransport), emptyList())
         return SettingsViewModel(
-            registry = PackRegistry(cache, PackDownloader(cache, UnusedTransport), emptyList()),
-            cache = cache,
+            registry = registry,
+            installer = PackInstaller(registry, PackStager { }),
             settings = AppSettings(SettingsStore(FakeSettingsDao())),
-            voiceCatalog = VoiceCatalog(cache),
             filesDir = tempDir,
             repository = library,
             storage = storage,

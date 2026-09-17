@@ -62,12 +62,24 @@ class PregenManager
                 ExistingWorkPolicy.KEEP,
                 OneTimeWorkRequestBuilder<PregenWorker>()
                     .setInputData(withBudget)
+                    // Tagged so the notification's Stop action can end every
+                    // manual run at once (D1).
+                    .addTag(PregenWorker.TAG_PREGEN)
                     .build(),
             )
         }
 
         fun cancel(bookId: String) {
             workManager.cancelUniqueWork(PregenWorker.workName(bookId))
+        }
+
+        /**
+         * Ends EVERY manual pre-generation run (the notification's Stop action,
+         * D1). Each run stops at the next passage boundary and the already-cached
+         * audio stays on disk — the same contract as the per-book [cancel].
+         */
+        fun cancelAllRunning() {
+            workManager.cancelAllWorkByTag(PregenWorker.TAG_PREGEN)
         }
 
         /**

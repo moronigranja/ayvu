@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.moronigranja.ayvu.featureplayer.playback.EngineSelector
 import io.github.moronigranja.ayvu.featureplayer.playback.PlaybackService
+import io.github.moronigranja.ayvu.ops.OperationRunner
 import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.player.AuditionUiState
@@ -22,9 +23,11 @@ import io.github.moronigranja.ayvu.player.VoiceAudition
 import io.github.moronigranja.ayvu.player.VoicePackDownloader
 import io.github.moronigranja.ayvu.player.pregen.TranslationService
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
 import io.github.moronigranja.ayvu.tts.PackState
 import io.github.moronigranja.ayvu.tts.PackStatus
+import io.github.moronigranja.ayvu.tts.installPacks
 import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMetadata
 import io.github.moronigranja.ayvu.tts.piper.PiperVoiceMetadata
 import io.github.moronigranja.ayvu.tts.setup.SetupEnginePacks
@@ -66,6 +69,9 @@ class ReaderViewModel
         private val registry: PackRegistry,
         private val download: VoicePackDownloader,
         private val translationService: TranslationService,
+        private val installer: PackInstaller,
+        // Null only in the pure-JVM harness; Hilt supplies the runner.
+        private val operations: OperationRunner? = null,
     ) : ViewModel(),
         PlayerCommands {
         val state: StateFlow<PlaybackUiState> = PlaybackStateHolder.state
@@ -123,18 +129,20 @@ class ReaderViewModel
 
         // ---- read-in-language (decisions #114) ----
 
-        private val translateProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
-
         /** The voice-sheet "Read in" section state: the active book's target,
          * the target languages the active engine can voice, and pack
          * readiness (selection is disabled until the pack is staged). */
         val translateState: StateFlow<ReadInLanguageUiState> =
-            combine(settings.state, registry.packs, translateProgress, PlaybackStateHolder.state) {
+            combine(settings.state, registry.packs, PlaybackStateHolder.state) {
                 prefs,
                 packs,
-                progress,
                 playback,
                 ->
+                // The translate row's progress is registry truth (the download
+                // runs as a foreground operation, not in this VM's scope).
+                val progress =
+                    (packs.firstOrNull { it.pack.id == TranslatePacks.pack.id }?.status as? PackStatus.Downloading)
+                        ?.let { it.downloadedBytes.toFloat() / it.totalBytes }
                 val bookId = playback.bookId
                 val display = bookId?.let { prefs.bookDisplays[it] }
                 val speech = bookId?.let { prefs.bookTranslate[it] }
@@ -397,17 +405,11 @@ class ReaderViewModel
             changeVoice(settings.state.value.voice)
         }
 
-        /** Inline download for the translation pack row (per-book, never a
-         * global gate): explicit, resumable, verified (decision #7); the
-         * settings surface stages the bundle after Ready. */
+        /** The translation pack row's download (per-book, never a global
+         * gate): explicit, resumable, verified (decision #7) and it stages the
+         * bundle after Ready — one cancellable foreground operation. */
         fun downloadTranslatePack() {
-            viewModelScope.launch {
-                translateProgress.value = 0f
-                registry
-                    .download(TranslatePacks.pack.id) { done, total ->
-                        translateProgress.value = (done.toDouble() / total).toFloat()
-                    }.also { translateProgress.value = null }
-            }
+            operations?.installPacks(installer, listOf(TranslatePacks.pack.id))
         }
 
         /** C2: select a voice AND rebuild the active book under it at the same

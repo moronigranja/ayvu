@@ -458,6 +458,24 @@ class PregenWorkerTest {
         }
 
     @Test
+    fun `the progress notification carries a Stop action that cancels the run`() {
+        val notification =
+            PregenWorker.buildPregenNotification(
+                context = context,
+                bookTitle = "Novel",
+                chapter = 1,
+                totalChapters = 12,
+                percent = 8,
+            )
+
+        val action = notification.actions.single()
+        assertEquals("Stop", action.title.toString())
+        val saved = shadowOf(action.actionIntent).savedIntent
+        assertEquals(PregenWorker.ACTION_CANCEL_PREGEN, saved.action)
+        assertEquals(PregenCancelReceiver::class.java.name, saved.component?.className)
+    }
+
+    @Test
     fun `requested books absent from the library fail instead of a false success`() =
         runBlocking {
             val engine = FakeEngine()

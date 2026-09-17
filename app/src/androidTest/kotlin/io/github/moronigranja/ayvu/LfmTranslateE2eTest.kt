@@ -103,7 +103,10 @@ class LfmTranslateE2eTest {
         Log.i(TAG, "download outcome=$outcome")
         assertTrue("pack must verify ($outcome)", cache.isVerified(pack))
 
-        assertTrue("staging must succeed", TranslatePackStager.stage(files, cache, pack))
+        assertTrue(
+            "staging must succeed",
+            runBlocking { TranslatePackStager.stage(files, cache, pack) },
+        )
         assertTrue("staged bundle must be ready", TranslatePackStager.isStaged(files))
         val gguf = File(TranslatePackStager.bundleDir(files), TranslatePackStager.MODEL_FILE)
         assertEquals(730_895_168L, gguf.length())

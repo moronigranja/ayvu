@@ -4,6 +4,63 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 177. Long-running operations get a foreground host, progress + Stop (2026-09-17)
+
+Pack downloads (325 MB Kokoro, 730 MB translate), their staging unzip (which ran
+synchronously on the MAIN thread), and book import (whole-book parse + segment + index)
+had no notification and no reliable cancel: they ran in view-model scopes that die with
+the screen. Pre-generation (43) and playback generation (44) had notifications but no way
+to stop them.
+
+**One mechanism, two implementations.** The contract is a new pure-JVM module,
+`core-ops` (`OperationSpec`/`OperationChannel`/`OperationReporter`/`OperationRunner`);
+the implementation is `app/…/ops/AndroidOperationRunner` behind a foreground `dataSync`
+`OperationService` that owns one notification per operation (progress + a Stop action)
+and cancels the body's coroutine when Stop is pressed. Bodies run on the app-scope
+coroutine scope, so no caller coroutine outlives the operation and screen death no longer
+abandons a download. Notification ids: 42 media / 43 pregen / 44 generation stay;
+operations allocate 45+ at runtime, failures post from 200+ (`OperationNotifications`).
+
+Alternatives rejected: WorkManager for the downloads/import (a second scheduling truth
+beside the registry, and its cancellation cannot reach a synchronous unzip), and
+dismiss-to-cancel (with the foreground host the notification cannot be swiped, so the
+Stop action is the cancel path).
+
+**What moved.** `PackInstaller` (core-tts) is now the single download+stage entry point
+for all four surfaces (settings, setup, reader, library) — it reports progress through the
+operation's notification and records staging failures in `PackRegistry.installFailed`
+(a flow, because a staging failure happens AFTER the pack is Ready and `packs` would not
+re-emit); `PackRegistry.stagedTick` is the filesystem-status re-evaluation signal the
+settings rows read. The three stagers (`EspeakStager`, `TessDataStager`,
+`TranslatePackStager`) became cooperative suspend functions (`ensureActive` per zip entry
+/ per 1 MiB copy chunk), so Stop lands at a boundary and the atomic tmp→bundle swap only
+runs on a complete pass. Import moved into `feature-library`'s
+`ImportStateHolder`/`ImportOperations` (a singleton, so the library overlay and the setup
+wizard render ONE import, and the operation body never captures a ViewModel). Stops were
+added to the two existing generation notifications: pregen's Stop cancels every run tagged
+`ayvu-pregen` through `PregenCancelReceiver`; playback generation's Stop reuses
+`ACTION_STOP` (which cancels the fill job and the post-stop fill with playback).
+
+**Two defects the device pass caught (both fixed in the slice).** (1)
+`OperationService` must call `startForeground` for EVERY `startForegroundService`:
+a sub-second operation (the 1.3 MB book import) finished before the queued START
+callback ran, the runner's `stopService` in that window made the platform fault the
+process with `ForegroundServiceDidNotStartInTimeException`, and the app died. The
+service now always foregrounds something (the operation's own notification, or a
+bare stand-in, id 41) and the runner refuses to stop the service until the platform's
+start requirement is satisfied. (2) `runCatching` around the staging step swallowed
+`CancellationException`, so pressing Stop during a 730 MB unpack produced a
+"1 pack(s) failed — see Settings" failure notification instead of a clean cancel;
+cancellation is rethrown and the batch ends quietly (the `.part`/unpacked tmp stay,
+and the settings self-heal re-stages).
+
+**Known limits, deliberate.** A single book's parse+segmentation stays uninterruptible
+(Stop lands at the next file boundary), and a download chunk can outlive the Stop by up to
+the transport's 30 s read timeout. A process kill loses in-flight work (downloads resume
+from `.part`, imports are retried) — no WorkManager restart-after-death migration. On
+Android 15+ the `dataSync` foreground type is capped at six hours;
+`OperationService.onTimeout` ends the runs.
+
 ## 176. The shipped APK is named `Ayvu-<versionName>.apk` (2026-09-17)
 
 The release asset was `app-release.apk` — AGP's output name, which says nothing about

@@ -173,3 +173,12 @@ sealed interface DownloadFailureReason {
         val expectedBytes: Long,
     ) : DownloadFailureReason
 }
+
+/** One-line user-facing text for a failed transfer (the pack rows read this). */
+fun DownloadFailureReason.shortMessage(): String =
+    when (this) {
+        is DownloadFailureReason.HttpStatus -> "HTTP $status"
+        is DownloadFailureReason.IoError -> message
+        is DownloadFailureReason.CorruptContent -> "checksum mismatch"
+        is DownloadFailureReason.Incomplete -> "incomplete download"
+    }

@@ -11,6 +11,14 @@ import io.github.moronigranja.ayvu.ebook.ImportCoordinator
 import io.github.moronigranja.ayvu.locate.TextIndex
 import io.github.moronigranja.ayvu.model.InMemoryLibraryStore
 import io.github.moronigranja.ayvu.player.PlayerCommands
+import io.github.moronigranja.ayvu.tts.DownloadTransport
+import io.github.moronigranja.ayvu.tts.OpenResult
+import io.github.moronigranja.ayvu.tts.PackCache
+import io.github.moronigranja.ayvu.tts.PackDownloader
+import io.github.moronigranja.ayvu.tts.PackInstaller
+import io.github.moronigranja.ayvu.tts.PackRegistry
+import io.github.moronigranja.ayvu.tts.PackStager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -22,7 +30,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModelTest {
@@ -30,6 +40,23 @@ class LibraryViewModelTest {
     // test thread (no real threads/time → fully deterministic).
     @RegisterExtension
     val mainDispatcherRule = MainDispatcherRule()
+
+    @TempDir
+    lateinit var tempDir: File
+
+    /** No pack in this registry: the translate download is a no-op here. */
+    private object UnusedTransport : DownloadTransport {
+        override suspend fun open(
+            url: String,
+            rangeFrom: Long?,
+        ): OpenResult = error("the library tests never download packs")
+    }
+
+    private fun installer(): PackInstaller =
+        PackInstaller(
+            PackRegistry(PackCache(tempDir), PackDownloader(PackCache(tempDir), UnusedTransport), emptyList()),
+            PackStager { },
+        )
 
     // ------------------------------------------------------------------
     // Fixture helpers (EpubFixture comes from core-ebook's testFixtures)
@@ -91,14 +118,27 @@ class LibraryViewModelTest {
         indexLock: io.github.moronigranja.ayvu.locate.IndexLock =
             io.github.moronigranja.ayvu.locate
                 .IndexLock(),
-    ) = LibraryViewModel(
-        repository = store,
-        coordinator = ImportCoordinator(BookImporter(), store, index, indexLock),
-        ioDispatcher = mainDispatcherRule.testDispatcher,
-        indexLock = indexLock,
-        index = index,
-        commands = noopCommands,
-    )
+    ): LibraryViewModel {
+        val holder = ImportStateHolder()
+        val imports =
+            ImportOperations(
+                coordinator = ImportCoordinator(BookImporter(), store, index, indexLock),
+                holder = holder,
+                filesDir = tempDir,
+                // The batch runs where the app scope would: the test scheduler.
+                appScope = CoroutineScope(mainDispatcherRule.testDispatcher),
+            )
+        return LibraryViewModel(
+            repository = store,
+            ioDispatcher = mainDispatcherRule.testDispatcher,
+            indexLock = indexLock,
+            index = index,
+            commands = noopCommands,
+            installer = installer(),
+            imports = imports,
+            importStateHolder = holder,
+        )
+    }
 
     // ------------------------------------------------------------------
     // Tests

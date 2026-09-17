@@ -11,13 +11,16 @@ import io.github.moronigranja.ayvu.tts.EngineSpec
 import io.github.moronigranja.ayvu.tts.EngineTier
 import io.github.moronigranja.ayvu.tts.HttpBody
 import io.github.moronigranja.ayvu.tts.OpenResult
+import io.github.moronigranja.ayvu.tts.OperationFailed
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.PackDownloader
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackKind
 import io.github.moronigranja.ayvu.tts.PackRegistry
+import io.github.moronigranja.ayvu.tts.PackStager
 import io.github.moronigranja.ayvu.tts.PackStatus
 import io.github.moronigranja.ayvu.tts.TtsPack
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -51,6 +54,7 @@ class SettingsViewModelTest {
     lateinit var tempDir: File
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val runner = FakeOperationRunner(CoroutineScope(dispatcher))
 
     private class FakeSettingsDao : SettingsDao {
         val rows = mutableMapOf<String, String>()
@@ -121,13 +125,14 @@ class SettingsViewModelTest {
     private fun viewModel(
         registry: PackRegistry,
         dao: FakeSettingsDao,
+        stager: PackStager = PackStager { },
     ): SettingsViewModel =
         SettingsViewModel(
             registry = registry,
-            cache = PackCache(tempDir),
+            installer = PackInstaller(registry, stager),
             settings = AppSettings(SettingsStore(dao)),
-            voiceCatalog = VoiceCatalog(PackCache(tempDir)),
             filesDir = tempDir,
+            operations = runner,
         )
 
     @BeforeEach
@@ -188,7 +193,38 @@ class SettingsViewModelTest {
             assertEquals(PackStatus.Ready, row.status)
             assertNull(row.progress, "progress cleared on completion")
             assertNull(row.error)
+            assertEquals(listOf("pack-download:test-pack"), runner.specs.map { it.id })
+            assertEquals("Ayvu — Test pack", runner.specs.single().title)
+
+            vm.cancelDownload("test-pack")
+
+            assertEquals(listOf("pack-download:test-pack"), runner.cancelled)
         }
+
+    @Test
+    fun `a staging failure surfaces on the row although the pack is ready`() {
+        runTest(dispatcher) {
+            val dao = FakeSettingsDao()
+            val bytes = ByteArray(4096) { (it % 251).toByte() }
+            val vm =
+                viewModel(
+                    harness(dao, pinnedBytes = bytes),
+                    dao,
+                    stager = PackStager { error("no space left") },
+                )
+            backgroundScope.launch { vm.state.collect {} }
+
+            vm.download("test-pack")
+
+            vm.state.first { it.packs.any { p -> p.packId == "test-pack" && p.error != null } }
+            val row =
+                vm.state.value.packs
+                    .single { it.packId == "test-pack" }
+            assertEquals(PackStatus.Ready, row.status)
+            assertEquals("unpacking failed: no space left", row.error)
+            assertTrue(runner.failures.single() is OperationFailed)
+        }
+    }
 
     @Test
     fun `a corrupt download surfaces a typed error without recursion`() =
@@ -267,5 +303,10 @@ class SettingsViewModelTest {
                     .associateBy { it.packId }
             assertEquals(PackStatus.Ready, rows.getValue("test-model").status)
             assertEquals(PackStatus.Ready, rows.getValue("test-model-config").status)
+            assertEquals(
+                listOf("pack-download:test-model"),
+                runner.specs.map { it.id },
+                "the base row's Download is one batch operation covering the companion",
+            )
         }
 }

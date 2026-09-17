@@ -8,14 +8,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.moronigranja.ayvu.ebook.EBookSource
-import io.github.moronigranja.ayvu.ebook.ImportCoordinator
-import io.github.moronigranja.ayvu.ebook.ImportFailureReason
-import io.github.moronigranja.ayvu.ebook.ImportOutcome
 import io.github.moronigranja.ayvu.featurelibrary.CoverStore
 import io.github.moronigranja.ayvu.locate.IndexLock
 import io.github.moronigranja.ayvu.locate.TextIndex
 import io.github.moronigranja.ayvu.model.LibraryEntry
 import io.github.moronigranja.ayvu.model.LibraryStore
+import io.github.moronigranja.ayvu.ops.OperationRunner
 import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.BookFileStore
 import io.github.moronigranja.ayvu.persistence.ChapterCount
@@ -36,8 +34,10 @@ import io.github.moronigranja.ayvu.player.PregenScheduler
 import io.github.moronigranja.ayvu.player.Streak
 import io.github.moronigranja.ayvu.player.TodayStats
 import io.github.moronigranja.ayvu.player.WeekSummary
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
 import io.github.moronigranja.ayvu.tts.PackStatus
+import io.github.moronigranja.ayvu.tts.installPacks
 import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMetadata
 import io.github.moronigranja.ayvu.tts.piper.PiperPacks
 import io.github.moronigranja.ayvu.tts.piper.PiperVoiceMetadata
@@ -48,7 +48,6 @@ import io.github.moronigranja.ayvu.ui.ReadInLanguageUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -66,14 +65,16 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Drives the import flow: batches [EBookSource]s through the domain [BookImporter]
- * on the IO dispatcher, publishes progress as [Importing], appends [Added]
- * entries to the [LibraryStore], and lands on [ImportUiState.Done] with the
- * batch summary — for every outcome, including all-failed batches.
+ * The library surface's ViewModel: rows, search, stats, offline audio, and the
+ * entry points into the shared import operation ([ImportOperations] over the
+ * [ImportStateHolder]) — file, folder and external-intent batches all land in
+ * that one operation, which owns progress ([ImportUiState.Importing]) and the
+ * batch summary ([ImportUiState.Done]) for every outcome, including all-failed
+ * batches.
  *
- * [ioDispatcher] is qualifier-injected so unit tests can hand a virtual dispatcher
- * to [import]'s coroutine (production gets [kotlinx.coroutines.Dispatchers.IO]
- * from [ImportModule]).
+ * [ioDispatcher] is qualifier-injected so unit tests can hand a virtual
+ * dispatcher to the VM's own scans/reads (production gets
+ * [kotlinx.coroutines.Dispatchers.IO] from [ImportModule]).
  */
 @HiltViewModel
 class LibraryViewModel
@@ -84,8 +85,7 @@ class LibraryViewModel
         // (Hilt supplies both).
         private val settings: AppSettings? = null,
         private val registry: PackRegistry? = null,
-        // CR-3/A3: the one import orchestration boundary (parse → durable → index).
-        private val coordinator: ImportCoordinator,
+        private val installer: PackInstaller,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
         // Default null: tests pass their own lock (Hilt supplies it).
         private val indexLock: IndexLock? = null,
@@ -104,13 +104,17 @@ class LibraryViewModel
         private val activityStore: ActivityStore? = null,
         // A6: the app binds the intent-dispatching sender; tests pass a fake.
         private val commands: PlayerCommands,
+        // Null in the pure-JVM harness; Hilt supplies both.
+        private val operations: OperationRunner? = null,
+        private val imports: ImportOperations? = null,
+        private val importStateHolder: ImportStateHolder? = null,
     ) : ViewModel() {
         /** Books the user has covers for (extracted at import; sidecar files). */
         fun cover(bookId: String): ByteArray? = context?.let { CoverStore(File(it.filesDir, "covers")).load(bookId) }
 
         /** Dismisses the finished-batch summary; the snackbar/dialog must not re-show on revisit. */
         fun consumeImportResult() {
-            _importState.value = ImportUiState.Idle
+            importStateHolder?.set(ImportUiState.Idle)
         }
 
         /** The service-published player state — docks the shared player card. */
@@ -155,13 +159,11 @@ class LibraryViewModel
         // book through the [PlayerCommands.changeVoice] path (the service
         // re-reads the setting; same single-writer rule as voice changes).
 
-        private val translateDownload = MutableStateFlow<Pair<String, Float>?>(null)
-
         /** The "Read in language" dialog state for [bookId]. */
         fun translateState(bookId: String): StateFlow<ReadInLanguageUiState> {
             val prefs = settings ?: return MutableStateFlow(ReadInLanguageUiState(bookId = bookId))
             val packs = registry ?: return MutableStateFlow(ReadInLanguageUiState(bookId = bookId))
-            return combine(prefs.state, packs.packs, translateDownload) { prefsSnapshot, packStates, downloading ->
+            return combine(prefs.state, packs.packs) { prefsSnapshot, packStates ->
                 val target = prefsSnapshot.bookTranslate[bookId]
                 ReadInLanguageUiState(
                     bookId = bookId,
@@ -170,7 +172,11 @@ class LibraryViewModel
                     packDownloaded =
                         packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
                             (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
-                    downloadProgress = downloading?.takeIf { it.first == bookId }?.second,
+                    // Registry truth: the download runs as a foreground
+                    // operation, not in this VM's scope.
+                    downloadProgress =
+                        (packStates.firstOrNull { it.pack.id == TranslatePacks.pack.id }?.status as? PackStatus.Downloading)
+                            ?.let { it.downloadedBytes.toFloat() / it.totalBytes },
                     degradeReason =
                         io.github.moronigranja.ayvu.tts.translate.TranslateAvailability.degradeReason(
                             target = target,
@@ -207,16 +213,11 @@ class LibraryViewModel
             commands.changeVoice(prefs.state.value.voice)
         }
 
-        /** Inline download for the translation pack (content-row action). */
+        /** The translation pack's download (content-row action): one
+         * cancellable foreground operation, staged after Ready. */
         fun downloadTranslatePack(bookId: String) {
-            val packs = registry ?: return
-            viewModelScope.launch {
-                translateDownload.value = bookId to 0f
-                packs
-                    .download(TranslatePacks.pack.id) { done, total ->
-                        translateDownload.value = bookId to (done.toDouble() / total).toFloat()
-                    }.also { translateDownload.value = null }
-            }
+            if (registry == null) return
+            operations?.installPacks(installer, listOf(TranslatePacks.pack.id))
         }
 
         /** The active engine's target languages (mirrors the selector's
@@ -389,12 +390,11 @@ class LibraryViewModel
             }
         }
 
-        /** The in-flight import batch (F1): a new import supersedes the old one,
-         * and [cancelImport] stops it at the next file boundary. */
-        private var importJob: Job? = null
-
-        private val _importState = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
-        val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
+        /** The shared import state (K3): the singleton holder, so the library
+         * overlay and the setup wizard render ONE import; [cancelImport] stops
+         * it at the next file boundary. */
+        val importState: StateFlow<ImportUiState> =
+            importStateHolder?.state ?: MutableStateFlow(ImportUiState.Idle)
 
         /** F4: non-import guidance shown by the external-file gateway (unsupported
          * format / kfx / DRM) — set once per received intent, never a silent no-op. */
@@ -433,30 +433,14 @@ class LibraryViewModel
         /** Dismisses the import overlay (guidance or finished summary). */
         fun dismissIntake() {
             _intakeGuidance.value = null
-            _importState.value = ImportUiState.Idle
+            importStateHolder?.set(ImportUiState.Idle)
         }
 
-        /** Imports [sources] in order, reporting per-file progress; no-op for an empty list. */
+        /** Imports [sources] in order as one cancellable operation; no-op for an
+         * empty list. The batch runs on the app scope (the operation host), so a
+         * screen close no longer abandons it. */
         fun import(sources: List<EBookSource>) {
-            if (sources.isEmpty()) return
-            importJob?.cancel()
-            // F1: visible progress from the very first file's parse — a large
-            // (or single-file) import must never look hung before its first
-            // completed file.
-            _importState.value =
-                ImportUiState.Importing(
-                    done = 0,
-                    total = sources.size,
-                    currentFileName = sources.first().fileName,
-                )
-            importJob =
-                viewModelScope.launch {
-                    try {
-                        runImport(sources, truncated = false)
-                    } catch (e: CancellationException) {
-                        throw e // cancelImport already published Idle; never a partial Done
-                    }
-                }
+            imports?.start(sources, truncated = false, operations = operations)
         }
 
         /**
@@ -468,116 +452,40 @@ class LibraryViewModel
          */
         fun importFolder(uri: Uri) {
             val ctx = context ?: return
-            importJob?.cancel()
-            _importState.value = ImportUiState.Scanning("Scanning folder\u2026")
-            importJob =
-                viewModelScope.launch {
-                    try {
-                        val result = withContext(ioDispatcher) { ctx.scanTree(uri) }
-                        coroutineContext.ensureActive()
-                        if (result.files.isEmpty()) {
-                            _importState.value =
-                                ImportUiState.Done(
-                                    ImportUiState.Summary(
-                                        added = 0,
-                                        unchanged = 0,
-                                        failed = listOf("Folder" to NO_BOOKS_MESSAGE),
-                                    ),
-                                )
-                            return@launch
-                        }
-                        _importState.value =
-                            ImportUiState.Importing(
-                                done = 0,
-                                total = result.files.size,
-                                currentFileName = result.files.first().name,
-                            )
-                        runImport(ctx.toEBookSources(result), truncated = result.truncated)
-                    } catch (e: CancellationException) {
-                        throw e
+            // The scan itself stays here: it is bounded (FolderScanPolicy) and
+            // needs this screen's Context; the batch it produces is the shared
+            // operation.
+            imports?.cancel(operations) // a scan supersedes the running import
+            importStateHolder?.set(ImportUiState.Scanning("Scanning folder\u2026"))
+            viewModelScope.launch {
+                try {
+                    val result = withContext(ioDispatcher) { ctx.scanTree(uri) }
+                    coroutineContext.ensureActive()
+                    if (result.files.isEmpty()) {
+                        importStateHolder?.set(
+                            ImportUiState.Done(
+                                ImportUiState.Summary(
+                                    added = 0,
+                                    unchanged = 0,
+                                    failed = listOf("Folder" to NO_BOOKS_MESSAGE),
+                                ),
+                            ),
+                        )
+                        return@launch
                     }
+                    imports?.start(ctx.toEBookSources(result), truncated = result.truncated, operations = operations)
+                } catch (e: CancellationException) {
+                    throw e
                 }
-        }
-
-        /** The shared import loop for file and folder batches: progress → durable
-         * commit/index (owned by the coordinator) → the summary, in-flight-truncated. */
-        private suspend fun runImport(
-            sources: List<EBookSource>,
-            truncated: Boolean,
-        ) {
-            val outcomes =
-                withContext(ioDispatcher) {
-                    coordinator.importAll(
-                        sources,
-                        onProgress = { current, done, total ->
-                            _importState.value = ImportUiState.Importing(done, total, current.fileName)
-                        },
-                        onStage = { stage ->
-                            // keep the latest per-file counts while the stage flips
-                            val cur = _importState.value
-                            if (cur is ImportUiState.Importing) {
-                                _importState.value =
-                                    ImportUiState.Importing(
-                                        done = cur.done,
-                                        total = cur.total,
-                                        currentFileName = cur.currentFileName,
-                                        stage = stage,
-                                    )
-                            }
-                        },
-                    )
-                }
-            val summary = buildSummary(outcomes)
-            currentCoroutineContext().ensureActive() // a racing cancel must never land Done
-            _importState.value = ImportUiState.Done(summary.copy(truncated = truncated))
+            }
         }
 
         /** Cancels the in-flight import (F1): the batch stops at the next file
-         * boundary; already-committed books remain (they are fully imported). */
+         * boundary; already-committed books remain (they are fully imported).
+         * The overlay clears immediately; the operation ends via Stop's cancel. */
         fun cancelImport() {
-            importJob?.cancel()
-            importJob = null
-            _importState.value = ImportUiState.Idle
+            imports?.cancel(operations) ?: importStateHolder?.set(ImportUiState.Idle)
         }
-
-        private suspend fun buildSummary(outcomes: List<ImportOutcome>): ImportUiState.Summary {
-            var added = 0
-            var unchanged = 0
-            val failed = mutableListOf<Pair<String, String>>()
-            for (outcome in outcomes) {
-                when (outcome) {
-                    is ImportOutcome.Added -> {
-                        added += 1
-                        // CR-3/A3: the durable commit + index publish already
-                        // happened in the coordinator — the VM only owns UI work.
-                        outcome.coverBytes?.let { cover ->
-                            context?.let { CoverStore(File(it.filesDir, "covers")).save(outcome.entry.book.id, cover) }
-                        }
-                        // E1: capture the original bytes for the opt-in include-books
-                        // export — `files/books/<bookId>.<ext>`.
-                        outcome.sourceBytes?.let { bytes ->
-                            outcome.sourceFileName?.let { fileName ->
-                                bookFileStore?.save(
-                                    outcome.entry.book.id + "." + fileName.substringAfterLast('.', "bin"),
-                                    bytes,
-                                )
-                            }
-                        }
-                    }
-                    is ImportOutcome.Unchanged -> unchanged += 1
-                    is ImportOutcome.Failed -> failed += outcome.fileName to reasonMessage(outcome.reason)
-                }
-            }
-            return ImportUiState.Summary(added, unchanged, failed)
-        }
-
-        private fun reasonMessage(reason: ImportFailureReason): String =
-            when (reason) {
-                ImportFailureReason.UnsupportedFormat -> "format not supported"
-                ImportFailureReason.Unreadable -> "could not read file"
-                is ImportFailureReason.ParseError -> reason.message
-                is ImportFailureReason.Storage -> "could not save the book: ${reason.message}"
-            }
 
         private companion object {
             const val MAX_RECENT = 5

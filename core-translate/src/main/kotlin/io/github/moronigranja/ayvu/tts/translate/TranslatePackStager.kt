@@ -2,6 +2,8 @@ package io.github.moronigranja.ayvu.tts.translate
 
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.TtsPack
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.util.zip.ZipInputStream
 
@@ -35,8 +37,10 @@ object TranslatePackStager {
         return REQUIRED.all { File(dir, it).isFile }
     }
 
-    /** Extracts the verified zip into [bundleDir] (idempotent, replaces an old bundle). */
-    fun stage(
+    /** Extracts the verified zip into [bundleDir] (idempotent, replaces an old bundle).
+     *  Suspends cooperatively: Stop cancels the extract at an entry boundary, so a
+     *  cancelled 730 MB unpack leaves the previous bundle intact. */
+    suspend fun stage(
         filesDir: File,
         cache: PackCache,
         pack: TtsPack,
@@ -51,6 +55,7 @@ object TranslatePackStager {
         ZipInputStream(source.inputStream().buffered()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
+                currentCoroutineContext().ensureActive()
                 val target = File(tmp, entry.name)
                 check(target.canonicalPath.startsWith(tmp.canonicalPath)) {
                     "zip entry escapes the bundle dir: ${entry.name}"

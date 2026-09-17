@@ -3,7 +3,9 @@ package io.github.moronigranja.ayvu.featureplayer.playback
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Handler
 import android.os.Looper
@@ -348,21 +350,7 @@ class PregenWorker
             percent: Int,
         ): Notification {
             ensureChannel()
-            val body =
-                when {
-                    totalChapters == 0 -> "Pre-generating $bookTitle…"
-                    percent >= 100 -> "$bookTitle — offline audio ready"
-                    else -> "$bookTitle — chapter ${chapter + 1}/$totalChapters ($percent%)"
-                }
-            return NotificationCompat
-                .Builder(applicationContext, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Ayvu — pre-generating")
-                .setContentText(body)
-                .setOnlyAlertOnce(true)
-                .setOngoing(true)
-                .setProgress(100, percent, percent <= 0)
-                .build()
+            return buildPregenNotification(applicationContext, bookTitle, chapter, totalChapters, percent)
         }
 
         private fun ensureChannel() {
@@ -392,6 +380,52 @@ class PregenWorker
             const val KEY_PROGRESS_BOOK = "progressBook"
             const val OVERNIGHT_NAME = "offline-pregen-overnight"
             const val NOTIFICATION_ID = 43
+
+            /** Every manual run carries this tag, so the notification's Stop
+             *  action can cancel all of them (`PregenManager.cancelAllRunning`). */
+            const val TAG_PREGEN = "ayvu-pregen"
+
+            /** The pre-generation notification's Stop action. The foreground
+             *  notification is not dismissible, so this action IS the cancel path. */
+            const val ACTION_CANCEL_PREGEN = "io.github.moronigranja.ayvu.action.CANCEL_PREGEN"
+
+            /**
+             * The pre-generation notification (id 43): progress plus the Stop
+             * action that ends the run — the same builder serves the progress
+             * refresh and the foreground entry.
+             */
+            internal fun buildPregenNotification(
+                context: Context,
+                bookTitle: String,
+                chapter: Int,
+                totalChapters: Int,
+                percent: Int,
+            ): Notification {
+                val body =
+                    when {
+                        totalChapters == 0 -> "Pre-generating $bookTitle…"
+                        percent >= 100 -> "$bookTitle — offline audio ready"
+                        else -> "$bookTitle — chapter ${chapter + 1}/$totalChapters ($percent%)"
+                    }
+                return NotificationCompat
+                    .Builder(context, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.stat_sys_download)
+                    .setContentTitle("Ayvu — pre-generating")
+                    .setContentText(body)
+                    .setOnlyAlertOnce(true)
+                    .setOngoing(true)
+                    .setProgress(100, percent, percent <= 0)
+                    .addAction(
+                        0,
+                        "Stop",
+                        PendingIntent.getBroadcast(
+                            context,
+                            0,
+                            Intent(context, PregenCancelReceiver::class.java).setAction(ACTION_CANCEL_PREGEN),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    ).build()
+            }
 
             /** Throttle for the in-place notification refresh (item 5). */
             internal const val NOTIFY_THROTTLE_MS = 1_000L

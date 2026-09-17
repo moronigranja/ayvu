@@ -4,22 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.moronigranja.ayvu.ebook.EBookSource
-import io.github.moronigranja.ayvu.ebook.ImportCoordinator
-import io.github.moronigranja.ayvu.ebook.ImportOutcome
+import io.github.moronigranja.ayvu.featurelibrary.ImportOperations
+import io.github.moronigranja.ayvu.featurelibrary.ImportStateHolder
+import io.github.moronigranja.ayvu.featurelibrary.ImportUiState
 import io.github.moronigranja.ayvu.model.LibraryStore
+import io.github.moronigranja.ayvu.ops.OperationRunner
 import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.player.EspeakStager
 import io.github.moronigranja.ayvu.player.IoDispatcher
 import io.github.moronigranja.ayvu.player.VoiceAudition
-import io.github.moronigranja.ayvu.tts.DownloadFailureReason
 import io.github.moronigranja.ayvu.tts.DownloadOutcome
-import io.github.moronigranja.ayvu.tts.PackCache
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
 import io.github.moronigranja.ayvu.tts.PackState
 import io.github.moronigranja.ayvu.tts.PackStatus
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
-import io.github.moronigranja.ayvu.tts.kokoro.KokoroPacks
+import io.github.moronigranja.ayvu.tts.installPacks
 import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMetadata
 import io.github.moronigranja.ayvu.tts.piper.PiperVoiceMetadata
 import io.github.moronigranja.ayvu.tts.setup.SetupEnginePacks
@@ -27,18 +27,15 @@ import io.github.moronigranja.ayvu.tts.setup.SetupFacts
 import io.github.moronigranja.ayvu.tts.setup.SetupState
 import io.github.moronigranja.ayvu.tts.setup.StepKind
 import io.github.moronigranja.ayvu.tts.setup.StorageProbe
+import io.github.moronigranja.ayvu.tts.shortMessage
 import io.github.moronigranja.ayvu.ui.PlanPackRow
 import io.github.moronigranja.ayvu.ui.PlanPackStatus
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
@@ -90,39 +87,38 @@ class SetupViewModel
     @Inject
     constructor(
         private val registry: PackRegistry,
-        private val cache: PackCache,
+        private val installer: PackInstaller,
         private val settings: AppSettings,
-        private val voiceCatalog: VoiceCatalog,
         private val libraryStore: LibraryStore,
         @Named("app_files_dir") private val filesDir: File,
         private val storageProbe: StorageProbe,
-        private val coordinator: ImportCoordinator,
-        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+        private val importOperations: ImportOperations,
+        private val importStateHolder: ImportStateHolder,
         private val voiceAudition: VoiceAudition,
+        // Null in the pure-JVM harness; Hilt supplies the process-lifetime runner.
+        private val operations: OperationRunner? = null,
     ) : ViewModel() {
-        private val errors = MutableStateFlow<Map<String, String>>(emptyMap())
-        private val stageTick = MutableStateFlow(0)
         private val auditionFlow = voiceAudition.state
-        private val importTick = MutableStateFlow(0)
         private val wizardTick = MutableStateFlow(0)
-        private val jobs = mutableMapOf<String, Job>()
-        private var importSummaryValue: String? = null
 
         /** The wizard pointer (item 6) — held here so Back/Next survive
          * re-derivations, mutated only through [wizardNext]/[wizardBack]. */
         private var wizardStep: StepKind? = null
         private var lastSteps: List<StepKind> = emptyList()
 
-        // `combine` types at most 5 flows — nest: (packs, errors, settings) then
-        // books + the two ticks re-derive the checklist on every fact change.
+        // `combine` types at most 5 flows — nest: (packs, install failures,
+        // settings) then books + (staged tick, wizard pointer, audition, import
+        // state) re-derive the checklist on every fact change.
         private val core =
             combine(
-                combine(registry.packs, errors, settings.state) { packs, err, prefs ->
-                    Triple(packs, err, prefs)
+                combine(registry.packs, registry.installFailed, settings.state) { packs, installFailures, prefs ->
+                    Triple(packs, installFailures, prefs)
                 },
                 libraryStore.books,
-                combine(stageTick, importTick, wizardTick, auditionFlow) { _, _, _, audition -> audition },
-            ) { (packs, err, prefs), books, audition ->
+                combine(registry.stagedTick, wizardTick, auditionFlow, importStateHolder.state) { _, _, audition, importState ->
+                    audition to importState
+                },
+            ) { (packs, installFailures, prefs), books, (audition, importState) ->
                 val requiredIds = SetupEnginePacks.requiredIds(prefs.ttsEngine, prefs.voice)
                 val required = requiredIds.mapNotNull { id -> packs.firstOrNull { it.pack.id == id } }
                 val requiredReady =
@@ -147,7 +143,7 @@ class SetupViewModel
                 SetupUiState(
                     steps = steps,
                     currentStep = wizardStep,
-                    packs = required.map { it.toPlanRow(err, filesDir) },
+                    packs = required.map { it.toPlanRow(installFailures, filesDir) },
                     selectedVoice = prefs.voice,
                     engineVoice = engineVoice(required, prefs, audition),
                     storageTotalBytes = required.sumOf { it.pack.sizeBytes },
@@ -156,7 +152,7 @@ class SetupViewModel
                     shortfallBytes = (requiredBytes - available).coerceAtLeast(0L),
                     systemTtsOptedIn = prefs.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
                     ttsEngine = prefs.ttsEngine,
-                    importSummary = importSummaryValue,
+                    importSummary = importSummary(importState),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SetupUiState())
 
@@ -166,40 +162,32 @@ class SetupViewModel
             viewModelScope.launch { autoStageEspeak() }
         }
 
-        /** A verified-but-unstaged espeak pack self-heals like Settings does. */
+        /** A verified-but-unstaged espeak pack self-heals like Settings does —
+         * through the shared install path. */
         private suspend fun autoStageEspeak() {
-            val pack =
+            if (EspeakStager.isStaged(filesDir)) return
+            val id =
                 registry.packs.value
-                    .firstOrNull { it.pack.id == ESPEAK_PACK_ID }
-                    ?.pack ?: return
-            if (!EspeakStager.isStaged(filesDir) && cache.isVerified(pack)) stageEspeak(pack.id)
+                    .firstOrNull { it.pack.id == ESPEAK_PACK_ID && it.status == PackStatus.Ready }
+                    ?.pack
+                    ?.id ?: return
+            install(listOf(id))
         }
 
+        /** The one download entry point: download + stage as a cancellable,
+         * observable operation (K3). */
         fun download(packId: String) {
-            if (jobs.containsKey(packId)) return
-            jobs[packId] =
-                viewModelScope.launch {
-                    errors.update(packId, null)
-                    try {
-                        val outcome = registry.download(packId) { _, _ -> }
-                        when (outcome) {
-                            is DownloadOutcome.Ready, is DownloadOutcome.AlreadyCached -> {
-                                if (packId == ESPEAK_PACK_ID) stageEspeak(packId)
-                                if (packId == KokoroPacks.voices.id) voiceCatalog.invalidate()
-                            }
-                            is DownloadOutcome.Failed -> errors.update(packId, shortReason(outcome.reason))
-                        }
-                    } catch (e: CancellationException) {
-                        errors.update(packId, null) // cancelled — the `.part` survives for resume
-                    } finally {
-                        jobs.remove(packId)
-                    }
-                }
+            install(listOf(packId))
         }
 
-        /** Cancels one pack's in-flight transfer; the `.part` survives → resume. */
+        private fun install(packIds: List<String>) {
+            operations?.installPacks(installer, packIds)
+        }
+
+        /** Stops [packId]'s running download (the notification's Stop action);
+         * the `.part` survives → resume. */
         fun cancelDownload(packId: String) {
-            jobs[packId]?.cancel()
+            operations?.cancel("pack-download:$packId")
         }
 
         fun retry(packId: String) = download(packId)
@@ -293,73 +281,42 @@ class SetupViewModel
          * voice catalog and the download plan. */
         fun setEngine(engineId: String) = viewModelScope.launch { settings.setTtsEngine(engineId) }
 
-        /** SAF import hand-off — the contact LibraryScreen uses, driven here
-         * against app-injected dependencies (no feature-library VM). */
+        /** SAF import hand-off — the contact LibraryScreen uses, driven through
+         * the shared import operation (one state holder, no feature-library VM). */
         fun importBooks(sources: List<EBookSource>) {
-            if (sources.isEmpty()) return
-            importSummaryValue = null
-            viewModelScope.launch {
-                importTick.value += 1
-                try {
-                    val outcomes = withContext(ioDispatcher) { coordinator.importAll(sources, onProgress = { _, _, _ -> }) }
-                    importSummaryValue = buildSummary(outcomes)
-                } catch (e: CancellationException) {
-                    throw e
-                } finally {
-                    importTick.value += 1
-                }
-            }
+            importOperations.start(sources, truncated = false, operations = operations)
         }
 
+        /** Dismisses the finished-batch summary (the wizard's consume). */
         fun consumeImportSummary() {
-            importSummaryValue = null
+            importStateHolder.set(ImportUiState.Idle)
         }
 
-        private fun buildSummary(outcomes: List<ImportOutcome>): String {
-            var added = 0
-            var unchanged = 0
-            var failed = 0
-            for (outcome in outcomes) {
-                when (outcome) {
-                    is ImportOutcome.Added -> added += 1
-                    is ImportOutcome.Unchanged -> unchanged += 1
-                    is ImportOutcome.Failed -> failed += 1
+        /** The batch summary text the import step renders; null while nothing
+         * finished (in-flight states render the overlay, not a summary). */
+        private fun importSummary(state: ImportUiState): String? =
+            (state as? ImportUiState.Done)?.summary?.let { summary ->
+                when {
+                    summary.failed.isNotEmpty() ->
+                        "${summary.added} imported · ${summary.unchanged} unchanged · ${summary.failed.size} failed"
+                    summary.added > 0 -> "${summary.added} added · ${summary.unchanged} unchanged"
+                    else -> "Nothing new to import"
                 }
             }
-            return when {
-                failed > 0 -> "$added imported · $unchanged unchanged · $failed failed"
-                added > 0 -> "$added added · $unchanged unchanged"
-                else -> "Nothing new to import"
-            }
-        }
-
-        private fun shortReason(reason: DownloadFailureReason): String =
-            when (reason) {
-                is DownloadFailureReason.HttpStatus -> "HTTP ${reason.status}"
-                is DownloadFailureReason.IoError -> reason.message ?: "network error"
-                is DownloadFailureReason.CorruptContent -> "checksum mismatch"
-                is DownloadFailureReason.Incomplete -> "incomplete download"
-            }
-
-        private suspend fun stageEspeak(packId: String) {
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == packId }
-                    ?.pack ?: return
-            runCatching { EspeakStager.stage(filesDir, cache, pack) }
-                .onSuccess { staged -> if (staged) stageTick.value += 1 }
-                .onFailure { errors.update(packId, "staging failed: ${it.message}") }
-        }
 
         private fun PackState.toPlanRow(
-            err: Map<String, String>,
+            installFailures: Map<String, String>,
             filesDir: File,
         ): PlanPackRow {
             val status =
                 when (val s = status) {
                     is PackStatus.Downloading -> PlanPackStatus.Downloading(s.downloadedBytes, s.totalBytes)
-                    PackStatus.Ready -> PlanPackStatus.Ready
-                    is PackStatus.Failed -> PlanPackStatus.Failed(err[pack.id] ?: shortReason(s.reason))
+                    // A staging failure wins over Ready: the transfer finished but
+                    // the bundle did not, and "Ready" would hide why the engine
+                    // still cannot run.
+                    PackStatus.Ready ->
+                        installFailures[pack.id]?.let { PlanPackStatus.Failed(it) } ?: PlanPackStatus.Ready
+                    is PackStatus.Failed -> PlanPackStatus.Failed(installFailures[pack.id] ?: s.reason.shortMessage())
                     PackStatus.NotDownloaded -> PlanPackStatus.NotDownloaded
                 }
             return PlanPackRow(
@@ -375,10 +332,3 @@ class SetupViewModel
             const val ESPEAK_PACK_ID = "espeak-ng"
         }
     }
-
-private fun MutableStateFlow<Map<String, String>>.update(
-    key: String,
-    value: String?,
-) {
-    this.value = if (value == null) this.value - key else this.value + (key to value)
-}

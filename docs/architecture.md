@@ -63,6 +63,9 @@ core-player  ←  feature-library  (Hilt provides the PlayerStore binding)
 core-player  ←  core-ui     (tokens/components render player state; no business logic)
 core-player/tts/persistence ← feature-player (PlaybackService + ReaderScreen drive the machine+engine)
 core-ocr     ←  feature-ocr
+core-ops     ←  core-tts  (PackInstaller reports through OperationReporter/OperationSpec)
+core-ops     ←  feature-library / feature-settings / feature-player / app
+                (operation entry points; the Android OperationRunner impl lives in app)
 core-tts     ←  feature-settings (pack download UI drives the TtsPack flow)
 core-locate  ←  feature-share (resolver queries TextIndex)
 core-ebook  ←  feature-library  (SAF sources → BookImporter)

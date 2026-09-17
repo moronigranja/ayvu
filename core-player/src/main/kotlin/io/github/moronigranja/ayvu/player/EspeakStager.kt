@@ -2,6 +2,8 @@ package io.github.moronigranja.ayvu.player
 
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.TtsPack
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.util.zip.ZipInputStream
 
@@ -30,8 +32,10 @@ object EspeakStager {
         return lib.isFile && data.isDirectory && data.listFiles()?.isNotEmpty() == true
     }
 
-    /** Extracts the verified zip pack into [bundleDir] (idempotent; replaces an old bundle). */
-    fun stage(
+    /** Extracts the verified zip pack into [bundleDir] (idempotent; replaces an old bundle).
+     *  Suspends cooperatively: Stop cancels the extract at an entry boundary and the
+     *  previous bundle survives (the tmp→bundle swap only runs on a complete pass). */
+    suspend fun stage(
         filesDir: File,
         cache: PackCache,
         pack: TtsPack,
@@ -46,6 +50,7 @@ object EspeakStager {
         ZipInputStream(source.inputStream().buffered()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
+                currentCoroutineContext().ensureActive()
                 val target = File(tmp, entry.name)
                 check(target.canonicalPath.startsWith(tmp.canonicalPath)) { "zip entry escapes the bundle dir: ${entry.name}" }
                 if (entry.isDirectory) {

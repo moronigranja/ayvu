@@ -53,6 +53,25 @@ class PackRegistry(
     /** Last attempt's failure per pack, held for the session so the UI can show it. */
     private val lastFailed = ConcurrentHashMap<String, DownloadFailureReason>()
 
+    /**
+     * Staging/staging-adjacent failures per pack ([PackInstaller] records them),
+     * held for the session. A flow, not a plain map: a staging failure happens
+     * after the pack is already `Ready`, so [packs] would not re-emit and the
+     * row would never show the error. [refresh] never clears it.
+     */
+    private val installFailures = ConcurrentHashMap<String, String>()
+    private val _installFailed = MutableStateFlow<Map<String, String>>(emptyMap())
+    val installFailed: StateFlow<Map<String, String>> = _installFailed.asStateFlow()
+
+    /**
+     * Bumped after each staged pack. Surfaces that derive readiness from the
+     * filesystem (espeak-ng lib+data, the tess-two data dir, the translate
+     * bundle) need that re-evaluation, and staging changes no [packs] entry —
+     * the pack is already `Ready` — so nothing else would re-emit.
+     */
+    private val _stagedTick = MutableStateFlow(0)
+    val stagedTick: StateFlow<Int> = _stagedTick.asStateFlow()
+
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<DownloadOutcome>>()
 
     init {
@@ -65,6 +84,25 @@ class PackRegistry(
 
     /** Ready gate for engines: true iff the pack is verified on disk. */
     fun isReady(packId: String): Boolean = _packs.value.firstOrNull { it.pack.id == packId }?.status == PackStatus.Ready
+
+    /** Records a staging failure for [packId] (the flow's only writer besides [clearInstallFailure]). */
+    fun recordInstallFailure(
+        packId: String,
+        message: String,
+    ) {
+        installFailures[packId] = message
+        _installFailed.value = installFailures.toMap()
+    }
+
+    /** Clears [packId]'s staging failure — a fresh install attempt is about to run. */
+    fun clearInstallFailure(packId: String) {
+        if (installFailures.remove(packId) != null) _installFailed.value = installFailures.toMap()
+    }
+
+    /** Records that a pack's staging step finished (see [stagedTick]). */
+    fun recordStaged() {
+        _stagedTick.value += 1
+    }
 
     /** Recomputes statuses from disk truth, preserving the session's last failure. */
     fun refresh() {

@@ -11,8 +11,9 @@ import io.github.moronigranja.ayvu.tts.EngineDescriptor
 import io.github.moronigranja.ayvu.tts.OpenResult
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.PackDownloader
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
+import io.github.moronigranja.ayvu.tts.PackStager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -77,20 +78,21 @@ class SettingsPackRowsTest {
     /** The real engine descriptors (kokoro + piper + gated CosyVoice3) plus
      * the tess-two OCR language packs — the exact registry shape the app
      * wires in PackModule. */
-    private fun viewModel(dao: FakeSettingsDao): SettingsViewModel =
-        SettingsViewModel(
-            registry =
-                PackRegistry(
-                    PackCache(tempDir),
-                    PackDownloader(PackCache(tempDir), UnusedTransport),
-                    DefaultEngines.descriptors +
-                        listOf(EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all)),
-                ),
-            cache = PackCache(tempDir),
+    private fun viewModel(dao: FakeSettingsDao): SettingsViewModel {
+        val registry =
+            PackRegistry(
+                PackCache(tempDir),
+                PackDownloader(PackCache(tempDir), UnusedTransport),
+                DefaultEngines.descriptors +
+                    listOf(EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all)),
+            )
+        return SettingsViewModel(
+            registry = registry,
+            installer = PackInstaller(registry, PackStager { }),
             settings = AppSettings(SettingsStore(dao)),
-            voiceCatalog = VoiceCatalog(PackCache(tempDir)),
             filesDir = tempDir,
         )
+    }
 
     @BeforeEach
     fun setUp() {

@@ -11,6 +11,11 @@
             android:name=".playback.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- D1: the pre-generation notification's Stop action (id 43). -->
+        <receiver
+            android:name=".playback.PregenCancelReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

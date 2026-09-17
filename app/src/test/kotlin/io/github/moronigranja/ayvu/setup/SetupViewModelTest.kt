@@ -2,6 +2,8 @@ package io.github.moronigranja.ayvu.setup
 
 import io.github.moronigranja.ayvu.ebook.BookImporter
 import io.github.moronigranja.ayvu.ebook.ImportCoordinator
+import io.github.moronigranja.ayvu.featurelibrary.ImportOperations
+import io.github.moronigranja.ayvu.featurelibrary.ImportStateHolder
 import io.github.moronigranja.ayvu.locate.IndexLock
 import io.github.moronigranja.ayvu.locate.TextIndex
 import io.github.moronigranja.ayvu.model.Book
@@ -20,13 +22,16 @@ import io.github.moronigranja.ayvu.tts.EngineTier
 import io.github.moronigranja.ayvu.tts.OpenResult
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.PackDownloader
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackKind
 import io.github.moronigranja.ayvu.tts.PackRegistry
+import io.github.moronigranja.ayvu.tts.PackStager
 import io.github.moronigranja.ayvu.tts.TtsPack
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
 import io.github.moronigranja.ayvu.tts.setup.StepKind
 import io.github.moronigranja.ayvu.tts.setup.StorageProbe
 import io.github.moronigranja.ayvu.tts.sha256Hex
+import io.github.moronigranja.ayvu.ui.PlanPackStatus
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +46,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -96,26 +102,36 @@ class SetupViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(dispatcher: TestDispatcher = StandardTestDispatcher()): SetupViewModel =
-        SetupViewModel(
+    private fun viewModel(
+        dispatcher: TestDispatcher = StandardTestDispatcher(),
+        operations: FakeOperationRunner? = null,
+    ): SetupViewModel {
+        val holder = ImportStateHolder()
+        val imports =
+            ImportOperations(
+                coordinator =
+                    ImportCoordinator(
+                        importer = BookImporter(),
+                        store = InMemoryLibraryStore(),
+                        index = TextIndex(),
+                        indexLock = IndexLock(),
+                    ),
+                holder = holder,
+                filesDir = filesDir,
+                appScope = CoroutineScope(dispatcher),
+            )
+        return SetupViewModel(
             registry = registry,
-            cache = cache,
+            installer = PackInstaller(registry, PackStager { }),
             settings = settings,
-            voiceCatalog = VoiceCatalog(cache),
             libraryStore = library,
             filesDir = filesDir,
             storageProbe =
                 object : StorageProbe {
                     override fun availableBytes(): Long = 1L shl 30
                 },
-            coordinator =
-                ImportCoordinator(
-                    importer = BookImporter(),
-                    store = InMemoryLibraryStore(),
-                    index = TextIndex(),
-                    indexLock = IndexLock(),
-                ),
-            ioDispatcher = dispatcher,
+            importOperations = imports,
+            importStateHolder = holder,
             voiceAudition =
                 object : VoiceAudition {
                     override val state: StateFlow<AuditionUiState> = MutableStateFlow(AuditionUiState())
@@ -124,7 +140,9 @@ class SetupViewModelTest {
 
                     override fun stop() = Unit
                 },
+            operations = operations,
         )
+    }
 
     private fun markReady(pack: TtsPack) {
         val target = cache.targetFile(pack)
@@ -331,5 +349,53 @@ class SetupViewModelTest {
             vm.wizardNext()
             advanceUntilIdle()
             assertEquals(StepKind.CHOOSE_VOICE, vm.state.value.currentStep)
+        }
+
+    @Test
+    fun `download and cancel address the shared pack-download operation`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            Dispatchers.setMain(dispatcher)
+            val runner = FakeOperationRunner(CoroutineScope(dispatcher))
+            val vm = viewModel(dispatcher, runner)
+
+            vm.download("kokoro-model")
+            advanceUntilIdle()
+            assertEquals(listOf("pack-download:kokoro-model"), runner.specs.map { it.id })
+            assertEquals("Ayvu — kokoro-model", runner.specs.single().title)
+
+            vm.cancelDownload("kokoro-model")
+            assertEquals(listOf("pack-download:kokoro-model"), runner.cancelled)
+        }
+
+    @Test
+    fun `a staging failure replaces the row's ready status text`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            Dispatchers.setMain(dispatcher)
+            val runner = FakeOperationRunner(CoroutineScope(dispatcher))
+            val vm = viewModel(dispatcher, runner)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
+            vm.setEngine(SettingsStore.PIPER_ENGINE)
+            advanceUntilIdle()
+            markReady(piperModel)
+            markReady(piperConfig)
+            markReady(espeak)
+            registry.refresh()
+            advanceUntilIdle()
+            assertTrue(
+                vm.state.value.packs
+                    .none { it.status is PlanPackStatus.Failed },
+            )
+
+            // The transfer is done; the staging step fails.
+            registry.recordInstallFailure("piper-lessac-medium", "unpacking failed: no space left")
+            advanceUntilIdle()
+
+            val failed =
+                vm.state.value.packs
+                    .first { it.packId == "piper-lessac-medium" }
+                    .status as PlanPackStatus.Failed
+            assertEquals("unpacking failed: no space left", failed.error)
         }
 }

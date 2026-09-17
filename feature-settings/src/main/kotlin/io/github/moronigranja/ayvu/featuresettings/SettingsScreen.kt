@@ -260,7 +260,7 @@ private fun SpeechPane(
                 PacksPlanCard(
                     rows = speechRows.map { it.toPlanRow() },
                     onDownload = { viewModel.download(it) },
-                    onCancel = { /* settings downloads are not user-cancelled */ },
+                    onCancel = { viewModel.cancelDownload(it) },
                 )
             }
         } else {
@@ -474,16 +474,20 @@ private fun PackRow(
                     )
                     Text("${(row.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall)
                 }
+                // The error branch precedes Ready: a staging failure happens
+                // AFTER the pack turns Ready (the transfer is done, the bundle
+                // is not), and masking it behind "ready" would hide why the
+                // engine cannot run yet.
+                row.error != null -> {
+                    Text("failed: ${row.error}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    PillButton("Retry", onClick = onDownload)
+                }
                 row.status == PackStatus.Ready ->
                     Text(
                         if (row.staged) "ready · installed" else "ready",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                row.error != null -> {
-                    Text("failed: ${row.error}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                    PillButton("Retry", onClick = onDownload)
-                }
                 else ->
                     Text(
                         "${row.sizeBytes / 1_048_576} MiB — download required",

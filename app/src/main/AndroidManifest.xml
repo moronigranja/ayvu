@@ -12,7 +12,9 @@
          permission is DECLARED here — without this line checkSelfPermission
          stays denied forever and every notify() lands silently in the void
          (the never-seen pregen/terminal notification, coverage-bar redo
-         step 6). Media 42, pregen 43 and generation 44 all hang off it. -->
+         step 6). Media 42, pregen 43, generation 44, operations 45+
+         (runner-allocated), terminal 200+ all hang off it; 41 is the
+         operation service's stand-in (see OperationNotifications). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -41,6 +43,13 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <!-- Long-operation host (A2): keeps downloads/imports alive while the
+             app is backgrounded. Its notification is the operation's own
+             (progress + Stop); the runner owns notification ids 45+. -->
+        <service
+            android:name="io.github.moronigranja.ayvu.ops.OperationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <activity
             android:name="io.github.moronigranja.ayvu.MainActivity"
             android:exported="true"

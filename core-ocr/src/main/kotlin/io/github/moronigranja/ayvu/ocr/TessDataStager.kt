@@ -2,6 +2,8 @@ package io.github.moronigranja.ayvu.ocr
 
 import io.github.moronigranja.ayvu.tts.PackCache
 import io.github.moronigranja.ayvu.tts.TtsPack
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 
 /**
@@ -19,6 +21,9 @@ import java.io.File
  * the tess-two implementation without a feature-to-feature edge.
  */
 object TessDataStager {
+    /** Cancellation granularity of the staged copy (see [stage]). */
+    private const val COPY_CHUNK_BYTES = 1 shl 20
+
     /** The base passed to the engine: contains `tessdata/<lang>.traineddata`. */
     fun tesseractDataPath(filesDir: File): File = File(filesDir, "tesseract")
 
@@ -35,8 +40,11 @@ object TessDataStager {
         return target.isFile && target.length() == pack.sizeBytes
     }
 
-    /** Copies the verified pack artifact into the tess-two data path (idempotent). */
-    fun stage(
+    /** Copies the verified pack artifact into the tess-two data path (idempotent).
+     *  Suspends cooperatively: the copy is chunked with an [ensureActive] per MiB, so
+     *  Stop cancels a 21 MB model copy at a chunk boundary (the staged file is only
+     *  promoted by the final rename). */
+    suspend fun stage(
         filesDir: File,
         cache: PackCache,
         pack: TtsPack,
@@ -49,7 +57,17 @@ object TessDataStager {
         dir.mkdirs()
         val target = stagedFile(filesDir, pack)
         val tmp = File(dir, "${pack.id}.tmp")
-        source.copyTo(tmp, overwrite = true)
+        source.inputStream().use { input ->
+            tmp.outputStream().use { output ->
+                val buffer = ByteArray(COPY_CHUNK_BYTES)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                }
+            }
+        }
         if (!tmp.renameTo(target)) {
             tmp.delete()
             return false

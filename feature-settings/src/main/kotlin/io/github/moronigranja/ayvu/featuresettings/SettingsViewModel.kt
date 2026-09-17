@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.moronigranja.ayvu.model.LibraryStore
 import io.github.moronigranja.ayvu.ocr.TessDataStager
+import io.github.moronigranja.ayvu.ops.OperationRunner
 import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.persistence.ThemeMode
@@ -14,18 +15,16 @@ import io.github.moronigranja.ayvu.player.EspeakStager
 import io.github.moronigranja.ayvu.player.OfflineStorage
 import io.github.moronigranja.ayvu.player.VoiceAudition
 import io.github.moronigranja.ayvu.player.formatBytes
-import io.github.moronigranja.ayvu.tts.DownloadFailureReason
-import io.github.moronigranja.ayvu.tts.DownloadOutcome
-import io.github.moronigranja.ayvu.tts.PackCache
+import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
 import io.github.moronigranja.ayvu.tts.PackState
 import io.github.moronigranja.ayvu.tts.PackStatus
-import io.github.moronigranja.ayvu.tts.VoiceCatalog
-import io.github.moronigranja.ayvu.tts.kokoro.KokoroPacks
+import io.github.moronigranja.ayvu.tts.installPacks
 import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta
 import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMetadata
 import io.github.moronigranja.ayvu.tts.piper.PiperVoiceMetadata
 import io.github.moronigranja.ayvu.tts.setup.SetupEnginePacks
+import io.github.moronigranja.ayvu.tts.shortMessage
 import io.github.moronigranja.ayvu.tts.translate.TranslatePackStager
 import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import io.github.moronigranja.ayvu.ui.EngineVoiceUiState
@@ -101,9 +100,8 @@ class SettingsViewModel
     @Inject
     constructor(
         private val registry: PackRegistry,
-        private val cache: PackCache,
+        private val installer: PackInstaller,
         private val settings: AppSettings,
-        private val voiceCatalog: VoiceCatalog,
         @Named("app_files_dir") private val filesDir: File,
         // About seams (release 0.1.1): the composition root supplies the build
         // identity and the browser dispatch — this module has neither. The
@@ -114,26 +112,24 @@ class SettingsViewModel
         private val repository: LibraryStore? = null,
         private val storage: OfflineStorage? = null,
         private val voiceAudition: VoiceAudition? = null,
+        // Null in the pure-JVM harness: the install path needs a runner (Hilt supplies it).
+        private val operations: OperationRunner? = null,
     ) : ViewModel() {
-        private val progress = MutableStateFlow<Map<String, Double>>(emptyMap())
-        private val errors = MutableStateFlow<Map<String, String>>(emptyMap())
         private val auditionFlow = voiceAudition?.state ?: MutableStateFlow(AuditionUiState())
 
-        /** Bumped after each espeak staging so the filesystem-derived status
-         * re-evaluates (staging completes AFTER the registry's ready emission). */
-        private val espeakStageTick = MutableStateFlow(0)
-
+        // registry.stagedTick is the filesystem-status re-evaluation signal:
+        // staging completes AFTER the pack turns Ready, so nothing else re-emits.
         private val packState =
-            combine(registry.packs, progress, errors) { packs, prog, err ->
-                Triple(packs, prog, err)
+            combine(registry.packs, registry.installFailed, registry.stagedTick) { packs, installFailures, _ ->
+                packs to installFailures
             }
 
         // settings.state is push-based (AppSettings mirrors every write), so the
         // UI reflects a change the moment the store lands — no polling.
         private val core =
-            combine(packState, auditionFlow, settings.state, espeakStageTick) { (packs, prog, err), audition, prefs, _ ->
+            combine(packState, auditionFlow, settings.state) { (packs, installFailures), audition, prefs ->
                 SettingsUiState(
-                    packs = packs.map { packRow(it, prog[it.pack.id], err[it.pack.id]) },
+                    packs = packs.map { packRow(it, installFailures) },
                     speechPackIds = speechPackIds(prefs.ttsEngine),
                     engineVoice = engineVoice(packs, prefs, audition),
                     ttsEngine = prefs.ttsEngine,
@@ -189,14 +185,12 @@ class SettingsViewModel
         }
 
         /** A verified-but-unstaged espeak-ng pack (reinstall after download, or a
-         * staging-failure retry) self-heals when the settings screen opens. */
+         * staging-failure retry) self-heals when the settings screen opens —
+         * through the same install path as an explicit download. */
         private suspend fun autoStageEspeak() {
             if (EspeakStager.isStaged(filesDir)) return
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == ESPEAK_PACK_ID }
-                    ?.pack ?: return
-            if (cache.isVerified(pack)) stageEspeak(pack.id)
+            val id = readyPackId(ESPEAK_PACK_ID) ?: return
+            install(listOf(id))
         }
 
         /** Re-reads the disk tier (IO) — called at open, on every screen resume
@@ -221,8 +215,7 @@ class SettingsViewModel
 
         private fun packRow(
             pack: PackState,
-            prog: Double?,
-            err: String?,
+            installFailures: Map<String, String>,
         ): PackRow =
             PackRow(
                 packId = pack.pack.id,
@@ -230,8 +223,8 @@ class SettingsViewModel
                 displayName = pack.pack.displayName,
                 sizeBytes = pack.pack.sizeBytes,
                 status = pack.status,
-                progress = prog,
-                error = err,
+                progress = (pack.status as? PackStatus.Downloading)?.let { it.downloadedBytes.toDouble() / it.totalBytes },
+                error = installFailures[pack.pack.id] ?: (pack.status as? PackStatus.Failed)?.reason?.shortMessage(),
                 staged =
                     when (pack.pack.engineId) {
                         TESS_ENGINE_ID -> TessDataStager.isStaged(filesDir, pack.pack)
@@ -241,47 +234,41 @@ class SettingsViewModel
             )
 
         fun download(packId: String) {
-            val packs = registry.packs.value
-            val isTess = packs.firstOrNull { it.pack.id == packId }?.pack?.engineId == TESS_ENGINE_ID
-            downloadInternal(packId, isTess)
             // A companion artifact is never listed as its own row: its base
             // row's Download must fetch it too, or the voice is left unusable
             // (Piper model ready, `.onnx.json` missing).
-            packs
-                .filter { it.pack.companionOf == packId }
-                .forEach { downloadInternal(it.pack.id, isTess = false) }
+            val companions =
+                registry.packs.value
+                    .filter { it.pack.companionOf == packId }
+                    .map { it.pack.id }
+            install(listOf(packId) + companions)
         }
 
         /** The named voice's required-pack download action (never silence, never an
          * unannounced fallback) — the shared required-pack table resolves the
-         * ids under the active engine (D4 #154 addendum). */
+         * ids under the active engine (D4 #154 addendum). One operation per
+         * required pack, so a per-row Stop stays meaningful. */
         fun downloadVoice(voice: String) {
-            SetupEnginePacks.requiredIds(settings.state.value.ttsEngine, voice).forEach { download(it) }
+            SetupEnginePacks.requiredIds(settings.state.value.ttsEngine, voice).forEach { install(listOf(it)) }
         }
 
-        private fun downloadInternal(
-            packId: String,
-            isTess: Boolean,
-        ) {
-            viewModelScope.launch {
-                errors.update(packId, null)
-                registry
-                    .download(packId) { done, total ->
-                        progress.value = progress.value + (packId to done.toDouble() / total)
-                    }.let { outcome ->
-                        progress.value = progress.value - packId
-                        when (outcome) {
-                            is DownloadOutcome.Ready, is DownloadOutcome.AlreadyCached -> {
-                                if (isTess) stageTess(packId)
-                                if (packId == ESPEAK_PACK_ID) stageEspeak(packId)
-                                if (packId == TranslatePacks.pack.id) stageTranslate(packId)
-                                if (packId == KokoroPacks.voices.id) voiceCatalog.invalidate()
-                            }
-                            is DownloadOutcome.Failed -> errors.update(packId, shortReason(outcome.reason))
-                        }
-                    }
-            }
+        /** Stops the running download of [packId] (the notification's Stop action). */
+        fun cancelDownload(packId: String) {
+            operations?.cancel("pack-download:$packId")
         }
+
+        /** The one download entry point: download + stage as a cancellable,
+         * observable operation (K3). */
+        private fun install(packIds: List<String>) {
+            operations?.installPacks(installer, packIds)
+        }
+
+        /** [packId]'s id when it is verified on disk (the self-heal gate). */
+        private fun readyPackId(packId: String): String? =
+            registry.packs.value
+                .firstOrNull { it.pack.id == packId && it.status == PackStatus.Ready }
+                ?.pack
+                ?.id
 
         fun selectVoice(voice: String) = viewModelScope.launch { settings.setVoice(voice) }
 
@@ -316,47 +303,14 @@ class SettingsViewModel
             }
         }
 
-        private suspend fun stageTess(packId: String) {
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == packId }
-                    ?.pack ?: return
-            runCatching { TessDataStager.stage(filesDir, cache, pack) }
-                .onFailure { errors.update(packId, "staging failed: ${it.message}") }
-        }
-
-        private suspend fun stageEspeak(packId: String) {
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == packId }
-                    ?.pack ?: return
-            runCatching { EspeakStager.stage(filesDir, cache, pack) }
-                .onSuccess { staged -> if (staged) espeakStageTick.value += 1 }
-                .onFailure { errors.update(packId, "staging failed: ${it.message}") }
-        }
-
-        /** Read-in-language (decisions #114/#162): extracts the verified
-         * ~730 MB zip under `files/translate-lfm/` so the runtime can open the
-         * GGUF ([TranslatePackStager]): the pack artifact in the cache is the
-         * zip; the staged bundle is what the translator loads. */
-        private suspend fun stageTranslate(packId: String) {
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == packId }
-                    ?.pack ?: return
-            runCatching { TranslatePackStager.stage(filesDir, cache, pack) }
-                .onFailure { errors.update(packId, "staging failed: ${it.message}") }
-        }
-
         /** A verified-but-unstaged translate pack (download completed but the
-         * extract died, or a reinstall) self-heals when settings opens. */
+         * extract died, or a reinstall) self-heals when settings opens; the
+         * ~730 MB extract itself is the installer's (`TranslatePackStager`,
+         * decisions #114/#162). */
         private suspend fun autoStageTranslate() {
             if (TranslatePackStager.isStaged(filesDir)) return
-            val pack =
-                registry.packs.value
-                    .firstOrNull { it.pack.id == TranslatePacks.pack.id }
-                    ?.pack ?: return
-            if (cache.isVerified(pack)) stageTranslate(pack.id)
+            val id = readyPackId(TranslatePacks.pack.id) ?: return
+            install(listOf(id))
         }
 
         /** Live espeak-ng readiness from the staged bundle (downloads change it). */
@@ -426,22 +380,7 @@ class SettingsViewModel
                 .toSet() + ESPEAK_PACK_ID
         }
 
-        private fun shortReason(reason: DownloadFailureReason): String =
-            when (reason) {
-                is DownloadFailureReason.HttpStatus -> "HTTP ${reason.status}"
-                is DownloadFailureReason.IoError -> reason.message ?: "network error"
-                is DownloadFailureReason.CorruptContent -> "checksum mismatch"
-                is DownloadFailureReason.Incomplete -> "incomplete download"
-            }
-
         private companion object {
             const val ESPEAK_PACK_ID = "espeak-ng"
         }
     }
-
-private fun MutableStateFlow<Map<String, String>>.update(
-    key: String,
-    value: String?,
-) {
-    this.value = if (value == null) this.value - key else this.value + (key to value)
-}

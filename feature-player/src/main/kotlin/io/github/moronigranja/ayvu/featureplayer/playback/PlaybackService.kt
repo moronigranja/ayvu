@@ -1634,7 +1634,20 @@ class PlaybackService : Service() {
                     .setOnlyAlertOnce(true)
                     .setProgress(100, percent, aheadSeconds <= 0.0)
                     .setContentIntent(openAppIntent())
-                    .build(),
+                    // D2: the Stop action ends playback AND the generation it
+                    // waits on (ACTION_STOP → stopPlayer → stopEverything
+                    // cancels the fill job and the post-stop fill). The
+                    // notification cannot be swiped, so this is the cancel path.
+                    .addAction(
+                        0,
+                        "Stop",
+                        PendingIntent.getService(
+                            this,
+                            0,
+                            Intent(this, PlaybackService::class.java).setAction(ACTION_STOP),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    ).build(),
             )
         }
     }

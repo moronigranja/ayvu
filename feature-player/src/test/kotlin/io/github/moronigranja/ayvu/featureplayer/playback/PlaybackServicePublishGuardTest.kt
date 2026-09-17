@@ -361,6 +361,35 @@ class PlaybackServicePublishGuardTest {
      * re-`notify` that the structural snapshot pays for — and it must keep
      * the full field parity (CR-8/CR-9 guard). */
     @Test
+    fun `the generation notification carries a Stop action`() {
+        val service = createdService(InMemoryPlayerStore(), playingMachine(InMemoryPlayerStore()))
+        val method =
+            PlaybackService::class.java.getDeclaredMethod(
+                "showGenerationNotification",
+                String::class.java,
+                java.lang.Double.TYPE,
+            )
+        method.isAccessible = true
+        method.invoke(service, "A57", 15.0)
+
+        val notification =
+            Shadows
+                .shadowOf(
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager,
+                ).getNotification(null, 44)
+        val saved = Shadows.shadowOf(notification.actions.single().actionIntent).savedIntent
+        assertEquals(
+            "Stop",
+            notification.actions
+                .single()
+                .title
+                .toString(),
+        )
+        assertEquals(PlaybackService.ACTION_STOP, saved.action)
+        assertEquals(PlaybackService::class.java.name, saved.component?.className)
+    }
+
+    @Test
     fun `publishDetails feeds per-second state without re-notifying`() {
         val store = InMemoryPlayerStore()
         val machine = playingMachine(store)

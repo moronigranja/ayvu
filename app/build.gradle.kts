@@ -175,6 +175,8 @@ dependencies {
     implementation(project(":feature-ocr"))
     implementation(project(":feature-share"))
     implementation(project(":core-ocr"))
+    // A2: the long-operation contract (ops/) + its Android runner.
+    implementation(project(":core-ops"))
     // The engine's ORT + JNA runtimes ship app-side (decisions #25/#32): the
     // Android ORT AAR (core-tts is compileOnly) and JNA AAR (the plain jar
     // has no Android natives); core-tts's jar JNA is excluded below.
