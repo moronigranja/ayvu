@@ -907,11 +907,13 @@ player state machinery.
   separate row for it.
 - Continue physical-device acceptance on the S22 and HiBreak for behavior or performance
   claims affecting playback.
-- **`SettingsViewModelTest` is flaky** (observed 2026-09-17 during the 0.1.1 device
-  pass): `setTtsThreads is observed by the state immediately()` failed once with
-  `kotlinx.coroutines.CompletionHandlerException` in a cancellation handler and passed on
-  re-run of the same class. Same disease as the review's flakiness surface (real
-  coroutines/clock in a host test); needs a deterministic seam, not a longer wait.
+- **`SettingsViewModelTest` raced real IO** (first seen locally 2026-09-17 during the
+  0.1.1 device pass; it then hung CI to the 60 s `runTest` timeout on the following push).
+  The download path hopped to a hard-coded `Dispatchers.IO` inside `PackRegistry`, so a
+  virtual-time test could wait forever for a resumption that lands in real time. **Fixed
+  2026-09-17:** `PackRegistry` takes an injectable `ioDispatcher` (composition passes the
+  app's `@IoDispatcher`), and the test drives downloads on its own scheduler — the class
+  then passed eight consecutive `--rerun-tasks` runs and CI went green.
 
 The A1/A2/A4/A5–A7/A6/F2 device-evidence rows and the ktlint gate are all closed
 (decisions #105, 2026-08-31/09-01); B4/C2 device checks are complete (decisions

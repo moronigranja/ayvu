@@ -1,6 +1,7 @@
 package io.github.moronigranja.ayvu.tts
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,15 @@ class PackRegistry(
     private val cache: PackCache,
     private val downloader: PackDownloader,
     descriptors: List<EngineDescriptor>,
+    /**
+     * The dispatcher a transfer runs on. Injectable because a host test that
+     * drives the registry from a virtual-time `TestDispatcher` cannot observe a
+     * real `Dispatchers.IO` hop: the resumption lands in real time while the
+     * test scheduler waits, which is how `SettingsViewModelTest` hung to its
+     * 60 s timeout in CI (2026-09-17). Composition passes the app's
+     * `@IoDispatcher`; the default keeps every other caller unchanged.
+     */
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val descriptors: List<EngineDescriptor> = descriptors.toList()
     private val allPacks: List<TtsPack> =
@@ -103,7 +113,7 @@ class PackRegistry(
     ): DownloadOutcome {
         update(pack, PackStatus.Downloading(cache.downloadedBytes(pack), pack.sizeBytes))
         val outcome =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 downloader.download(pack) { downloaded, total ->
                     onProgress(downloaded, total)
                     update(pack, PackStatus.Downloading(downloaded, total))

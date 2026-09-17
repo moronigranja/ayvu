@@ -108,7 +108,14 @@ class SettingsViewModelTest {
         val cache = PackCache(tempDir)
         val downloader = PackDownloader(cache, FakeTransport(servedBytes ?: pinnedBytes))
         val spec = EngineSpec("test-engine", "Test", EngineTier.PRIMARY, setOf("en"))
-        return PackRegistry(cache, downloader, listOf(EngineDescriptor(spec, listOf(pack))))
+        return PackRegistry(
+            cache,
+            downloader,
+            listOf(EngineDescriptor(spec, listOf(pack))),
+            // Downloads run on the test scheduler, never a real Dispatchers.IO hop:
+            // see the companion test's note (2026-09-17 CI hang).
+            ioDispatcher = dispatcher,
+        )
     }
 
     private fun viewModel(
@@ -240,6 +247,10 @@ class SettingsViewModelTest {
                             listOf(base, config),
                         ),
                     ),
+                    // The download runs on the test scheduler: a real Dispatchers.IO hop
+                    // resumes in real time and this test's flow wait then never settles in
+                    // virtual time (the 2026-09-17 CI hang).
+                    ioDispatcher = dispatcher,
                 )
             val vm = viewModel(registry, dao)
             backgroundScope.launch { vm.state.collect {} }

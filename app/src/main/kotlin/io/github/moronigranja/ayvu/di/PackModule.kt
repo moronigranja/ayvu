@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.moronigranja.ayvu.featuresettings.AndroidHttpTransport
 import io.github.moronigranja.ayvu.ocr.TrainedDataPacks
+import io.github.moronigranja.ayvu.player.IoDispatcher
 import io.github.moronigranja.ayvu.tts.DefaultEngines
 import io.github.moronigranja.ayvu.tts.EngineDescriptor
 import io.github.moronigranja.ayvu.tts.PackCache
@@ -22,6 +23,7 @@ import io.github.moronigranja.ayvu.tts.system.SystemTtsEngine
 import io.github.moronigranja.ayvu.tts.system.SystemTtsSeam
 import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import io.github.moronigranja.ayvu.tts.translate.TranslateSpec
+import kotlinx.coroutines.CoroutineDispatcher
 import java.io.File
 import javax.inject.Named
 import javax.inject.Singleton
@@ -70,6 +72,7 @@ object PackModule {
     fun providePackRegistry(
         cache: PackCache,
         downloader: PackDownloader,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ): PackRegistry {
         val descriptors =
             DefaultEngines.descriptors +
@@ -80,7 +83,7 @@ object PackModule {
                     // staging + sessions for this pack, decisions #114).
                     EngineDescriptor(TranslateSpec, TranslatePacks.all),
                 )
-        return PackRegistry(cache, downloader, descriptors)
+        return PackRegistry(cache, downloader, descriptors, ioDispatcher)
     }
 
     /** Lazy voice catalog: names arrive from the voices pack once it is verified. */
