@@ -4,6 +4,47 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 175. v0.1.1 published (2026-09-17)
+
+Executes the distribution decision #126. The release is live:
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.1> — signed, unminified,
+arm64-v8a APK, 51,812,354 B, sha256 `9320273cc68f…`, release cert `a5057984…`;
+tag `v0.1.1` cut on the shipped tree (pushed `main`, so the GPL source offer the
+notes make points at code that actually contains the release-gate work).
+
+Ordering that mattered: **push `main` before publishing**, because the tag is
+created on the default branch at publish time; the noting of the digest happens
+**between** the draft upload and the flip, because `assembleRelease` is not
+byte-reproducible here (the same tree produced `679479437e8e…` then
+`9320273c…`). So: draft with `tools/release.sh --upload`, take the digest the
+script prints (GitHub reports the same digest for the asset), commit the notes,
+then `gh release edit --draft=false`.
+
+Two defects surfaced by the device smoke / publish and fixed with it (both in
+[open-bugs.md](open-bugs.md)):
+
+- **`assemble-on-tag` could never fire.** `on.push` listed `branches: [main]`
+  and no `tags:`, so a tag push started nothing and the job's
+  `startsWith(github.ref, 'refs/tags/')` condition was unreachable — the gate the
+  release docs relied on did not exist. Fixed with `tags: ["v*"]`; for 0.1.1 the
+  gate was exercised by a dispatch on the tag (all three jobs green: jvm-tests,
+  android-build, assemble-on-tag).
+- **Backup-complete dialog showed two OK buttons** (owner report). `ConfirmDialog`
+  always rendered a dismiss action; `dismissLabel` is now nullable.
+
+Device smoke on the signed artifact (S22): launch, pack download (Kokoro 310.4 MB
++ voices 26.9 MB + espeak 9.7 MB, all hash-verified), voice preview, EPUB import
+via SAF, library playback, About → Licences (GPL + NOTICE rendered offline),
+export, and a real restore ("Restored 1 books, 0 bookmarks, 1 resume points").
+The espeak leg additionally confirms the re-pinned bundle (decisions #174) matches
+the re-uploaded release asset.
+
+Consequences:
+- `main` CI is green on every shipped commit; `versionCode` 2 stays for this
+  release and the next increments it (3, v0.1.2).
+- The pipeline's publish steps are recorded in
+  [roadmap.md](roadmap.md) §Release readiness for the next cut.
+
 ## 174. Release gate (pass 7) discharged: untrusted-input hardening + licence completeness (2026-09-17)
 
 Context: v0.1.1 was release-ready but unpublished, and roadmap pass 7 held the
