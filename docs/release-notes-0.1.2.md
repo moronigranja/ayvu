@@ -47,7 +47,7 @@ highlighting, read-in-another-language and Backup & restore are as in 0.1.1.
 The APK attached to this release:
 
 ```
-sha256  197f89333b1e8ab73b7fff5b4cde19952f4313d4e0e047df5f81997d55ac8f1b
+sha256  c81ea7c4a1f51f613a772bbd91e32c3e0fcade1fdb1c97378c167ef590f2edd8
 ```
 
 Check it with `sha256sum Ayvu-0.1.2.apk` (compare the value above — `tools/release.sh`
