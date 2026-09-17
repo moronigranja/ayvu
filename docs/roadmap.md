@@ -7,12 +7,13 @@ until they are promoted here.
 
 ## Current state
 
-v0.1.1 is release-ready but **not published**. The signed-APK pipeline, the on-device
-sanity pass on the signed build and `docs/release-notes-0.1.1.md` are all done
-(decisions #126, #128), and the release gate (pass 7 — untrusted-input hardening,
-licence/NOTICE completeness) closed 2026-09-17 (decisions #174); what remains is the
-device smoke on the freshly built signed APK and then publishing the GitHub release — no
-`v0.1.1` tag exists on the remote (see "Release readiness" below). The v1 capability
+v0.1.1 is **published** (2026-09-17). The signed-APK pipeline, the on-device sanity pass
+on the signed build and `docs/release-notes-0.1.1.md` are all done (decisions #126, #128),
+the release gate (pass 7 — untrusted-input hardening, licence/NOTICE completeness) closed
+2026-09-17 (decisions #174), the device smoke on the signed release build passed on the S22
+(launch, pack download, TTS preview, EPUB import, playback, in-app licences, export and a
+real restore), and the release is live with the `v0.1.1` tag on the shipped tree
+(<https://github.com/moronigranja/ayvu/releases/tag/v0.1.1>). The v1 capability
 spine is complete and device-verified: import → index → local TTS playback with
 read-along → share-and-resume, plus settings, OCR, offline pre-generation, storage
 controls, backup & restore, and the app-wide player card. The current module and test
@@ -847,29 +848,33 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
-**v0.1.1 is not published.** The artifact is prepared at HEAD: the signed release build is
-**arm64-v8a only** (the espeak-ng phonemizer is an arm64 native library, so the other
-ABIs' libs were ~114 MB of dead weight and would have installed a non-functional app) —
-165.2 MB → ≈52 MB payload, the notes carry the SHA-256 and the signing-certificate
-fingerprint, the import path has resource ceilings + OOM containment, and (decisions #174,
-2026-09-17) the release gate closed: restore hardening, MOBI decompression ceilings,
-`NOTICE.md` completed and `LICENSE` + `NOTICE.md` shipped inside the APK, the espeak-ng
-archive carrying its own licence + source offer.
+**v0.1.1 is published (2026-09-17)** — <https://github.com/moronigranja/ayvu/releases/tag/v0.1.1>.
+The signed release build is **arm64-v8a only** (the espeak-ng phonemizer is an arm64
+native library, so the other ABIs' libs were ~114 MB of dead weight and would have
+installed a non-functional app) — 165.2 MB → ≈52 MB payload (51,812,354 B, sha256
+`9320273cc68f…`, signing cert `a5057984…` both printed in the notes). The release gate
+(decisions #174) closed with it: restore hardening, MOBI decompression ceilings,
+`NOTICE.md` completed and `LICENSE` + `NOTICE.md` shipped inside the APK, and the
+espeak-ng archive carrying its own licence + source offer.
 
-Remaining before publishing, in order:
+What the publish run did, for the next one:
 
-1. **Device smoke on the signed 0.1.1 APK** — owed: no device was attached during the
-   release-gate pass. Re-build at HEAD first (`tools/release.sh`), then install and
-   exercise the reader/player on the S22.
-2. **Refresh the notes' SHA-256** from the `tools/release.sh` output for the exact
-   artifact being uploaded (the value in `docs/release-notes-0.1.1.md` is from the
-   previous build), then
-3. **Publish:** `tools/release.sh --upload --publish --notes docs/release-notes-0.1.1.md`
-   (the script defaults to **draft** — `--publish` is required). Publishing creates tag
-   `v0.1.1`, which fires the CI `assemble-on-tag` gate and satisfies the GPL source offer
-   the notes make.
+1. **Device smoke first** — install the signed APK and exercise launch, pack download,
+   voice preview, import, playback, About → Licences, and an export + restore (the S22
+   pass, 2026-09-17; both bugs it surfaced are fixed and in `open-bugs.md`).
+2. **Draft, then pin the digest.** `tools/release.sh --upload --notes docs/release-notes-0.1.1.md`
+   drafts the release and prints the digest of the artifact it uploaded; bytes are NOT
+   reproducible across `assembleRelease` runs, so that printed value — not a value from an
+   earlier build — goes into the notes (commit + push) before flipping the draft live.
+3. **Publish the draft** (`gh release edit v0.1.1 --notes-file … --draft=false`) — this
+   creates the tag on the current `main` HEAD, so **push first**: the GPL source offer the
+   notes make must point at a tag that actually contains the shipped code.
+4. **The `assemble-on-tag` gate now really fires** — the workflow had `branches: [main]`
+   and no `tags:` entry, so a tag push started nothing and the job's
+   `startsWith(github.ref, 'refs/tags/')` condition was unreachable (fixed 2026-09-17,
+   `open-bugs.md`). For 0.1.1 the gate was exercised by a dispatch on the tag.
 
-The next release after that increments `versionCode` (2 → 3, v0.1.2).
+The next release increments `versionCode` (2 → 3, v0.1.2).
 
 Deferred until a store listing is actually wanted: AAB + Play Data Safety, store privacy
 policy, listing/screenshots, supported-devices declaration. Native crash symbols and

@@ -54,10 +54,9 @@ PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProb
 
 ## Install
 
-**v0.1.1 is release-ready but not published.** The signed APK is prepared at HEAD, but
-the publish step — the GitHub release and its `v0.1.1` tag — has not been run, so there
-is nothing to download here yet; the details and the remaining gate live in
-[docs/roadmap.md](docs/roadmap.md) §Release readiness.
+**v0.1.1 is published** — [Releases → v0.1.1](https://github.com/moronigranja/ayvu/releases/tag/v0.1.1)
+(signed release build, unminified, arm64-v8a; the release notes carry the SHA-256 and the
+signing-certificate fingerprint). The `v0.1.1` tag points at the shipped tree.
 
 1. Download the release APK (signed release build, unminified, **≈52 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
