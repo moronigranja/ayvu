@@ -49,7 +49,7 @@ class DefaultEnginesTest {
 
         val espeak = KokoroPacks.espeak
         assertTrue(espeak.url.startsWith("https://"), "espeak-ng is served over HTTPS")
-        assertEquals(9_857_162L, espeak.sizeBytes, "espeak-ng bundle @ moronigranja/ayvu release")
+        assertEquals(10_144_828L, espeak.sizeBytes, "espeak-ng bundle @ moronigranja/ayvu release")
         assertEquals(64, espeak.sha256Hex.length)
     }
 

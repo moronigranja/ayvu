@@ -21,9 +21,29 @@ val keystoreProperties: Map<String, String> =
         emptyMap()
     }
 
+// Release 0.1.1 (audit B): a distributed binary must carry the licence text it
+// is distributed under (GPL-3.0 §4), so the APK ships `assets/LICENSE` and
+// `assets/NOTICE.md` — the About → Licences screen renders them offline
+// (`LicenceReader`, feature-settings). Both come from the repo root, the
+// single source of truth: this task copies them into a generated assets dir
+// rather than committing a second copy under app/src/main/assets that could
+// drift from the files the repository publishes.
+val licenceAssetsDir = layout.buildDirectory.dir("generated/licenceAssets")
+val copyLicenceAssets =
+    tasks.register<Copy>("copyLicenceAssets") {
+        from(rootProject.file("LICENSE"))
+        from(rootProject.file("NOTICE.md"))
+        into(licenceAssetsDir)
+    }
+
 android {
     namespace = "io.github.moronigranja.ayvu"
     compileSdk = 36
+
+    // assets/LICENSE + assets/NOTICE.md (above), merged into every variant.
+    // The Android SourceSet API rejects Provider instances, so the dir is
+    // resolved to a File here; the task edge is wired below.
+    sourceSets.getByName("main").assets.srcDir(licenceAssetsDir.get().asFile)
 
     defaultConfig {
         applicationId = "io.github.moronigranja.ayvu"
@@ -113,6 +133,14 @@ android {
         buildConfig = true
     }
 }
+
+// The assets srcDir above is a plain path, so the merge tasks need an explicit
+// edge to the copy: preBuild covers the build as a whole, and the merge task
+// itself (whose only input is this directory) is pinned by name so no variant
+// can package before the licences land.
+tasks.named("preBuild") { dependsOn(copyLicenceAssets) }
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
+    .configureEach { dependsOn(copyLicenceAssets) }
 
 dependencies {
     implementation(libs.androidx.core.ktx)

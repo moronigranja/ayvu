@@ -55,7 +55,8 @@ import kotlin.math.roundToInt
  * Settings root, grouped by concern (Phase K item 1): Speech (one entry row
  * into the Speech subpane), Reading & sharing (match threshold, OCR
  * languages), Storage & data (offline audio, backup & restore), Appearance
- * (theme), About (build identity, license, third-party notices, privacy).
+ * (theme), About (build identity, in-app licences, source/NOTICE links,
+ * privacy).
  *
  * Speech is an Android-settings-style subscreen (decisions #156 addendum):
  * engine + packs + the ~60-row voice selector outgrew the root's one-flick
@@ -63,7 +64,7 @@ import kotlin.math.roundToInt
  * root stays flat. Every row maps directly to a [SettingsViewModel] call — no
  * logic in the view.
  */
-private enum class SettingsPane { Root, Speech, OcrLanguages }
+private enum class SettingsPane { Root, Speech, OcrLanguages, Licences }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +97,7 @@ fun SettingsScreen(
                         when (pane) {
                             SettingsPane.Speech -> "Speech"
                             SettingsPane.OcrLanguages -> "OCR languages"
+                            SettingsPane.Licences -> "Licences"
                             SettingsPane.Root -> "Settings"
                         },
                     )
@@ -111,6 +113,7 @@ fun SettingsScreen(
         when (pane) {
             SettingsPane.Speech -> SpeechPane(state, viewModel, padding)
             SettingsPane.OcrLanguages -> OcrLanguagesPane(state, viewModel, padding)
+            SettingsPane.Licences -> LicencesPane(padding)
             SettingsPane.Root ->
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -217,12 +220,13 @@ fun SettingsScreen(
 
                     item { BackupSection() }
 
-                    // Release 0.1.1: build identity + license/notices + the
+                    // Release 0.1.1: build identity + licence/notices + the
                     // on-device claim, last in the list.
                     item {
                         aboutSection(
                             versionName = viewModel.appVersion,
                             onOpenLink = viewModel::openLink,
+                            onOpenLicences = { pane = SettingsPane.Licences },
                         )
                     }
                 }

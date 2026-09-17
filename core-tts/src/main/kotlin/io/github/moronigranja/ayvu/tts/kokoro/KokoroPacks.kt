@@ -59,8 +59,8 @@ object KokoroPacks {
             displayName = "espeak-ng bundle (G2P)",
             description = "arm64 libespeak-ng.so + espeak-ng-data (1.52.0) — the Kokoro phonemizer.",
             url = "https://github.com/moronigranja/ayvu/releases/download/espeak-ng-1.52.0/espeak-ng-android-1.52.0.zip",
-            sha256Hex = "6b2edca73af83dac42bfeb421a84f36810cbe7602b76237807356a4bd84898fa",
-            sizeBytes = 9_857_162,
+            sha256Hex = "9a65f6cfb019a02798966854c6e41da02bc33a8e1acba9c456ab0d66abd1de9f",
+            sizeBytes = 10_144_828,
             version = "1",
         )
 

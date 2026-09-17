@@ -67,8 +67,34 @@ cp "$SRC/build-152/src/libespeak-ng/libespeak-ng.so" "$OUT/lib/$ABI/"
 rm -rf "$OUT/espeak-ng-data"
 cp -r "$DATA_DIR" "$OUT/espeak-ng-data"
 
+# GPL-3.0 §6: the bundle ships as object code, so its archive must carry the
+# licence text AND clear directions to the corresponding source. The release
+# zip is assembled from $OUT — ship these two files inside it.
+cp "$SRC/COPYING" "$OUT/COPYING"
+cat > "$OUT/SOURCE-OFFER.txt" <<EOF
+espeak-ng ${ESPEAK_TAG} — corresponding source
+
+This archive contains the cross-compiled libespeak-ng.so (${ABI}) and the
+espeak-ng-data for espeak-ng ${ESPEAK_TAG}, distributed under the GNU General
+Public License v3.0 or later (see COPYING).
+
+Corresponding source for the object code in this archive:
+
+  upstream:  https://github.com/espeak-ng/espeak-ng  at tag ${ESPEAK_TAG}
+  recipe:    https://github.com/moronigranja/ayvu/blob/main/tools/build-espeak-android.sh
+
+The recipe pins ESPEAK_TAG=${ESPEAK_TAG}, cross-compiles the espeak-ng target
+with the Android NDK, and pairs it with the byte-identical espeak-ng-data from
+the matching ${ESPEAK_TAG} install.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+EOF
+
 echo "---"
 echo "lib:  $OUT/lib/$ABI/libespeak-ng.so  ($(du -h "$OUT/lib/$ABI/libespeak-ng.so" | cut -f1))"
 echo "data: $OUT/espeak-ng-data            ($(du -sh "$OUT/espeak-ng-data" | cut -f1))"
+echo "licence: $OUT/COPYING + $OUT/SOURCE-OFFER.txt — ship BOTH inside the release zip"
 echo "lib sha256: $(sha256sum "$OUT/lib/$ABI/libespeak-ng.so" | cut -d' ' -f1)"
 echo "NOTE: data was copied from $DATA_DIR — keep it byte-identical to the tag build's data (1.52.0)."

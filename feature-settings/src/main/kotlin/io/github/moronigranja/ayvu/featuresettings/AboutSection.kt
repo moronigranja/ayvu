@@ -25,6 +25,9 @@ private const val SOURCE_URL = "https://$SOURCE_ADDRESS"
 private const val NOTICE_ADDRESS = "github.com/moronigranja/ayvu/blob/main/NOTICE.md"
 private const val NOTICE_URL = "https://$NOTICE_ADDRESS"
 
+// The in-app row's detail: the documents it opens ship inside this build.
+private const val LICENCES_DETAIL = "Bundled in the app — readable offline"
+
 // The setup card's own claim (SetupScreen.PrivacyCard), with the pack download
 // named because it is the only network use this app makes.
 private const val PRIVACY =
@@ -32,20 +35,26 @@ private const val PRIVACY =
         "The only network use is downloading the free speech and OCR packs."
 
 /**
- * Release 0.1.1: the Settings "About" group — build identity, license + source,
- * third-party notices and the on-device claim. Sits last in the settings list,
- * after Backup & restore.
+ * Release 0.1.1: the Settings "About" group — build identity, licence +
+ * source, third-party notices and the on-device claim. Sits last in the
+ * settings list, after Backup & restore.
  *
  * [versionName] arrives through the `AppInfo` seam (this module has no
  * `BuildConfig` of its own) and the version line renders unconditionally: a
  * device without a browser still shows which build it is running, and the link
  * rows then do nothing through the [LinkOpener] seam instead of crashing.
  * Rows are 48 dp targets with an explicit click label for TalkBack (B4).
+ *
+ * Audit B: [onOpenLicences] opens the in-app Licences surface, which renders
+ * the GPL-3.0 text and the notices this APK carries (`assets/LICENSE` +
+ * `assets/NOTICE.md`). The two outbound link rows stay — the bundled copy is
+ * the one a recipient always has, the links are the online convenience.
  */
 @Composable
 fun aboutSection(
     versionName: String,
     onOpenLink: (String) -> Unit,
+    onOpenLicences: () -> Unit,
 ) {
     Column {
         SectionHeader("About", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS))
@@ -54,8 +63,24 @@ fun aboutSection(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = AyvuSpacing.XS),
         )
-        linkRow("Source code (GPL-3.0)", SOURCE_ADDRESS, SOURCE_URL, onOpenLink)
-        linkRow("Third-party notices", NOTICE_ADDRESS, NOTICE_URL, onOpenLink)
+        aboutRow(
+            title = "Licences (GPL-3.0)",
+            detail = LICENCES_DETAIL,
+            clickLabel = "Open the bundled licences",
+            onClick = onOpenLicences,
+        )
+        aboutRow(
+            title = "Source code (GPL-3.0)",
+            detail = SOURCE_ADDRESS,
+            clickLabel = "Open in browser",
+            onClick = { onOpenLink(SOURCE_URL) },
+        )
+        aboutRow(
+            title = "Third-party notices",
+            detail = NOTICE_ADDRESS,
+            clickLabel = "Open in browser",
+            onClick = { onOpenLink(NOTICE_URL) },
+        )
         Text(
             PRIVACY,
             style = MaterialTheme.typography.bodySmall,
@@ -64,13 +89,13 @@ fun aboutSection(
     }
 }
 
-/** One About link: [title] + the [address] it opens, as a 48 dp row. */
+/** One About row: [title] + the [detail] under it, as a 48 dp target. */
 @Composable
-private fun linkRow(
+private fun aboutRow(
     title: String,
-    address: String,
-    url: String,
-    onOpenLink: (String) -> Unit,
+    detail: String,
+    clickLabel: String,
+    onClick: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -80,14 +105,14 @@ private fun linkRow(
                 .heightIn(min = 48.dp)
                 .clickable(
                     role = Role.Button,
-                    onClickLabel = "Open in browser",
-                ) { onOpenLink(url) }
-                .padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.SM),
+                    onClickLabel = clickLabel,
+                    onClick = onClick,
+                ).padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.SM),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium)
             Text(
-                address,
+                detail,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
