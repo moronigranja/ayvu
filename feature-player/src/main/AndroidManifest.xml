@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- The player's PARTIAL_WAKE_LOCK, held while the buffer is DRY
+         (CpuAwakeLock / PlaybackService.bufferForPlayback): with no track
+         playing, the audio HAL's wake lock is gone and the fill's timers would
+         stop firing if the device slept mid-stall. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application>
         <service
             android:name=".playback.PlaybackService"

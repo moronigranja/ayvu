@@ -165,6 +165,9 @@ class PlaybackService : Service() {
      * nothing and counted chapters differently). */
     private var layout: BookLayout? = null
 
+    /** Held while the buffer is DRY — see [CpuAwakeLock] and [bufferForPlayback]. */
+    private val cpuAwake by lazy { CpuAwakeLock(this) }
+
     /** The reader-text publication slice (cleanup pass H): owns the in-memory
      * active [Book] and derives the reader-facing text fields; [stateCopy]
      * delegates here. The single entry point is [bindBook] (the test
@@ -1798,6 +1801,26 @@ class PlaybackService : Service() {
      * byte-for-byte (the fill still polls aheadSeconds on it).
      */
     private suspend fun bufferForPlayback(
+        position: PlayerPosition,
+        voice: String,
+        speed: Double,
+        text: String,
+    ): SynthesisOutcome {
+        // A dry buffer is the one stretch of a session where NOTHING else holds
+        // the CPU awake: the audio HAL's wake lock exists only while a track is
+        // actually playing, and here the previous track has already ended. Hold
+        // ours for the wait AND the synchronous synthesis, so the device cannot
+        // deep-sleep through the stall and stop firing the 50 ms poll / the
+        // fill's 200 ms top-up (device report: screen-off stop-and-buffer).
+        cpuAwake.acquire()
+        try {
+            return fillBuffer(position, voice, speed, text)
+        } finally {
+            cpuAwake.release()
+        }
+    }
+
+    private suspend fun fillBuffer(
         position: PlayerPosition,
         voice: String,
         speed: Double,

@@ -4,6 +4,31 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 180. The player holds a partial wake lock while the buffer is dry (2026-09-17)
+
+Owner report: with the screen off, playback occasionally stopped and buffered (Fold).
+Reviewing the fill left one hardening gap and one honest deficit.
+
+**The gap.** The only thing that keeps the CPU awake during playback is the audio HAL's
+wake lock, and it exists only while a track is PLAYING. A dry buffer is precisely the
+state where the previous track has ended and the next passage is not queued yet — so at
+that moment nothing holds the CPU, and every recovery mechanism is a thread-park timer
+(the 50 ms cushion poll, the fill's 200 ms top-up, the 1 s ticker). An unplugged,
+screen-off device can suspend there and stay suspended until an external wake, which turns
+a short stall into a long stop-and-buffer. `PlaybackService.bufferForPlayback` now holds a
+`PARTIAL_WAKE_LOCK` (`CpuAwakeLock`; idempotent acquire/release, `try/finally`, so an
+unbalanced pair can neither pin the CPU nor throw on the player thread) for exactly that
+window — the cushion wait and the synchronous synthesis. `feature-player`'s manifest
+declares `WAKE_LOCK`; the service keeps its `mediaPlayback` foreground type.
+
+**The deficit, deliberately not papered over.** The repository's own measurements put
+unplugged + display-off synthesis at RTF 1.32–1.79 (vs 0.52–0.60 screen-on), and the 30 s
+look-ahead cushion is sized for RTF < 1, so the cushion can still drain and a boundary can
+still miss. A wake lock does not raise clocks: that half stays open in the bug register,
+with the measurement recipe. The `realtimeCapable` skip of the cushion wait was reviewed
+and left alone — in a deficit regime the fill cannot reach the target, so waiting longer
+would only delay the same synthesis.
+
 ## 179. Release notes drop the verification and pre-release-upgrade sections (2026-09-17, owner)
 
 Owner decision, taken after the 0.1.2 publish: **future** release notes omit two sections
