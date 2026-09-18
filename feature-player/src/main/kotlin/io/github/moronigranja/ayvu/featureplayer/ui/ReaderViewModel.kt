@@ -127,6 +127,11 @@ class ReaderViewModel
          * play button. */
         private var openedBookId: String? = null
 
+        /** A play press made before the chapter landed (the loading/empty
+         *  state) — completed by the state collector once the open presents the
+         *  chapter (see [playFromView]). */
+        private var deferredPlay = false
+
         // ---- read-in-language (decisions #114) ----
 
         /** The voice-sheet "Read in" section state: the active book's target,
@@ -279,6 +284,18 @@ class ReaderViewModel
                     .collect { key ->
                         seedTranslations(key.bookId, key.chapter, key.passageCount, key.display)
                     }
+            }
+            // A play press made before the chapter landed (the loading/empty
+            // state) completes HERE, against the position the open presented —
+            // never a fresh row read racing the open (see [playFromView]).
+            viewModelScope.launch {
+                PlaybackStateHolder.state.collect { current ->
+                    val id = openedBookId
+                    if (deferredPlay && id != null && current.bookId == id && current.chapterPassages.isNotEmpty()) {
+                        deferredPlay = false
+                        playPosition(id, current.chapterIndex, current.passageIndex)
+                    }
+                }
             }
             // Merge each passage's text as it becomes available — the PROGRESSIVE
             // landing that re-paginates through the reader's keep-place effect.
@@ -462,7 +479,34 @@ class ReaderViewModel
         /** Opens a book in the reader WITHOUT starting playback (decisions #52). */
         fun open(bookId: String) {
             openedBookId = bookId
+            deferredPlay = false // a fresh open supersedes an unfulfilled press
             command(PlaybackService.ACTION_OPEN, bookId)
+        }
+
+        /** The reader's play control — the docked card's center button and the
+         *  immersive overlay (the card's `resume()` override routes here).
+         *
+         *  With the chapter loaded it plays from the VIEW's position (the
+         *  page-start passage). While the chapter is NOT loaded yet — the
+         *  loading/empty state, i.e. an open is in flight — the press is
+         *  REMEMBERED instead of dispatched: an `ACTION_RESUME` there resolves
+         *  its own start position service-side, racing the open, and its
+         *  passage-0/0 fallback (no valid stored row *at that instant*: never
+         *  played, a row invalidated by a re-parse, or a transient store
+         *  failure) is what started playback "at the beginning" while the
+         *  loading message showed (owner report 2026-09-17). The deferred press
+         *  completes against the position the open PRESENTS. */
+        fun playFromView(
+            chapter: Int,
+            passage: Int,
+        ) {
+            val current = state.value
+            val id = openedBookId
+            if (id != null && current.bookId == id && current.chapterPassages.isNotEmpty()) {
+                playPosition(id, chapter, passage)
+                return
+            }
+            deferredPlay = true
         }
 
         override fun play(bookId: String) {
@@ -523,7 +567,10 @@ class ReaderViewModel
 
         fun undo() = command(PlaybackService.ACTION_UNDO)
 
-        override fun stop() = command(PlaybackService.ACTION_STOP)
+        override fun stop() {
+            deferredPlay = false // an explicit stop supersedes an unfulfilled press
+            command(PlaybackService.ACTION_STOP)
+        }
 
         fun cycleSleep() = command(PlaybackService.ACTION_SLEEP)
 
@@ -531,7 +578,10 @@ class ReaderViewModel
 
         override fun resume() = command(PlaybackService.ACTION_RESUME, openedBookId)
 
-        override fun pause() = command(PlaybackService.ACTION_PAUSE)
+        override fun pause() {
+            deferredPlay = false // pause supersedes an unfulfilled press too
+            command(PlaybackService.ACTION_PAUSE)
+        }
 
         override fun seekForward() = command(PlaybackService.ACTION_SEEK_FORWARD)
 

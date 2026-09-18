@@ -218,12 +218,12 @@ fun ReaderScreen(
     // page-start passage through [pageStartPassage] (fresh state, not the
     // captured value); the ref indirection keeps the resume override current
     // for the delegated [PlayerCommands].
+    // With the chapter loaded this plays from the VIEW's position; while it is
+    // still loading (the open in flight) the VM remembers the press and
+    // completes it against the presented position — dispatching a resume there
+    // raced the open and could start at passage 0/0 (owner report 2026-09-17).
     val playFromView: () -> Unit = {
-        if (state.chapterPassages.isNotEmpty()) {
-            viewModel.playPosition(bookId, state.chapterIndex, pageStartPassage.value)
-        } else {
-            viewModel.resume()
-        }
+        viewModel.playFromView(state.chapterIndex, pageStartPassage.value)
     }
     val playFromViewRef = rememberUpdatedState(playFromView)
     val readerCommands =
