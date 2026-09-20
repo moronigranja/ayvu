@@ -53,6 +53,18 @@ of translating on 2 of 14 paragraphs** — so the Base tier is only a candidate 
 chat form, and Gemma-4-E2B (3.35 GB) stays in translategemma's memory class. No tier is
 adopted by this entry.
 
+**Amended 2026-09-20 — that candidate is now device-measured, and it is the best number
+on this device.** LFM2.5-2.6B-Base through the production prompt: chrF **70.44** on the
+S22 both idle and during Kokoro playback (host 70.12), 4.95 s/sentence idle and 7.79 s
+under playback (12.0 / 6.5 tok/s), 1.67 GB pack, whole-book pregen ≈ 3.96 h idle /
+6.22 h co-resident, zero lmkd events with playback uninterrupted. Against the shipped
+LFM2.5-1.2B that is **+3.1 chrF for 1.5x the time** (idle) / 1.76x under load and ~2x
+the pack; against translategemma it is +4.4 chrF, half the wall time and a far kinder
+memory profile. Nothing is adopted here either — #162 still stands until the owner rules
+— but if the shipped engine is revisited, this is the candidate and these are its
+numbers. Evidence and full tables: `docs/prints/beam-spike/README.md` §"Middle tier
+measured".
+
 **Also found in this pass, and open:** LFM2.5-1.2B stops generating at the first line
 break inside a passage (`finish_reason: stop`, silent truncation of everything after
 it; 3 of 6 single-paragraph probes, every multi-paragraph block). Registered in
