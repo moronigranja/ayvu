@@ -4,64 +4,68 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
-## 188. Previous-paragraph context in the translate prompt: measured, not built (2026-09-20, owner)
+## 188. Previous-passage context in the translate prompt: measured, engine-dependent, not built (2026-09-20, owner)
 
 Owner question: "add the last translated paragraph to the prompt on a translation" —
-clarified by the owner as **the immediately preceding passage in reading order**, which is
-what every arm conditions on (the previous passage, never "whatever was translated last").
-Measured on the host against the PINNED artifacts (GGUF `LFM2.5-1.2B-Instruct-Q4_K_M`
-730,895,168 B sha256 `b1b3de11…` = the shipped default; `LFM2.5-2.6B-Base.Q4_K_M` = the
-other shipped engine), greedy, `max_tokens` 400, `cache_prompt: false` so every call pays
-its own prefill, per-passage calls (no batching, #168). Context is ROLLING in reading order:
-each arm's own translation of passage *i*−1 feeds passage *i*. Arm A is the shipped prompt
-(`LlamaTranslator.userMessage`, byte-identical to `lfm12_gate.py`); B = context + labels in
-one message; C = B + "do not repeat it"; D = the previous passage's SOURCE + its translation
-as a chat turn pair; **F = the literal ask: the previous passage's TRANSLATION alone as the
-assistant turn**; E = context/source fenced by `---`. Corpora: FLORES devtest eng→por first
-40 (references → chrF, paired bootstrap over the sentences); 40 CONSECUTIVE prose paragraphs
-from the book on the test device, chapter 21 passages 8–47 (real reading-order context, no
-references → back-translation chrF + leakage). Harness validity: arm A reproduces the
-recorded gate (chrF 67.18 vs 66.82, 44.2 vs 44.2 gen tokens).
+clarified by the owner as **the immediately preceding passage in reading order** (passage
+*i*−1), which is what every arm conditions on. Second owner question: how long can the
+conversation be kept, fed passage by passage? Measured on the host against the PINNED
+artifacts (shipped default `LFM2.5-1.2B-Instruct-Q4_K_M` sha256 `b1b3de11…`; the other
+shipped engine `LFM2.5-2.6B-Base.Q4_K_M` served with `-c 2048` = `LlamaTranslator`'s
+N_CTX), greedy, `max_tokens` 400, `cache_prompt: false`, per-passage calls (no batching,
+#168). Context ROLLS in reading order: each arm's own translation of *i*−1 feeds *i*. Arm A
+is the shipped prompt (byte-identical to `LlamaTranslator.userMessage` / `lfm12_gate.py`,
+and it reproduces the recorded gate); B = context + labels in one message; C = B + "do not
+repeat it"; **D = the previous passage's SOURCE + its translation as a chat turn pair**;
+F = the previous translation ALONE as the assistant turn; E = fenced. Corpora: FLORES
+devtest eng→por first 40 (references → chrF); 40 consecutive paragraphs of the nonfiction
+book on the test device; 40 consecutive paragraphs of a SECOND book (*All These Worlds*,
+dialogue-heavy fiction). Back-translation chrF is the proxy where references are absent
+(coarse — Pearson 0.44 with chrF), so every delta carries a paired bootstrap.
 
-**FLORES**, chrF (1.2B / 2.6B) with the paired 95% CI of the delta vs A: A 67.18 / 70.84;
-D 67.46 (−0.68 [−2.56, 1.09]) / 70.97 (+0.70 [−1.40, 3.08]); F 68.82 (−1.19 [−3.87, 1.61]) /
-70.50 (+0.56 [−1.48, 2.84]); B 59.52; C 42.56; E 14.98 (39/40 outputs re-emit the context).
-Nothing moves FLORES outside noise — its lines are unrelated sentences, so context carries
-no signal there; every single-message shape destroys quality.
+**The sign depends on the ENGINE.** On **2.6B-Base** D is a small, consistent win on BOTH
+books — nonfiction A 71.06 vs D **73.57** (Δ−2.82, 95% CI [−6.15, −0.25], P 0.015; D2
+74.16, D8 74.22, both significant; D4 n.s.), fiction A 69.09 vs D **70.16** (Δ−1.64
+[−4.62, 0.79] n.s.). On the **shipped default** the same shape reliably LOSES: A 64.43 vs
+D 58.16 (A−D = +5.44 [0.97, 10.78], P 0.994). F (the literal ask: translation alone as the
+assistant turn) is NOT a win — nonfiction 65.84 (n.s.), fiction 68.94 (n.s.). B/C/E are much
+worse everywhere (on FLORES chrF 59.52 / 42.56 / 14.98 vs A 67.18, E re-emitting the context
+in 39/40 outputs; nonfiction B leaks 58-word verbatim runs).
 
-**Real prose**, BT-chrF (coarse — Pearson 0.44 with chrF per the beam-spike follow-up —
-hence intervals): 1.2B A 64.43; **D 58.16, A−D = +5.44 [0.97, 10.78], P(Δ>0) 0.994 (a real
-loss)**; **F 63.08, A−F = −1.14 [−6.10, 3.68], P 0.326 (NOT distinguishable from zero)**;
-B 53.59 (+12.50 [4.87, 21.05]); E 6.96. 2.6B A 71.06; D 73.57 (−2.82 [−6.15, −0.25],
-P 0.015 — marginal); **F 65.84 (+3.14 [−3.94, 10.74], P 0.79 — not significant)**.
+**Depth buys nothing — one passage is the optimum.** BT-chrF at depth 1/2/4/8 on
+2.6B-Base: nonfiction 73.57 / 74.16 / 72.96 / 74.22, fiction 70.16 / 70.52 / 70.47 / 69.37
+— all inside noise of each other, while prefill grows 172.8 → 283.9 → 495.2 → 868.7 tokens
+(nonfiction; A = 62.4). Wall time 532 → 660 ms/passage.
 
-**Verdict: not built.** (1) **The shape that says exactly what was asked is INERT** — F is
-statistically indistinguishable from the shipped prompt on BOTH corpora and BOTH engines,
-while costing ~1.9× the prefill tokens (63.6 → 119.0 per passage on the 1.2B; at the
-measured ~100 tok/s device prefill that is ≈ +0.6 s/passage). (2) The movement that does
-exist lives in the shapes that ALSO carry the previous passage's source or label blocks, and
-it contradicts itself across engines: reliably worse on the shipped default (D −5.4, B
-−12.5), marginally better on the 2.6B-Base (D +2.8, at the instrument's resolution limit).
-A lever that helps one engine and hurts the other by comparable amounts is not a product
-change. (3) Independent of the numbers, reading order makes the context book-determined but
-the translation RECURSIVE: passage *i* depends on *i*−1's context-conditioned text, back to
-the chapter start, so a cache hit cannot be reproduced without replaying the chain, any
-break (an unavailable engine on one passage, an interrupted run, rows written before the
-feature) makes downstream text unreproducible for the same key, and the display/speech
-one-artifact contract (#166) becomes conditional on the whole prefix (#161 keys the store on
-`(lang, translator)`).
+**The window is a hard ceiling: ~15–17 passages, and it fails LOUD.** A retained passage
+pair costs 110 (nonfiction) – 122 (fiction) tokens and the instruction + current source ~65,
+so `n_ctx` 2048 allows ~15–17 passages; the unbounded run confirms it exactly — prompts up
+to **2006 tokens succeed, then the runtime refuses with HTTP 400** ("request (2140 tokens)
+exceeds the available context size (2048 tokens)"), 11 of 30 passages failed. No silent
+shift and no trim: the app would surface the typed "translator unavailable" failure on the
+crossing passage. A build must cap the history explicitly — never "keep the whole
+conversation".
 
-**Reopen condition:** a context dimension on the translation key plus an explicit chain
-rule, a shape that helps BOTH engines, and a human blind read — the back-translation proxy
-is a garbage detector, not a ruler, so a ~3-point movement cannot decide a product change.
-`docs/prints/context-spike/samples.md` carries A vs D vs F side by side for both engines so
-the owner can judge coherence, the one dimension no metric here sees; if F reads better to
-the eye, that — not chrF — is the reason to reopen.
+**Verdict: measured, not built — a candidate on the 2.6B, gated on the owner's read and on
+the cache work below.** One passage of context is what the evidence supports (small,
+engine-specific, at the resolution edge of the proxy); more is both useless and unbounded.
+Shipping it is NOT a prompt change: `TranslationTarget`/the store/audio cache key on
+`(lang, translator)` (#161/#166), so a reading-order context makes a stored row depend on
+its predecessor's context-conditioned text — the key needs a context dimension **and** a
+depth cap (a depth-1 row must never be served for a depth-8 request), plus an explicit
+chain rule for out-of-order translation (seek, prefetch, parallel pregen, a
+partially-translated book), or the same key can yield text a re-translation does not
+reproduce and #166's display-and-speech-one-artifact contract becomes conditional on the
+prefix. Reopen with: the owner's blind read of `docs/prints/context-spike/samples-book2.md`
+and `samples.md`, then that key work, gated to the engine(s) where the sign is positive.
 
 Evidence (untracked scratch, `docs/prints/` is gitignored): `docs/prints/context-spike/` —
-`context_spike.py` (arms A–F, both corpora, leakage/divergence/prefill), `analyze.py`
-(per-item BT-chrF + FLORES reference chrF + paired bootstrap), `context_spike_8199.json` /
-`_8198.json`, `paired_analysis_*_json`, `samples.md`.
+`context_spike.py` (arms A–F + depth sweep + ceiling probe), `analyze.py` / `bt_fix.py`
+(per-item BT + FLORES reference chrF + paired bootstrap), the per-run JSONs, and the two
+sample sheets. Two harness bugs were caught here and are recorded in the print: a
+back-translation that reused the Portuguese target (a pt→pt no-op) and a message list passed
+as a bare dict (swallowed as an empty hypothesis) — both made earlier numbers wrong, both
+re-scored/fixed.
 
 ## 187. Export a book's translated text: Markdown / plain text / EPUB 3, language chosen in the dialog (2026-09-20, owner)
 
