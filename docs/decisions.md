@@ -4,6 +4,57 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 188. Previous-paragraph context in the translate prompt: measured, not built (2026-09-20, owner)
+
+Owner question: "add the last translated paragraph to the prompt on a translation."
+Measured on the host against the PINNED artifacts (GGUF `LFM2.5-1.2B-Instruct-Q4_K_M`
+730,895,168 B sha256 `b1b3de11…` = the shipped default; `LFM2.5-2.6B-Base.Q4_K_M` = the
+other shipped engine), greedy, `max_tokens` 400, `cache_prompt: false` so every call pays
+its own prefill, per-passage calls (no batching, #168). Context is ROLLING — each arm's own
+translation of paragraph *i*−1 feeds paragraph *i*. Arm A is the shipped prompt
+(`LlamaTranslator.userMessage`, byte-identical to `lfm12_gate.py`); B = context + labels in
+one message; C = B + "do not repeat it"; D = the natural chat shape (user: previous source,
+assistant: previous translation, user: current source); E = context/source fenced by `---`.
+Corpora: FLORES devtest eng→por first 40 (references → chrF); 40 CONSECUTIVE prose
+paragraphs from the book on the test device (real context, no references → back-translation
+chrF + leakage). Harness validity: arm A reproduces the recorded gate (chrF 67.18 vs 66.82,
+gen 44.2 vs 44.2 tokens).
+
+**FLORES** (references): A chrF **67.18** / BT 74.16; D **67.46** / 72.34 (indistinguishable
+— FLORES lines are unrelated sentences, so context carries no signal); B 59.52; C 42.56;
+E 14.98 (39/40 outputs re-emit the context — broken).
+
+**Real prose** (BT-chrF, paired bootstrap over the 40 paragraphs because the proxy is coarse
+— Pearson 0.44 with chrF per the beam-spike follow-up): 1.2B-Instruct A **64.43** vs D 58.16
+(B 53.59, E 6.96) → **A−D = +5.44, 95% CI [0.97, 10.78], P(Δ>0) 0.994**; 2.6B-Base A 71.06
+vs D 73.57 → **A−D = −2.82, CI [−6.15, −0.25], P(Δ>0) 0.015**. Prefill 63.6 → 173.2 tokens
+(2.7×) in both engines; context is not inert (it changes 85% of the outputs, and arm B leaks
+58-word verbatim runs) — it just moves them the wrong way on the shipped default.
+
+**Verdict: not built.** Three reasons, in order of weight. (1) The shipped DEFAULT loses
+quality reliably; the only positive engine is a noise-floor gain at 2.8× prefill, which at
+the measured ~100 tok/s device prefill rate is ≈ +1.1 s per passage. (2) Independent of the
+numbers, it contradicts the identity the whole read-in-language stack is keyed on:
+"the last translated paragraph" is a property of translation ORDER, not of a passage, while
+the store, the backup archive and the audio cache key on
+`(bookId, chapterIndex, passageIndex, lang, translator)` (#161/#166) — a prefetch order, a
+seek or the parallel pregen queue would each produce a different stored text for the same
+key, and the cache would then serve text a re-translation cannot reproduce. (3) The two
+shapes that could have been shipped without a format change are the worst (B −10.8 book BT,
+C catastrophic, E broken), so the honest cost of trying again includes a context dimension
+on the key.
+
+**Reopen condition:** a context dimension on the translation key plus a deterministic
+context definition, and a HUMAN blind read — the back-translation proxy is a garbage
+detector, not a ruler, so a ~3-point movement cannot decide a product change. The 2.6B-Base
+multi-turn shape is the one to re-test if that work is ever funded.
+
+Evidence (untracked scratch, `docs/prints/` is gitignored): `docs/prints/context-spike/` —
+`context_spike.py` (arms A–E, both corpora, leakage/divergence/prefill), `analyze.py`
+(per-item BT-chrF + paired bootstrap), `context_spike_8199.json` / `_8198.json`,
+`paired_analysis_*_json`, and `samples.md` (A vs D side by side, both engines, for the
+owner's coherence read).
+
 ## 187. Export a book's translated text: Markdown / plain text / EPUB 3, language chosen in the dialog (2026-09-20, owner)
 
 "Export translated book" was planned-but-unbuilt (the design doc's product decisions; its
