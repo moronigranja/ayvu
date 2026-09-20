@@ -849,6 +849,19 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
+**v0.1.3 is published (2026-09-20)** —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.3>. Shipped
+`Ayvu-0.1.3.apk`, 51,837,070 B, sha256 `6e664d42…`, cert `a5057984…` (same key as
+0.1.1/0.1.2, so it updates in place). Contents: the selectable second
+read-in-language engine (#182 — LFM2.5-2.6B-Base beside the shipped LFM2.5-1.2B,
+each with its own pack release), the dry-buffer partial wake lock (#180), the
+reader play-while-loading fix and the display-language staleness fix. The notes are
+the concise shape #179 fixed — about half of 0.1.2's length. The smoke ran on the
+uploaded artifact itself on the S22 (launch with the restored library, both engine
+rows and the new engine's ~1.7 GB download through the shipped build, About →
+Licences, playback), and the tag fired the `assemble-on-tag` gate; the full
+pre-publish list below was not repeated (see decisions #183).
+
 **v0.1.2 is published (2026-09-17)** —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.2>. The long-operation slice
 (#177, decisions #177/#178): downloads, pack unpacking and book import now run as

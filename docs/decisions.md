@@ -4,6 +4,36 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 183. v0.1.3 published — the second engine ships, notes in the concise form (2026-09-20)
+
+Owner: *"Can you publish new version? Make the release notes less verbose."* Published
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.3> following the roadmap's
+publish-run steps.
+
+- **Artifact**: `Ayvu-0.1.3.apk`, 51,837,070 B, sha256
+  `6e664d42c7d9f9214f7af38499c9ff93e532e0ed82cb7e802e3f9fa6ac8427f2`, signer `a5057984…`
+  (CN=Ayvu — the same certificate as 0.1.1/0.1.2, so it installs over them in place).
+  `versionCode` 3 → 4. The digest is the one `tools/release.sh --upload` printed for the
+  artifact it uploaded, not an earlier local build's (#176: release bytes are not
+  reproducible).
+- **Contents**: the selectable second read-in-language engine (#182, its pack on
+  `translate-lfm26b-base-v1`), the dry-buffer partial wake lock (#180), the reader
+  play-while-loading fix, the display-language staleness fix.
+- **Notes**: `docs/release-notes-0.1.3.md`, in the shape #179 fixed and deliberately
+  about half the length of 0.1.2's — what changed (one bullet per user-visible change),
+  install, the first-run pack table (now five rows), that build's known limitations —
+  including the open plain-text/Markdown line-break truncation (`open-bugs.md`) — and
+  the licence line. No per-mechanism walkthrough, no verification or
+  pre-release-upgrade sections.
+- **Smoke on the uploaded artifact** (S22, release build, data preserved): launch with
+  the restored library, the Speech pane's two engine rows with their own download state,
+  the new engine's ~1.7 GB pack downloaded and staged **through the shipped build**,
+  About → Licences, and playback (MediaSession PLAYING). The full pre-publish list was
+  not repeated — parts of it (import, export/restore, pack downloads, read-in-language
+  E2E) ran on this device earlier the same day.
+- **Gate**: the `v0.1.3` tag fired the `assemble-on-tag` CI job (the workflow fix from
+  #174) — the tag push and the `main` push run concurrently.
+
 ## 182. Read-in-language gets a second engine: LFM2.5-2.6B-Base as a user option (2026-09-20, owner)
 
 Owner: *"lets add this middle ground as an option."* #181 established the landscape (the
