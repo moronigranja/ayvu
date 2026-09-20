@@ -121,7 +121,7 @@ fun SetupScreen(
                             state = state,
                             onPickBooks = { launcher.launch(IMPORT_MIME_TYPES) },
                             onDismissSummary = viewModel::consumeImportSummary,
-                            onFinish = onFinished,
+                            onSkip = viewModel::skipImport,
                         )
                     StepKind.COMPLETE, StepKind.DEGRADED_READY -> Unit // LaunchedEffect above
                 }
@@ -143,16 +143,20 @@ fun SetupScreen(
                             enabled = index > 0,
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        if (isLast) {
-                            PillButton("Finish", onClick = onFinished)
-                        } else if (step == StepKind.DOWNLOAD_PACKS) {
-                            PillButton(
-                                "Next",
-                                onClick = viewModel::wizardNext,
-                                enabled = state.packs.all { it.status == PlanPackStatus.Ready },
-                            )
-                        } else {
-                            PillButton("Next", onClick = viewModel::wizardNext)
+                        when {
+                            // The import step is the last one, and its card owns
+                            // both actions (Import / Skip for now) — a nav
+                            // "Finish" here duplicated the skip and dead-ended
+                            // before #184.
+                            isLast && step == StepKind.IMPORT_BOOK -> Unit
+                            isLast -> PillButton("Finish", onClick = onFinished)
+                            step == StepKind.DOWNLOAD_PACKS ->
+                                PillButton(
+                                    "Next",
+                                    onClick = viewModel::wizardNext,
+                                    enabled = state.packs.all { it.status == PlanPackStatus.Ready },
+                                )
+                            else -> PillButton("Next", onClick = viewModel::wizardNext)
                         }
                     }
                 }
@@ -319,13 +323,13 @@ private fun ImportBookCard(
     state: SetupUiState,
     onPickBooks: () -> Unit,
     onDismissSummary: () -> Unit,
-    onFinish: () -> Unit,
+    onSkip: () -> Unit,
 ) {
     StepCard {
         Text("Import a book", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Pick an EPUB or plain-text file to begin listening. On Ayvu, an imported " +
-                "book is the signal that first-run setup is complete.",
+            "Pick an EPUB or plain-text file to begin listening — or skip this and import " +
+                "later from the library's Import tab.",
             style = MaterialTheme.typography.bodyMedium,
         )
         PillButton("Import a book", onClick = onPickBooks)
@@ -338,8 +342,14 @@ private fun ImportBookCard(
             )
             PillButton("Done", onClick = {
                 onDismissSummary()
-                onFinish()
+                onSkip()
             })
+        }
+        // Skip is a real choice, not a dismissal: it is recorded durably, so
+        // the wizard does not come back on the next cold start (decisions
+        // #184). Same action the nav's removed Finish used to imply.
+        androidx.compose.material3.TextButton(onClick = onSkip) {
+            Text("Skip for now")
         }
     }
 }

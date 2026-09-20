@@ -171,7 +171,7 @@ Post-v1 phases, one line each:
 |---|---|---|
 | A1–A8 | Player/pregen/Room correctness repair: pregen terminal truth, live playhead persistence, single `ImportCoordinator` (Room→index), cross-process PCM LRU bootstrap, single-writer player commands + state agreement, composition root + feature boundaries, and the Room "deletion" classified as our E2E teardowns (not Samsung) | decisions #60–#66, #107 |
 | B1–B4 | `AyvuTheme` tokens + shared `core-ui` set; four-surface redesign; S22 + HiBreak visual/a11y acceptance | decisions #68, #94, #95, #98 |
-| C1–C3 | Guided first-run setup (PRIVACY → DOWNLOAD_PACKS → CHOOSE_VOICE → IMPORT_BOOK); one shared voice selector (Settings/reader/first-run); setup recovery re-derived from durable facts | decisions #102, #105, #106, #112, #119 |
+| C1–C3 | Guided first-run setup (PRIVACY → DOWNLOAD_PACKS → CHOOSE_VOICE → IMPORT_BOOK, the import step skippable — decisions #184); one shared voice selector (Settings/reader/first-run); setup recovery re-derived from durable facts | decisions #102, #105, #106, #112, #119 |
 | E0–E1 | Storage-location decision (one-shot SAF, no persistent grant); versioned SAF backup/restore with opt-in book bytes | decisions #109, #111 |
 | F1–F4 | Import progress + cancel, library search, SAF folder import, external-file intake (ACTION_VIEW / book-share → one import overlay) | decisions #64, #90, #108, #117, #118 |
 | I1–I2 | Book start detection (skip cover/TOC/index) + smart chapter detection in monolithic books | decisions #69, #70 |

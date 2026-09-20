@@ -4,6 +4,49 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 184. The first-run import step is skippable, and stays skipped (2026-09-20, owner)
+
+Owner: *"I would also like to allow skipping the import book during onboarding, without it
+being required later."* Before this, the wizard's import step had no way out: the copy said
+"an imported book is the signal that first-run setup is complete", the nav's **Finish**
+button on that step dismissed the screen and the gate immediately re-derived `active =
+true` (0 books), so the flow came straight back — a dead end that also bit this session's
+device smoke.
+
+**The change.** The import step gains an explicit **Skip for now** (and its post-import
+summary's Done takes the same path); the nav's `Finish` is gone from that step because the
+card now owns both actions. Skipping writes one durable row, `setup_import_deferred`, and
+the derivation treats the import requirement as satisfied by *a book OR that row* — so:
+- the wizard leaves for the library, whose empty state offers **Import**;
+- a later cold start with 0 books does NOT re-open setup (the point of the request);
+- the row never removes any other step: with packs missing the plan still runs
+  PRIVACY → DOWNLOAD_PACKS → CHOOSE_VOICE, and the deferred flag only drops the import
+  tail.
+
+**The C3 contract, amended rather than broken.** The rule was "no onboarding flag": the
+gate re-derives from durable facts so a wiped pack or a killed process resurrects the
+missing step. That rule exists to stop a *side effect* from marking a user done — and this
+row is not one: only the user's explicit Skip/Finish writes it, and it is a fact about the
+user's choice, not about the app's progress. The amendment is recorded at the original
+entry (search "No onboarding flag"), together with the consequence it fixes.
+
+**One more derivation rule tightened in passing:** the import step is now appended only
+while the import requirement is unsatisfied, so a library that already holds a book no
+longer sees an "Import a book" step when the packs are missing (it used to be appended
+unconditionally, which is why `espeak not staged keeps the plan open` had pinned a list
+containing it).
+
+**Verified on a fresh install** (debug build, Android 14 emulator, `pm clear` for a clean
+state): the engine step → *Device voice (system)* → Next → **Import a book** with
+`Import a book` / `Skip for now` and no Finish → Skip lands in the library ("No books yet —
+import your first ebook" + the Import tab); force-stop + relaunch shows the library again;
+`pm clear` (no skip recorded) shows setup, so the flag — not a general regression — is what
+suppresses it. JVM: new `SetupState` cases (deferral finishes with ready packs and no
+book, keeps the plan while packs are missing, makes the degraded path terminal), two new
+`SetupGateTest` cases (deferred + ready packs + no book → inactive; deferred + missing
+packs → still active) and a `SetupViewModelTest` case pinning that `skipImport()` persists
+and drops the step.
+
 ## 183. v0.1.3 published — the second engine ships, notes in the concise form (2026-09-20)
 
 Owner: *"Can you publish new version? Make the release notes less verbose."* Published
@@ -4079,6 +4122,11 @@ tests, nothing to build):**
   (`SetupGate.kt`). Deleting the pack files deletes the `.ready` markers
   with them (`PackCache` — the cache IS the pack state), so a lost pack or
   wiped espeak staging reactivates the gate showing the actual missing step.
+  **Amended 2026-09-20 (decisions #184):** the import step adds ONE durable
+  row, `setup_import_deferred` — written only by the user's explicit
+  Skip/Finish, never by the flow running. Without it, "a zero-book user who
+  killed the app sees setup again" also meant a user who *chose* to skip
+  could never get past onboarding.
 - Re-entry: packs ready + no books → import-only checklist; every step is
   reachable from Settings post-onboarding (voice selector C2, pack plan C1.5,
   import via the library).

@@ -36,6 +36,9 @@ class AppSettings
              * id keys every translation of a book (speech render path segment
              * `t<id>` + the stored-text translator column). */
             val translateEngine: String = SettingsStore.DEFAULT_TRANSLATE_ENGINE,
+            /** The user finished first-run setup without importing a book
+             * (decisions #184): the wizard no longer owes one. */
+            val setupImportDeferred: Boolean = false,
             /** Linear playback gain multiplier (1.0 = unity, > 1.0 amplifies). */
             val playbackGain: Float = SettingsStore.DEFAULT_PLAYBACK_GAIN,
             /** ORT intra-op thread count for Kokoro synthesis (decisions #137):
@@ -82,6 +85,7 @@ class AppSettings
                     ocrLanguages = store.ocrLanguages(),
                     ttsEngine = store.ttsEngine(),
                     translateEngine = store.translateEngine(),
+                    setupImportDeferred = store.setupImportDeferred(),
                     playbackGain = store.playbackGain(),
                     ttsThreads = store.ttsThreads(),
                     bookVoices = store.bookVoices(),
@@ -216,6 +220,13 @@ class AppSettings
             val current = _state.value.favorites
             val next = if (voiceName in current) current - voiceName else current + voiceName
             setFavoriteVoices(next)
+        }
+
+        /** Durable write for the first-run import deferral (decisions #184).
+         * The gate reads this mirror, so the flip lands immediately. */
+        suspend fun setSetupImportDeferred(value: Boolean) {
+            store.setSetupImportDeferred(value)
+            _state.value = _state.value.copy(setupImportDeferred = value)
         }
 
         suspend fun setTtsEngine(value: String) {

@@ -57,6 +57,7 @@ class SetupGate
                     voiceSelected = prefs.voice != SettingsStore.DEFAULT_VOICE,
                     bookCount = libraryStore.books.value.size,
                     systemTtsOptedIn = prefs.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                    importDeferred = prefs.setupImportDeferred,
                 )
             active = !SetupState.isTerminal(SetupState.derive(facts))
         }

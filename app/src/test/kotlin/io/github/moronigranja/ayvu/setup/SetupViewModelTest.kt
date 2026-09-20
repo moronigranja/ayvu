@@ -177,6 +177,32 @@ class SetupViewModelTest {
     }
 
     @Test
+    fun `skipping the import records the choice and drops the step`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            Dispatchers.setMain(dispatcher)
+            val vm = viewModel(dispatcher)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
+            advanceUntilIdle()
+            assertEquals(
+                listOf(StepKind.PRIVACY, StepKind.DOWNLOAD_PACKS, StepKind.CHOOSE_VOICE, StepKind.IMPORT_BOOK),
+                vm.state.value.steps,
+            )
+
+            vm.skipImport()
+            advanceUntilIdle()
+
+            // Durable (the gate reads it on the next cold start) …
+            assertTrue(settings.state.value.setupImportDeferred, "the skip must persist")
+            // … and the step list no longer owes a book (#184). The packs are
+            // still owed in this fixture, which the deferral must not remove.
+            assertEquals(
+                listOf(StepKind.PRIVACY, StepKind.DOWNLOAD_PACKS, StepKind.CHOOSE_VOICE),
+                vm.state.value.steps,
+            )
+        }
+
+    @Test
     fun `empty facts open on privacy and walk next and back through the full plan`() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)

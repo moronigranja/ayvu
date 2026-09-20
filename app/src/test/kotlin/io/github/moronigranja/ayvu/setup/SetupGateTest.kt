@@ -94,6 +94,33 @@ class SetupGateTest {
         }
 
     @Test
+    fun `a deferred import deactivates the gate with packs ready and no book`() =
+        runTest {
+            markReady(model)
+            markReady(voices)
+            markReady(espeak)
+            markStagedEspeak()
+            settings.setSetupImportDeferred(true)
+
+            val gate = gate()
+            gate.evaluate()
+            assertFalse(
+                gate.active,
+                "the user finished setup without a book: later cold starts must not re-run it (#184)",
+            )
+        }
+
+    @Test
+    fun `a deferred import does not skip the packs`() =
+        runTest {
+            settings.setSetupImportDeferred(true)
+
+            val gate = gate()
+            gate.evaluate()
+            assertTrue(gate.active, "the deferral removes the import requirement, not the engine setup")
+        }
+
+    @Test
     fun `everything ready with a book deactivates the gate`() =
         runTest {
             markReady(model)

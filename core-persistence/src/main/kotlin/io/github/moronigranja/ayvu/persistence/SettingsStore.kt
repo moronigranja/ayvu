@@ -203,6 +203,18 @@ class SettingsStore(
     }
 
     /**
+     * Whether the user finished first-run setup WITHOUT importing a book
+     * (decisions #184) — written only by the import step's explicit
+     * Skip/Finish. False means the wizard still owes a book, which is the
+     * shipped behaviour for every install that never asked to skip.
+     */
+    suspend fun setupImportDeferred(): Boolean = settingsDao.get(KEY_SETUP_IMPORT_DEFERRED) == "true"
+
+    suspend fun setSetupImportDeferred(value: Boolean) {
+        settingsDao.put(SettingEntity(KEY_SETUP_IMPORT_DEFERRED, value.toString()))
+    }
+
+    /**
      * The read-in-language translate engine (the second-engine option,
      * decisions #182): one engine id from the translate engine registry
      * (`core-translate`'s `TranslatePacks`), naming the staged pack the
@@ -291,6 +303,10 @@ class SettingsStore(
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_OCR_LANGUAGES = "ocr_languages"
         const val KEY_TTS_ENGINE = "tts_engine"
+
+        /** The first-run import deferral (decisions #184): "true" when the user
+         * finished setup without importing a book. Absent/other = owed. */
+        const val KEY_SETUP_IMPORT_DEFERRED = "setup_import_deferred"
 
         /** The read-in-language engine id (decisions #182). The value space is
          * [io.github.moronigranja.ayvu.tts.translate.TranslatePacks]'s engine

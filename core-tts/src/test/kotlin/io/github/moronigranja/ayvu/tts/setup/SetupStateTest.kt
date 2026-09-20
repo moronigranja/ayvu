@@ -18,7 +18,55 @@ class SetupStateTest {
             voiceSelected = false,
             bookCount = 0,
             systemTtsOptedIn = false,
+            importDeferred = false,
         )
+
+    @Test
+    fun `a deferred import finishes with ready packs and no book`() {
+        val steps =
+            SetupState.derive(
+                nothing.copy(
+                    requiredPacksReady = true,
+                    espeakStaged = true,
+                    voiceSelected = true,
+                    importDeferred = true,
+                ),
+            )
+        assertEquals(listOf(StepKind.COMPLETE), steps)
+        assertTrue(SetupState.isTerminal(steps))
+    }
+
+    @Test
+    fun `a deferred import finishes whatever the voice choice`() {
+        // Same rule a book follows: with the import requirement satisfied the
+        // flow is over, and the voice stays where it is (Settings owns it).
+        val steps =
+            SetupState.derive(
+                nothing.copy(requiredPacksReady = true, espeakStaged = true, importDeferred = true),
+            )
+        assertEquals(listOf(StepKind.COMPLETE), steps)
+        assertTrue(SetupState.isTerminal(steps))
+    }
+
+    @Test
+    fun `a deferred import keeps the download plan while the packs are missing`() {
+        val steps = SetupState.derive(nothing.copy(importDeferred = true))
+        assertEquals(
+            listOf(StepKind.PRIVACY, StepKind.DOWNLOAD_PACKS, StepKind.CHOOSE_VOICE),
+            steps,
+        )
+        assertFalse(SetupState.isTerminal(steps))
+    }
+
+    @Test
+    fun `a deferred import makes the degraded path terminal with no book`() {
+        val steps =
+            SetupState.derive(
+                nothing.copy(systemTtsOptedIn = true, importDeferred = true),
+            )
+        assertEquals(listOf(StepKind.DEGRADED_READY), steps)
+        assertTrue(SetupState.isTerminal(steps))
+    }
 
     @Test
     fun `empty facts open with the full plan`() {
@@ -118,12 +166,14 @@ class SetupStateTest {
     fun `espeak not staged keeps the plan open even with packs ready`() {
         // The engine's real gate is EspeakStager.isStaged — a verified-but-
         // unstaged bundle must not read as "done" (settings self-heals it).
+        // The import step is NOT appended: this library already has a book, and
+        // the step exists only while the import requirement is unsatisfied.
         val steps =
             SetupState.derive(
                 nothing.copy(requiredPacksReady = true, espeakStaged = false, bookCount = 1),
             )
         assertEquals(
-            listOf(StepKind.PRIVACY, StepKind.DOWNLOAD_PACKS, StepKind.CHOOSE_VOICE, StepKind.IMPORT_BOOK),
+            listOf(StepKind.PRIVACY, StepKind.DOWNLOAD_PACKS, StepKind.CHOOSE_VOICE),
             steps,
         )
     }

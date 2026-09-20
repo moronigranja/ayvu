@@ -130,6 +130,7 @@ class SetupViewModel
                         voiceSelected = prefs.voice != SettingsStore.DEFAULT_VOICE,
                         bookCount = books.size,
                         systemTtsOptedIn = prefs.ttsEngine == SettingsStore.SYSTEM_TTS_ENGINE,
+                        importDeferred = prefs.setupImportDeferred,
                     )
                 val steps = SetupState.derive(facts)
                 // Wizard clamp (item 6): keep the pointer on its step while it
@@ -291,6 +292,20 @@ class SetupViewModel
         fun consumeImportSummary() {
             importStateHolder.set(ImportUiState.Idle)
         }
+
+        /**
+         * The import step's Skip — and its last-step Finish — plus the summary's
+         * Done (decisions #184): record the choice durably and let the
+         * derivation finish, so the gate stays inactive on later cold starts
+         * even with an empty library, and the Import tab is the way in. Without
+         * it, "Finish" on a book-less install dismissed the wizard and the gate
+         * put it straight back.
+         */
+        fun skipImport() =
+            viewModelScope.launch {
+                settings.setSetupImportDeferred(true)
+                importStateHolder.set(ImportUiState.Idle)
+            }
 
         /** The batch summary text the import step renders; null while nothing
          * finished (in-flight states render the overlay, not a summary). */
