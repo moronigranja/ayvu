@@ -45,13 +45,30 @@ class LlamaTranslatorPromptTest {
     }
 
     @Test
+    fun `a line break inside the passage collapses to a space`() {
+        // The prompt contract: whatever whitespace shape a caller hands over, the
+        // model sees one line of prose. A passage is one paragraph, and a
+        // paragraph break in the prompt can end the generation at the boundary
+        // (measured on the Q4_0 host copy; the shipped quant does not truncate the
+        // app's grain — decisions #185), so the prompt never carries one.
+        assertEquals(
+            "Translate to Brazilian Portuguese, reply only with the translation:\n\none line of prose here",
+            LlamaTranslator.userMessage("one line\nof prose\r\nhere", "Brazilian Portuguese"),
+        )
+        assertEquals(
+            "Translate to Brazilian Portuguese, reply only with the translation:\n\nfirst paragraph. Second one.",
+            LlamaTranslator.userMessage("first paragraph.\n\nSecond one.", "Brazilian Portuguese"),
+        )
+    }
+
+    @Test
     fun `an empty or blank passage renders an empty message body`() {
         assertEquals(
             "Translate to Spanish, reply only with the translation:\n\n",
             LlamaTranslator.userMessage("", "Spanish"),
         )
         assertEquals(
-            "Translate to Spanish, reply only with the translation:\n\n   \n ",
+            "Translate to Spanish, reply only with the translation:\n\n",
             LlamaTranslator.userMessage("   \n ", "Spanish"),
         )
     }

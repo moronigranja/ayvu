@@ -375,6 +375,7 @@ class PlaybackService : Service() {
                     intent.bookId(),
                     intent.getIntExtra(EXTRA_CHAPTER, 0),
                     intent.getIntExtra(EXTRA_PASSAGE, 0),
+                    intent.getDoubleExtra(EXTRA_OFFSET_SECONDS, 0.0),
                 )
             ACTION_RESUME -> resumePlayer(intent.bookId())
             ACTION_PAUSE -> pausePlayer(PauseReason.USER)
@@ -486,18 +487,27 @@ class PlaybackService : Service() {
     }
 
     /**
-     * Presents an explicit (chapter, passage) WITHOUT starting playback — the
-     * chapter selector and bookmark jumps route here instead of
+     * Presents an explicit (chapter, passage[, offset]) WITHOUT starting
+     * playback — the chapter selector and bookmark jumps route here instead of
      * [startPlayback]'s explicit position (open ≠ auto-play, decisions #52).
      * Mirrors [openChapter]: stops current audio, rebuilds the machine over
      * the book, presents the target, publishes the text, drops the foreground.
      * An empty spine slot falls to the nearest playable chapter (forward,
      * then backward); an unreachable target is a no-op.
+     *
+     * An explicit jump is also a progress MOVE: the presented spot is
+     * committed (no ring push — [PlayerStateMachine.stop]'s write, not
+     * [PlayerStateMachine.playFrom]'s), so the reader's play button resumes
+     * exactly where the user aimed, offset included, instead of the pre-jump
+     * playhead (the bookmark bug in `open-bugs.md`, decisions #185).
+     * [offsetSeconds] applies only to the exact target: the fallback targets
+     * are different passages, where the offset is meaningless.
      */
     internal fun openPosition(
         bookId: String?,
         chapter: Int,
         passage: Int,
+        offsetSeconds: Double = 0.0,
     ) {
         val id = bookId ?: return
         stopEverything()
@@ -514,7 +524,7 @@ class PlaybackService : Service() {
             val layout = BookLayout(reloaded)
             val target =
                 when {
-                    layout.isValid(chapter, passage) -> PlayerPosition(id, chapter, passage)
+                    layout.isValid(chapter, passage) -> PlayerPosition(id, chapter, passage, offsetSeconds)
                     layout.isValid(chapter, 0) -> PlayerPosition(id, chapter, 0)
                     else -> {
                         val c = layout.nextChapter(chapter) ?: layout.previousChapter(chapter)
@@ -523,6 +533,9 @@ class PlaybackService : Service() {
                 } ?: return@launchCommand
             bindBook(reloaded, layout)
             machine!!.present(target)
+            // Commit the presented spot so the play button (ACTION_RESUME →
+            // the stored row) resumes HERE, not at the pre-jump playhead.
+            machine!!.stop()
             refreshBookmarks()
             startPrefill(target)
             // CR-5: a stale load must never publish or drop the foreground.
@@ -2174,6 +2187,9 @@ class PlaybackService : Service() {
         const val EXTRA_BOOK_ID = "bookId"
         const val EXTRA_CHAPTER = "chapter"
         const val EXTRA_PASSAGE = "passage"
+
+        /** The in-passage offset an explicit jump lands on (bookmarks). */
+        const val EXTRA_OFFSET_SECONDS = "offsetSeconds"
         const val EXTRA_DIRECTION = "direction"
         const val EXTRA_VOICE = "voice"
 

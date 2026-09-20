@@ -4,6 +4,55 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 185. Bookmark jumps keep their offset; the line-break defect was mis-recorded (2026-09-20, owner)
+
+Owner picked two bugs to fix from the register's open list, plus scoping for the OCR
+binding.
+
+**1. A bookmark jump lost its in-passage offset — fixed.** The chain dropped it at every
+layer: `ReaderScreen` called `openPosition(bookId, chapter, passage)` without
+`Bookmark.offsetSeconds`; `ReaderViewModel.openPosition` had no parameter; the
+`ACTION_OPEN_POSITION` intent carried no extra; `PlaybackService.openPosition` built
+`PlayerPosition(id, chapter, passage)` (offset 0). Worse, the open path only *presents*
+(`present()` = no commit by design, "open ≠ auto-play", #52), while the reader's play
+button dispatches `ACTION_RESUME` → `PlayerStateMachine.resume()` → the **stored** row —
+so pressing play after a jump went to the pre-jump playhead.
+
+The fix threads the offset end-to-end (`EXTRA_OFFSET_SECONDS` → the service parameter →
+`PlayerPosition(..., offsetSeconds)`) and commits the presented spot in the same command
+(`PlayerStateMachine.stop()` after `present()` — a plain position write, no ring push, so
+undo is untouched). `resume()` now finds the jumped-to spot, offset included. The offset
+is applied only to the exact target: the empty-spine fallbacks are different passages.
+Verified by `PlaybackServiceOpenPositionTest` (JVM, Robolectric): the committed row carries
+the bookmark's second, the live machine holds it, and `resume()` returns exactly it.
+
+**2. A latent crash in the same path — found by that test, fixed.** `BookLayout
+.previousChapter(5)` on a two-chapter book threw `ArrayIndexOutOfBoundsException`
+(`passageCounts[4]`) inside the open command's coroutine — swallowed, so a stale target
+past the end (a bookmark kept after the book was re-imported shorter) silently did
+nothing. It now clamps to the last chapter with passages; in-range behaviour is unchanged
+and no other caller can pass an out-of-range index.
+
+**3. The line-break truncation was mis-recorded — corrected, hardening kept.** The
+2026-09-18 finding (#181) came from the host's **Q4_0** copy of the model — the quant
+caveat `samples.md` carried at the time — and was nevertheless registered as a shipped
+defect and disclosed in the 0.1.3 release notes. Re-measured against the SHIPPED
+`LFM2.5-1.2B-Instruct-Q4_K_M.gguf`, same host, same production prompt shape: **0 of 6
+hard-wrapped paragraphs** differ from the whitespace-collapsed control (ratios 0.96–1.04;
+`docs/prints/book-samples/break_truncation_probe.py`). The mechanism is real but
+unreachable in the app — only a *multi-paragraph* prompt ends at a paragraph boundary
+(1,244 vs 1,496 chars, `finish=stop` vs `length`), and blank lines already split passages
+at the parser, so a passage never contains one. Corrections landed in `open-bugs.md` (the
+row is struck through with the re-measurement), the release notes (the limitation line is
+removed from the live 0.1.3 body — a false known-limitation is worse than an
+inconsequential edit; the pinned digest is untouched), the roadmap row and #181.
+
+The prompt builder still normalizes whitespace before the prompt (`LlamaTranslator
+.userMessage` collapses every run to one space, pinned by `LlamaTranslatorPromptTest`).
+It is hardening, not a shipped-bug fix: the class cannot re-enter through a future caller
+that hands over a multi-block string, and the collapsed form is what the measured gates
+always used.
+
 ## 184. The first-run import step is skippable, and stays skipped (2026-09-20, owner)
 
 Owner: *"I would also like to allow skipping the import book during onboarding, without it
@@ -226,6 +275,15 @@ measured".
 break inside a passage (`finish_reason: stop`, silent truncation of everything after
 it; 3 of 6 single-paragraph probes, every multi-paragraph block). Registered in
 `open-bugs.md`; exposure is the TXT/Markdown import path only.
+
+**Amended 2026-09-20 — that defect was mis-recorded and is not shipped.** The probes
+above ran on the host's Q4_0 copy of the model (the quant caveat `samples.md` carried);
+re-measuring the same shapes against the SHIPPED Q4_K_M file gives **0 of 6**
+hard-wrapped paragraphs truncated, and multi-paragraph prompts — the only shape that
+still ends at a boundary — are unreachable because blank lines already split passages at
+the parser. Full numbers: `docs/prints/book-samples/break_truncation_probe.py`; the
+register row is corrected, the release notes' limitation line is removed, and the prompt
+builder normalizes whitespace anyway as hardening (#185).
 
 **Device fact corrected:** this unit reports MemTotal 11,473,792 kB — **12 GB**
 (`SM-S908U1`, `dumpsys meminfo` "Total RAM: 11,473,792K"), not the 8 GB #160/#161

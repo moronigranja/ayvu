@@ -575,16 +575,20 @@ class ReaderViewModel
             command(PlaybackService.ACTION_PLAY_POSITION, bookId, chapter, passage)
         }
 
-        /** Positions the reader at (chapter, passage) WITHOUT starting
-         * playback — the chapter selector and bookmark jumps use this instead
-         * of [playPosition] (open ≠ auto-play, decisions #52). */
+        /** Positions the reader at (chapter, passage[, offset]) WITHOUT
+         * starting playback — the chapter selector and bookmark jumps use this
+         * instead of [playPosition] (open ≠ auto-play, decisions #52).
+         * [offsetSeconds] is the in-passage spot the jump landed on (a
+         * bookmark's own offset); it is committed, so pressing play resumes
+         * there (decisions #185). */
         fun openPosition(
             bookId: String,
             chapter: Int,
             passage: Int,
+            offsetSeconds: Double = 0.0,
         ) {
             openedBookId = bookId
-            command(PlaybackService.ACTION_OPEN_POSITION, bookId, chapter, passage)
+            command(PlaybackService.ACTION_OPEN_POSITION, bookId, chapter, passage, offsetSeconds = offsetSeconds)
         }
 
         fun openChapter(
@@ -624,12 +628,19 @@ class ReaderViewModel
             chapter: Int = 0,
             passage: Int = 0,
             direction: Int = 0,
+            offsetSeconds: Double = 0.0,
         ) {
             val intent = Intent(context, PlaybackService::class.java).setAction(action)
             if (bookId != null) intent.putExtra(PlaybackService.EXTRA_BOOK_ID, bookId)
             if (action == PlaybackService.ACTION_PLAY_POSITION || action == PlaybackService.ACTION_OPEN_POSITION) {
                 intent.putExtra(PlaybackService.EXTRA_CHAPTER, chapter)
                 intent.putExtra(PlaybackService.EXTRA_PASSAGE, passage)
+            }
+            // Only an OPEN carries an offset: PLAY_POSITION starts the passage
+            // it names from its beginning (the jump-to-a-passage semantics),
+            // while an open may land mid-passage (bookmarks).
+            if (action == PlaybackService.ACTION_OPEN_POSITION) {
+                intent.putExtra(PlaybackService.EXTRA_OFFSET_SECONDS, offsetSeconds)
             }
             if (action == PlaybackService.ACTION_OPEN_CHAPTER) {
                 intent.putExtra(PlaybackService.EXTRA_DIRECTION, direction)

@@ -296,7 +296,12 @@ fun ReaderScreen(
                                         },
                                         onClick = {
                                             bookmarkMenu = false
-                                            viewModel.openPosition(bookId, bookmark.chapterIndex, bookmark.passageIndex)
+                                            viewModel.openPosition(
+                                                bookId,
+                                                bookmark.chapterIndex,
+                                                bookmark.passageIndex,
+                                                bookmark.offsetSeconds,
+                                            )
                                         },
                                     )
                                 }

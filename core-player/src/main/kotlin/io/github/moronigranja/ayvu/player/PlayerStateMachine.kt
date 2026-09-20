@@ -72,9 +72,16 @@ class BookLayout(
         return chapter.takeIf { it < passageCounts.size }
     }
 
-    /** The previous chapter with passages, or null at the book's start. */
+    /** The previous chapter with passages, or null at the book's start.
+     *
+     * An out-of-range [chapterIndex] (a target past the end — a stale bookmark
+     * or resume row kept after the book was re-imported shorter) has no
+     * "previous" to walk from: it clamps to the last chapter with passages
+     * instead of indexing out of bounds. Before this, `previousChapter(5)` on a
+     * two-chapter book threw an ArrayIndexOutOfBoundsException inside the open
+     * command's coroutine — swallowed, so the jump silently did nothing. */
     fun previousChapter(chapterIndex: Int): Int? {
-        var chapter = chapterIndex - 1
+        var chapter = minOf(chapterIndex, passageCounts.size) - 1
         while (chapter >= 0 && passageCounts[chapter] == 0) chapter--
         return chapter.takeIf { it >= 0 }
     }

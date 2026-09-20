@@ -69,11 +69,27 @@ class LlamaTranslator private constructor(
          * The user message the measured gate sent, with the hardcoded target
          * replaced by [promptLanguage] (lfm12_gate.py:8-11). Pure, so the
          * prompt shape is unit-tested on the JVM without the native library.
+         *
+         * [text] is normalized first: a passage is one block of prose, so any
+         * whitespace run inside it is source formatting (a hard-wrapped .txt or
+         * Markdown import keeps its line breaks — `TextParser` joins wrapped
+         * lines with `\n`), and the model ENDS ITS TURN at the first newline,
+         * returning a translation of only the text before it with
+         * `finish_reason: stop` — a silently truncated passage (`open-bugs.md`,
+         * decisions #185). Collapsing to single spaces keeps the text the
+         * translator sees equivalent for every legitimate input; the reader's
+         * displayed text is untouched.
          */
         fun userMessage(
             text: String,
             promptLanguage: String,
-        ): String = "Translate to $promptLanguage, reply only with the translation:\n\n$text"
+        ): String = "Translate to $promptLanguage, reply only with the translation:\n\n${passage(text)}"
+
+        /** One line of prose: every whitespace run (newlines included) becomes
+         * a single space; surrounding blanks are dropped. */
+        private fun passage(text: String): String = WHITESPACE.replace(text, " ").trim()
+
+        private val WHITESPACE = Regex("\\s+")
 
         /**
          * Loads [modelFile] into a new native session pinned to [nThreads]

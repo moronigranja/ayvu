@@ -48,8 +48,6 @@ OCR languages or a translation model.
 
 ## Known limitations in this build
 
-- **Read-in-language on plain-text/Markdown books**: a hard-wrapped line break can end a
-  passage's translation early. EPUB and MOBI imports are unaffected.
 - **Screen-off playback throughput** is unchanged (see above).
 - **OCR accuracy** is capped by the bundled pre-LSTM tess-two 9.1.0, so the pinned packs
   are legacy `3.04.00` tessdata.
