@@ -265,10 +265,12 @@ isolation forces it, and this slice forces neither.
    key's `translatorVersion` dimension (the engine id) is for (and why step 0 comes first).
    Switching engines is a cache miss, not a migration: the other engine's rows stay on disk
    until the book's cache is cleared.
-7. **Export must not be foreclosed.** The store is ordered and queryable per book, so a
-   future whole-book text batch is an `OfflinePregen`-shaped job — but it needs a named,
-   versioned artifact, and a listen-quality translation is not automatically
-   export-quality.
+7. **Export must not be foreclosed.** The table is keyed
+   `(bookId, chapterIndex, passageIndex, lang, translator)`, so a whole book's translated
+   text is one ordered query away (today's surface is per-chapter `chapter()` plus the
+   backup snapshot's all-rows `all()` — no per-book query exists yet), and the batch itself
+   is an `OfflinePregen`-shaped job. It does need a named, versioned artifact, and a
+   listen-quality translation is not automatically export-quality.
 
 ## Acceptance
 
