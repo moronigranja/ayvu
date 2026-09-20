@@ -112,6 +112,11 @@ process-global `PlaybackStateHolder`.
 - **Catalog bypasses**: hardcoded `javax.inject` ×2, `tess-two`, two QNN deps;
   three `jna:${libs.versions.jna.get()}@aar` interpolations; `material-icons-core`
   declared as a raw string in 4 modules and via the catalog in 2.
+  **Partly discharged (2026-09-20, decisions #186)**: `tess-two` is gone with the
+  OCR binding swap — the new artifact is `libs.tesseract4android`. What remains:
+  `javax.inject` ×2 (`core-persistence:43`, `core-player:27`), the QNN pair in
+  `spike-tts`, the three `jna` interpolations, and the four raw
+  `material-icons-core` lines.
 - **Lint**: a 2,937-entry baseline suppressed every violation across 207 files
   (all cosmetic). **Deleted in pass 1** — one bulk format over 196 files, 60 hand
   fixes, a root `.editorconfig`, and `ktlintFormat` kept as the formatter twin.

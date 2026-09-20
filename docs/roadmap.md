@@ -936,6 +936,13 @@ player state machinery.
   Landed 2026-09-20 (decisions #186): Tesseract4Android 4.9.0 + `tessdata_fast`
   4.1.0 LSTM packs; the `best` tier stays available if the device pass shows
   accuracy short.
+- **Share-match threshold (0.6) after the OCR engine swap** (decisions #186). The
+  default, the n=4/3-gram scheme and the `≤0.05` cross-book margin were measured
+  against the retired legacy-tess-two error profile; Tesseract 5 + `tessdata_fast`
+  fails differently (measured once: the S2 pipeline test still resolves a rendered
+  quote at 0.6, and a clipped-glyph render read "12:" where the legacy engine
+  guessed "123"). The honest re-check is the original kind of sweep — realistic
+  screenshot noise, both directions — before the threshold is treated as settled.
 - Library metadata: series, author normalization, duplicate editions and sorting.
 - A privacy-preserving local diagnostic export containing versions, pack/storage state
   and typed failures, never book text.

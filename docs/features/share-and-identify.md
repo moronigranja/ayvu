@@ -36,8 +36,9 @@ Low confidence (below threshold) ⇒ "not found in library — import it first".
   "It's" → "its" — matches OCR that drops apostrophes; other punctuation → word separator.)
 - `TextMatcher`: word n-grams **n=4 with 3-gram fallback credit** for windows containing
   local OCR typos (chosen by measurement: matches stay ≥0.6 under realistic noise while
-  cross-book text scores ≤0.05); snippets <4 tokens → unigram recall; best passage wins,
-  ties → earliest.
+  cross-book text scores ≤0.05; the noise profile was measured with the retired legacy
+  tess-two engine — re-checking it after the Tesseract 5 swap is a roadmap follow-up,
+  decisions #186); snippets <4 tokens → unigram recall; best passage wins, ties → earliest.
 - `TextIndex`: holds `IndexedBook`s (each with ordered `Passage`s), precomputes per-passage
   gram sets, `query(snippet, minConfidence): MatchResult?` (null below threshold).
 - **Confidence threshold.** Recall fraction: 1.0 = every word-group in the shared text
