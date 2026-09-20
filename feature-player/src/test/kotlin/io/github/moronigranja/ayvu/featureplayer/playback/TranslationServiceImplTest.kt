@@ -10,6 +10,7 @@ import io.github.moronigranja.ayvu.persistence.SettingsDao
 import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.player.StoredTranslation
 import io.github.moronigranja.ayvu.player.TranslationStore
+import io.github.moronigranja.ayvu.player.pregen.PregenKey
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -176,7 +177,7 @@ class TranslationServiceImplTest {
         runBlocking {
             val runtime = fakeRuntime()
             val service = service(runtime)
-            val target = TranslationTarget("pt-BR")
+            val target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)
 
             val first = service.translate("b1", 0, 0, target)
             val second = service.translate("b1", 0, 0, target)
@@ -192,7 +193,7 @@ class TranslationServiceImplTest {
             val gate = CompletableDeferred<Unit>()
             val runtime = fakeRuntime(gate = gate)
             val service = service(runtime)
-            val target = TranslationTarget("pt-BR")
+            val target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)
 
             val a = async { service.translate("b1", 0, 0, target) }
             // Wait until the decode is actually parked in flight (gate held).
@@ -211,7 +212,7 @@ class TranslationServiceImplTest {
         runBlocking {
             val runtime = fakeRuntime(result = { null })
             val service = service(runtime)
-            val target = TranslationTarget("pt-BR")
+            val target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)
 
             val first = service.translate("b1", 0, 0, target)
             val second = service.translate("b1", 0, 1, target)
@@ -226,7 +227,7 @@ class TranslationServiceImplTest {
         runBlocking {
             val runtime = fakeRuntime()
             val service = service(runtime)
-            val target = TranslationTarget("pt-BR")
+            val target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)
 
             PlaybackActive.markEngineUsed()
             service.prefetch("b1", 0, listOf(0, 1), target)

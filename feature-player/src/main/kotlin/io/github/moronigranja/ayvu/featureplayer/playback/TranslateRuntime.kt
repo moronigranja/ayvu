@@ -4,7 +4,9 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.moronigranja.ayvu.llm.LlamaTranslator
 import io.github.moronigranja.ayvu.persistence.AppSettings
+import io.github.moronigranja.ayvu.tts.translate.TranslateEngine
 import io.github.moronigranja.ayvu.tts.translate.TranslatePackStager
+import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,18 +18,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Read-in-language runtime (decisions #114/#161/#162): the app-scoped
- * LFM2.5-1.2B translator over the downloaded + staged translate pack — the
- * [KokoroRuntime]/[PiperRuntime] shape with the device co-residency guard.
+ * Read-in-language runtime (decisions #114/#161/#162/#182): the app-scoped
+ * translator over the SELECTED engine's downloaded + staged pack (the
+ * [KokoroRuntime]/[PiperRuntime] shape with the device co-residency guard).
+ * The engine is a user option (`Settings → Speech`; [TranslatePacks]): this
+ * class resolves the selection on every open, so a switch is a close + open,
+ * never two models resident.
  *
- * The ~1.6 GB RSS leg (730 MB GGUF + KV cache + runtime) must never sit
- * resident during original-language listening: opening is lazy, and every
- * [translator()] touch re-arms a 60 s idle timer that frees the model and its
- * context after the last translate call. With translation OFF no call ever
- * reaches [translator()] (the selector's resolve() only wraps when a target
- * exists), so the leg is never opened at all. There is no programmatic memory
- * cap on the platform — this timer IS the guard (plus the per-book opt-in and
- * the degrade-to-original failure path, #101).
+ * The leg is big — measured on the S22: ~1.5 GB RSS for the shipped 730 MB
+ * LFM2.5-1.2B, ~3.4 GB peak for the 1.67 GB LFM2.5-2.6B-Base option (the arm64
+ * CPU build repacks the quantized weights, so resident ≈ 2x the pack) — and it
+ * must never sit resident during original-language listening: opening is lazy,
+ * and every [translator()] touch re-arms a 60 s idle timer that frees the model
+ * and its context after the last translate call. With translation OFF no call
+ * ever reaches [translator()] (the selector's resolve() only wraps when a
+ * target exists), so the leg is never opened at all. There is no programmatic
+ * memory cap on the platform — this timer IS the guard (plus the per-book
+ * opt-in and the degrade-to-original failure path, #101).
  *
  * Open retries mirror PiperRuntime (QW3): a prerequisite-missing failure is
  * re-checked per call; a genuine open failure is capped at
@@ -42,36 +49,52 @@ open class TranslateRuntime
     ) {
         @Volatile private var translator: LlamaTranslator? = null
 
+        /** The engine id [translator] was opened for (null = no session). The
+         * selection can change under a live session, so every touch compares
+         * it and a mismatch closes before reopening. */
+        @Volatile private var openEngineId: String? = null
+
         @Volatile private var failure: String? = null
         private var failedOpens = 0
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         private var closeJob: Job? = null
 
         /**
-         * The ready translator, or null with [failureReason] set. Re-arms the
-         * idle-close timer on every call — resolved per synthesize, so the
-         * leg stays resident exactly while translation is being used.
+         * The ready translator for the SELECTED engine, or null with
+         * [failureReason] set. Re-arms the idle-close timer on every call —
+         * resolved per synthesize, so the leg stays resident exactly while
+         * translation is being used — and closes a session left over from a
+         * previous selection (the engine is a user option: two models are never
+         * resident).
          */
         fun translator(): LlamaTranslator? {
             ensureRetiredArtifactsRemoved()
-            translator?.let {
-                armIdleClose()
-                return it
+            val engine = activeEngine()
+            translator?.let { open ->
+                if (openEngineId == engine.id) {
+                    armIdleClose()
+                    return open
+                }
+                closeSession()
             }
             synchronized(this) {
-                translator?.let {
-                    armIdleClose()
-                    return it
+                translator?.let { open ->
+                    if (openEngineId == engine.id) {
+                        armIdleClose()
+                        return open
+                    }
+                    closeSession()
                 }
                 if (failedOpens >= MAX_FAILED_OPEN_ATTEMPTS) return null
-                val missing = missingPrerequisites()
+                val missing = missingPrerequisites(engine)
                 if (missing != null) {
                     failure = missing
                     return null
                 }
                 return try {
-                    openTranslator().also {
+                    openTranslator(engine).also {
                         translator = it
+                        openEngineId = engine.id
                         failure = null
                         failedOpens = 0
                         armIdleClose()
@@ -85,26 +108,41 @@ open class TranslateRuntime
             }
         }
 
-        /** Missing-prerequisite message, or null when every file is present. */
-        private fun missingPrerequisites(): String? =
-            if (TranslatePackStager.isStaged(context.filesDir)) {
+        /** The engine the user selected (unknown/absent ids resolve to the
+         * shipped default, [TranslatePacks.byId]). */
+        private fun activeEngine(): TranslateEngine = TranslatePacks.byId(settings.state.value.translateEngine)
+
+        /** Missing-prerequisite message for [engine], or null when its GGUF is
+         * staged. Names the engine — with two options the user must know which
+         * pack the message is about. */
+        private fun missingPrerequisites(engine: TranslateEngine): String? =
+            if (TranslatePackStager.isStaged(context.filesDir, engine)) {
                 null
             } else {
-                "translation pack not ready — download it in Speech settings"
+                "translation pack not ready (${engine.spec.displayName}) — download it in Speech settings"
             }
 
         /**
-         * Opens the translator over the staged bundle. The native side picks
-         * the best arm64 CPU kernel variant for this device from
+         * Opens the translator over [engine]'s staged bundle. The native side
+         * picks the best arm64 CPU kernel variant for this device from
          * [Context.getApplicationInfo]`.nativeLibraryDir` (the packaged ggml
          * backend modules, decisions #162).
          */
-        private fun openTranslator(): LlamaTranslator =
+        private fun openTranslator(engine: TranslateEngine): LlamaTranslator =
             LlamaTranslator.open(
-                File(TranslatePackStager.bundleDir(context.filesDir), TranslatePackStager.MODEL_FILE),
+                TranslatePackStager.modelFile(context.filesDir, engine),
                 settings.state.value.ttsThreads,
                 context.applicationInfo.nativeLibraryDir,
             )
+
+        /** Closes the open session and forgets which engine it was (idempotent;
+         * the failed-open window resets with it). */
+        private fun closeSession() {
+            translator?.close()
+            translator = null
+            openEngineId = null
+            failedOpens = 0
+        }
 
         /**
          * Deletes the retired SMaLL-100 artifacts (decisions #162, clean
@@ -132,10 +170,8 @@ open class TranslateRuntime
                 scope.launch {
                     delay(IDLE_CLOSE_MS)
                     synchronized(this@TranslateRuntime) {
-                        translator?.close()
-                        translator = null
+                        closeSession()
                         closeJob = null
-                        failedOpens = 0
                         android.util.Log.d("TranslateRuntime", "idle close after $IDLE_CLOSE_MS ms")
                     }
                 }
@@ -154,13 +190,14 @@ open class TranslateRuntime
 
         val failureReason: String? get() = failure
 
-        /** Non-arming availability read: the pack is staged and the session is
-         * not stuck in a failed-open state — a decode could start right now.
-         * Unlike [translator()] this never opens the model nor re-arms the
-         * idle-close timer (the reader's Pending-vs-Unavailable split must not
-         * keep the ~1.6 GB leg resident during original-language reading). */
+        /** Non-arming availability read: the SELECTED engine's pack is staged
+         * and the session is not stuck in a failed-open state — a decode could
+         * start right now. Unlike [translator()] this never opens the model nor
+         * re-arms the idle-close timer (the reader's Pending-vs-Unavailable
+         * split must not keep the leg resident during original-language
+         * reading). */
         open val canOpen: Boolean
-            get() = TranslatePackStager.isStaged(context.filesDir) && failure == null
+            get() = TranslatePackStager.isStaged(context.filesDir, activeEngine()) && failure == null
 
         /**
          * Translates [text] into [promptLanguage] through the shared session —

@@ -202,6 +202,25 @@ class SettingsStore(
         settingsDao.put(SettingEntity(KEY_TTS_ENGINE, value))
     }
 
+    /**
+     * The read-in-language translate engine (the second-engine option,
+     * decisions #182): one engine id from the translate engine registry
+     * (`core-translate`'s `TranslatePacks`), naming the staged pack the
+     * translator opens AND the `t<id>` cache segment every translation of the
+     * book is keyed under.
+     *
+     * Default = the shipped LFM2.5-1.2B, so an untouched install behaves
+     * exactly as before. Unknown values fall back to the default — a stored id
+     * from a removed option can never leave a book unable to translate (the
+     * same rule [ThemeMode] follows).
+     */
+    suspend fun translateEngine(): String = settingsDao.get(KEY_TRANSLATE_ENGINE)?.takeIf { it.isNotBlank() } ?: DEFAULT_TRANSLATE_ENGINE
+
+    suspend fun setTranslateEngine(value: String) {
+        require(value.isNotBlank()) { "translate engine must not be blank" }
+        settingsDao.put(SettingEntity(KEY_TRANSLATE_ENGINE, value))
+    }
+
     /** ORT intra-op thread count for Kokoro synthesis (decisions #137): the
      * size of the ONNX thread pool that saturates a phone while generating.
      * Fewer threads leave cores free for the UI; more generate faster.
@@ -272,6 +291,12 @@ class SettingsStore(
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_OCR_LANGUAGES = "ocr_languages"
         const val KEY_TTS_ENGINE = "tts_engine"
+
+        /** The read-in-language engine id (decisions #182). The value space is
+         * [io.github.moronigranja.ayvu.tts.translate.TranslatePacks]'s engine
+         * ids; the default is the shipped LFM2.5-1.2B. */
+        const val DEFAULT_TRANSLATE_ENGINE = "lfm12b"
+        const val KEY_TRANSLATE_ENGINE = "translate_engine"
 
         /** ORT intra-op threads for Kokoro synthesis (decisions #137). Default 4
          * (the old hardcoded 6 saturated the S22's 8 cores — decisions #116);

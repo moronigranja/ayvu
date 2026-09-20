@@ -87,9 +87,9 @@ class LfmTranslatedPlaybackE2eTest {
             assertTrue("espeak bundle must be staged", EspeakStager.isStaged(files))
 
             // Translate leg.
-            downloader.download(TranslatePacks.pack)
-            TranslatePackStager.stage(files, cache, TranslatePacks.pack)
-            assertTrue("translate bundle must be staged", TranslatePackStager.isStaged(files))
+            downloader.download(TranslatePacks.shipped.pack)
+            TranslatePackStager.stage(files, cache, TranslatePacks.shipped.pack)
+            assertTrue("translate bundle must be staged", TranslatePackStager.isStaged(files, TranslatePacks.shipped))
 
             val app = context.applicationContext as AyvuApp
             app.appSettings.setVoice("pf_dora")
@@ -141,7 +141,7 @@ class LfmTranslatedPlaybackE2eTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                target = TranslationTarget("pt-BR"),
+                target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR),
             )
         val audio = cache.get(translated)
         assertTrue("no translated audio cached under $translated", audio != null && audio.pcm.isNotEmpty())

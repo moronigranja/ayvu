@@ -16,14 +16,18 @@ data class PregenAudio(
 /**
  * The read-in-language target: which language, and which translator wrote it.
  * A translation is only valid for the pair — a different engine produces
- * different text for the same passage (decisions #161). Travels as one value
- * so the (lang, translator) pair can never be set half-way, and the
- * translator *version* dimension stays one edit when a new engine replaces
- * [PregenKey.LFM_TRANSLATOR].
+ * different text for the same passage (decisions #161) and the engine is a user
+ * option (decisions #182), so [translator] has NO default: every construction
+ * site names the active engine explicitly, and the compiler is what proves no
+ * site was missed. A silent default would let one engine's audio or text be
+ * served for another engine's request, which is exactly the cache poisoning the
+ * `t<translator>` dimension exists to prevent.
  */
 data class TranslationTarget(
     val lang: String,
-    val translator: String = PregenKey.LFM_TRANSLATOR,
+    /** The translator identity: `PregenKey.LFM_TRANSLATOR` /
+     * `PregenKey.LFM26B_TRANSLATOR` (a `TranslatePacks` engine id). */
+    val translator: String,
 )
 
 /**
@@ -80,6 +84,12 @@ data class PregenKey(
         /** The read-in-language translator writing today (decisions #162) —
          * the `t<translator>` cache-key dimension's value. */
         const val LFM_TRANSLATOR = "lfm12b"
+
+        /** The second read-in-language engine option (decisions #182), the
+         * LFM2.5-2.6B-Base pack. Kept in step with core-translate's
+         * `TranslatePacks` engine ids by `TranslateEngineVocabularyTest`
+         * (feature-player — the two modules cannot see each other). */
+        const val LFM26B_TRANSLATOR = "lfm26b"
 
         /** The translator 6-segment (v2a) keys were written by: the retired
          * SMaLL-100 runtime. Parsed, never written — its audio must never be

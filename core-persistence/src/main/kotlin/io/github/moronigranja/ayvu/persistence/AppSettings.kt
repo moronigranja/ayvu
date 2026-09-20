@@ -31,6 +31,11 @@ class AppSettings
             /** The speech engine id (C1.5/decisions #102): kokoro-82m default,
              * system-tts degraded fallback. */
             val ttsEngine: String = SettingsStore.DEFAULT_TTS_ENGINE,
+            /** The read-in-language translate engine id (decisions #182): the
+             * engine option whose staged pack the translator opens, and whose
+             * id keys every translation of a book (speech render path segment
+             * `t<id>` + the stored-text translator column). */
+            val translateEngine: String = SettingsStore.DEFAULT_TRANSLATE_ENGINE,
             /** Linear playback gain multiplier (1.0 = unity, > 1.0 amplifies). */
             val playbackGain: Float = SettingsStore.DEFAULT_PLAYBACK_GAIN,
             /** ORT intra-op thread count for Kokoro synthesis (decisions #137):
@@ -76,6 +81,7 @@ class AppSettings
                     theme = store.themeMode(),
                     ocrLanguages = store.ocrLanguages(),
                     ttsEngine = store.ttsEngine(),
+                    translateEngine = store.translateEngine(),
                     playbackGain = store.playbackGain(),
                     ttsThreads = store.ttsThreads(),
                     bookVoices = store.bookVoices(),
@@ -215,6 +221,16 @@ class AppSettings
         suspend fun setTtsEngine(value: String) {
             store.setTtsEngine(value)
             _state.value = _state.value.copy(ttsEngine = value)
+        }
+
+        /** Selects the read-in-language engine (decisions #182). Every
+         * translation of a book is keyed by the engine id, so switching leaves
+         * the previous engine's renders in place (they are a cache miss for the
+         * new id, not a stale hit) and the runtime drops its open session — the
+         * next decode opens the newly selected engine's staged pack. */
+        suspend fun setTranslateEngine(value: String) {
+            store.setTranslateEngine(value)
+            _state.value = _state.value.copy(translateEngine = value)
         }
 
         suspend fun setPlaybackGain(value: Float) {

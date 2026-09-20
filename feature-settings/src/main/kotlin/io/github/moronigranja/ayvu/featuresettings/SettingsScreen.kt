@@ -41,7 +41,6 @@ import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.persistence.ThemeMode
 import io.github.moronigranja.ayvu.player.formatBytes
 import io.github.moronigranja.ayvu.tts.PackStatus
-import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import io.github.moronigranja.ayvu.ui.AyvuSpacing
 import io.github.moronigranja.ayvu.ui.ConfirmDialog
 import io.github.moronigranja.ayvu.ui.PacksPlanCard
@@ -279,19 +278,24 @@ private fun SpeechPane(
                 modifier = Modifier.padding(horizontal = AyvuSpacing.XS, vertical = AyvuSpacing.XS),
             )
         }
-        // Read-in-language (decisions #114/#161): the LFM2.5-1.2B translate
-        // pack — one all-language GGUF, never an engine row (the pseudo-engine
-        // is not selectable). The per-book control lives in the reader voice
-        // sheet and the library menus.
+        // Read-in-language (decisions #114/#161/#182): the ENGINE picker — one
+        // radio per registered engine option, each row carrying its own pack's
+        // download state. The engines are registry pseudo-engines, never TTS
+        // engines; the per-book control (which language a book is read in)
+        // lives in the reader voice sheet and the library menus.
         item {
             SectionHeader("Translation", Modifier.padding(top = AyvuSpacing.LG, bottom = AyvuSpacing.XS))
         }
-        items(state.packs.filter { it.engineId == TranslatePacks.PACK_ENGINE_ID }) { row ->
-            PackRow(row, onDownload = { viewModel.download(row.packId) })
+        items(state.translateEngines) { row ->
+            TranslateEngineRow(
+                row = row,
+                onSelect = { viewModel.setTranslateEngine(row.id) },
+                onDownload = { viewModel.download(row.packId) },
+            )
         }
         item {
             Text(
-                "Read a book in another language: the active engine speaks the translated text " +
+                "Read a book in another language: the selected engine speaks the translated text " +
                     "under a target-language voice. Turn it on per book from the reader or library.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -451,6 +455,71 @@ private fun OfflineAudioRow(
             },
             onDismiss = { confirmDelete = false },
         )
+    }
+}
+
+/**
+ * One read-in-language engine option (decisions #182): a radio that selects the
+ * engine plus that engine's pack state — the same progress/ready/failed
+ * presentation [PackRow] uses, folded into one row so the choice and its cost
+ * are read together.
+ */
+@Composable
+private fun TranslateEngineRow(
+    row: TranslateEngineRow,
+    onSelect: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(selected = row.selected, onClick = onSelect)
+                .padding(vertical = AyvuSpacing.XS),
+    ) {
+        RadioButton(selected = row.selected, onClick = onSelect)
+        Column(modifier = Modifier.weight(1f)) {
+            Text("${row.label} · ${row.packName}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                row.summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when {
+                row.progress != null -> {
+                    LinearProgressIndicator(
+                        progress = { row.progress.toFloat() },
+                        modifier = Modifier.fillMaxWidth().padding(top = AyvuSpacing.XS),
+                    )
+                    Text("${(row.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall)
+                }
+                // Error precedes Ready here for the same reason as PackRow: a
+                // staging failure happens AFTER the transfer completes.
+                row.error != null -> {
+                    Text("failed: ${row.error}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    PillButton("Retry", onClick = onDownload)
+                }
+                row.status == PackStatus.Ready ->
+                    Text(
+                        if (row.staged) "ready · installed" else "ready",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                else ->
+                    Text(
+                        "${row.sizeLabel} — download required",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+            }
+        }
+        if (row.progress == null && row.status != PackStatus.Ready) {
+            androidx.compose.material3.TextButton(onClick = onDownload) {
+                Text("Download")
+            }
+        } else if (row.status == PackStatus.Ready) {
+            Icon(Icons.Default.Check, contentDescription = "Ready", tint = MaterialTheme.colorScheme.primary)
+        }
     }
 }
 

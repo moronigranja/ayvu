@@ -165,17 +165,21 @@ class LibraryViewModel
             val packs = registry ?: return MutableStateFlow(ReadInLanguageUiState(bookId = bookId))
             return combine(prefs.state, packs.packs) { prefsSnapshot, packStates ->
                 val target = prefsSnapshot.bookTranslate[bookId]
+                // Readiness follows the ACTIVE translate engine (decisions
+                // #182): the user must be offered the download of the engine
+                // that will actually translate, and `ready` must describe it.
+                val engine = TranslatePacks.byId(prefsSnapshot.translateEngine)
+                val staged = context?.let { TranslatePackStager.isStaged(it.filesDir, engine) } ?: false
                 ReadInLanguageUiState(
                     bookId = bookId,
                     target = target,
                     languages = translateLanguages(prefsSnapshot),
                     packDownloaded =
-                        packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
-                            (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
+                        packStates.any { it.pack.id == engine.pack.id && it.status == PackStatus.Ready } && staged,
                     // Registry truth: the download runs as a foreground
                     // operation, not in this VM's scope.
                     downloadProgress =
-                        (packStates.firstOrNull { it.pack.id == TranslatePacks.pack.id }?.status as? PackStatus.Downloading)
+                        (packStates.firstOrNull { it.pack.id == engine.pack.id }?.status as? PackStatus.Downloading)
                             ?.let { it.downloadedBytes.toFloat() / it.totalBytes },
                     degradeReason =
                         io.github.moronigranja.ayvu.tts.translate.TranslateAvailability.degradeReason(
@@ -193,10 +197,14 @@ class LibraryViewModel
                                     }
                             },
                             translatorReady =
-                                packStates.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
-                                    (context?.let { TranslatePackStager.isStaged(it.filesDir) } ?: false),
+                                packStates.any { it.pack.id == engine.pack.id && it.status == PackStatus.Ready } &&
+                                    staged,
                             translatorFailure = null,
                         ),
+                    // The download row's copy names the engine the user would
+                    // actually get (never a fixed LFM2.5-1.2B ~730 MB line).
+                    engineLabel = engine.pack.displayName,
+                    packSizeLabel = engine.sizeLabel,
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReadInLanguageUiState(bookId = bookId))
         }
@@ -213,11 +221,13 @@ class LibraryViewModel
             commands.changeVoice(prefs.state.value.voice)
         }
 
-        /** The translation pack's download (content-row action): one
-         * cancellable foreground operation, staged after Ready. */
+        /** The ACTIVE translate engine's pack download (content-row action):
+         * one cancellable foreground operation, staged after Ready. The
+         * selected engine's own pack (decisions #182). */
         fun downloadTranslatePack(bookId: String) {
             if (registry == null) return
-            operations?.installPacks(installer, listOf(TranslatePacks.pack.id))
+            val engine = TranslatePacks.byId(settings?.state?.value?.translateEngine)
+            operations?.installPacks(installer, listOf(engine.pack.id))
         }
 
         /** The active engine's target languages (mirrors the selector's

@@ -296,7 +296,7 @@ class PregenQueueTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                target = TranslationTarget("pt-BR"),
+                target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR),
             )
         assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0", lfm.toString())
         assertEquals(lfm, PregenKey.parse(lfm.toString()))
@@ -339,7 +339,7 @@ class PregenQueueTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                target = TranslationTarget("pt-BR"),
+                target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR),
             )
         assertEquals("abc123/kokoro/pf_dora/1/xpt-BR/tlfm12b/c0p0", lfm.toString())
         assertEquals(lfm, PregenKey.parse(lfm.toString()))

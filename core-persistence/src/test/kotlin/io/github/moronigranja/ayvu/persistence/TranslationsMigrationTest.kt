@@ -2,6 +2,7 @@ package io.github.moronigranja.ayvu.persistence
 
 import android.content.Context
 import androidx.room.Room
+import io.github.moronigranja.ayvu.player.pregen.PregenKey
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -117,11 +118,11 @@ class TranslationsMigrationTest {
                 )
                 assertEquals(
                     "Todas as famílias felizes.",
-                    store.get("b1", 0, 1, TranslationTarget("pt-BR")),
+                    store.get("b1", 0, 1, TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)),
                 )
                 // REPLACE on the natural key: the same target overwrites.
-                store.put("b1", 0, 1, TranslationTarget("pt-BR"), "Nova tradução.")
-                assertEquals("Nova tradução.", store.get("b1", 0, 1, TranslationTarget("pt-BR")))
+                store.put("b1", 0, 1, TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR), "Nova tradução.")
+                assertEquals("Nova tradução.", store.get("b1", 0, 1, TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)))
                 // A different translator is a different row (decisions #161).
                 assertEquals(
                     null,

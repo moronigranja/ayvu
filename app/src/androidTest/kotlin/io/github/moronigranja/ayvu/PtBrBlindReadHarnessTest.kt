@@ -151,9 +151,9 @@ class PtBrBlindReadHarnessTest {
             EspeakStager.stage(context.filesDir, cache, KokoroPacks.espeak)
             assertTrue("espeak bundle must be staged", EspeakStager.isStaged(context.filesDir))
 
-            downloader.download(TranslatePacks.pack)
-            TranslatePackStager.stage(context.filesDir, cache, TranslatePacks.pack)
-            assertTrue("translate bundle must be staged", TranslatePackStager.isStaged(context.filesDir))
+            downloader.download(TranslatePacks.shipped.pack)
+            TranslatePackStager.stage(context.filesDir, cache, TranslatePacks.shipped.pack)
+            assertTrue("translate bundle must be staged", TranslatePackStager.isStaged(context.filesDir, TranslatePacks.shipped))
         }
 
         val espeak =

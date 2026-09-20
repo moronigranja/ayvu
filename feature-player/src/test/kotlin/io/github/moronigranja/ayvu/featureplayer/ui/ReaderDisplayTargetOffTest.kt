@@ -15,6 +15,7 @@ import io.github.moronigranja.ayvu.player.DisplayKind
 import io.github.moronigranja.ayvu.player.PlaybackStateHolder
 import io.github.moronigranja.ayvu.player.VoiceAudition
 import io.github.moronigranja.ayvu.player.VoicePackDownloader
+import io.github.moronigranja.ayvu.player.pregen.PregenKey
 import io.github.moronigranja.ayvu.player.pregen.TranslationReady
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import io.github.moronigranja.ayvu.tts.DownloadTransport
@@ -184,7 +185,13 @@ class ReaderDisplayTargetOffTest {
 
             // The decode that started under `en` lands now.
             translation.emit(
-                TranslationReady(BOOK, chapter = 0, passage = 0, target = TranslationTarget("en"), text = "REWRITTEN ENGLISH"),
+                TranslationReady(
+                    BOOK,
+                    chapter = 0,
+                    passage = 0,
+                    target = TranslationTarget("en", PregenKey.LFM_TRANSLATOR),
+                    text = "REWRITTEN ENGLISH",
+                ),
             )
             advanceUntilIdle()
 
@@ -210,7 +217,13 @@ class ReaderDisplayTargetOffTest {
             advanceUntilIdle()
 
             translation.emit(
-                TranslationReady(BOOK, chapter = 0, passage = 0, target = TranslationTarget("en"), text = "THE TRANSLATION"),
+                TranslationReady(
+                    BOOK,
+                    chapter = 0,
+                    passage = 0,
+                    target = TranslationTarget("en", PregenKey.LFM_TRANSLATOR),
+                    text = "THE TRANSLATION",
+                ),
             )
             advanceUntilIdle()
 

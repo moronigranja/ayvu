@@ -55,6 +55,31 @@ data class PackRow(
     val staged: Boolean = false, // tessdata copied into the tess-two data dir
 )
 
+/**
+ * One read-in-language engine option (decisions #182), for the Speech section's
+ * Translation picker: the user's radio choice plus that choice's download
+ * state. Built from the static registry (`TranslatePacks.all`) joined with the
+ * live pack states, so a newly registered engine appears here with no screen
+ * edit.
+ */
+data class TranslateEngineRow(
+    val id: String,
+    val label: String,
+    val summary: String,
+    val packId: String,
+    /** The pack's display name (`LFM2.5-2.6B-Base translate model (Q4_K_M)`). */
+    val packName: String,
+    /** Download size, from the descriptor (`~731 MB` / `~1.7 GB`). */
+    val sizeLabel: String,
+    val status: PackStatus = PackStatus.NotDownloaded,
+    val progress: Double? = null, // 0..1 while downloading
+    val error: String? = null,
+    /** The engine's GGUF is staged — it can translate right now. */
+    val staged: Boolean = false,
+    /** The stored selection. */
+    val selected: Boolean = false,
+)
+
 data class SettingsUiState(
     val packs: List<PackRow> = emptyList(),
     /**
@@ -73,6 +98,9 @@ data class SettingsUiState(
     val engineVoice: EngineVoiceUiState = EngineVoiceUiState(),
     /** The speech engine id (C1.5): kokoro-82m or the degraded system-tts. */
     val ttsEngine: String = SettingsStore.DEFAULT_TTS_ENGINE,
+    /** The read-in-language engine options (decisions #182): the Translation
+     * picker's radios + each engine's pack download state. */
+    val translateEngines: List<TranslateEngineRow> = emptyList(),
     val matchThreshold: Double = SettingsStore.DEFAULT_MATCH_THRESHOLD,
     val playbackGain: Float = SettingsStore.DEFAULT_PLAYBACK_GAIN,
     /** ORT intra-op threads for Kokoro synthesis (decisions #137). */
@@ -133,6 +161,7 @@ class SettingsViewModel
                     speechPackIds = speechPackIds(prefs.ttsEngine),
                     engineVoice = engineVoice(packs, prefs, audition),
                     ttsEngine = prefs.ttsEngine,
+                    translateEngines = translateEngineRows(packs, installFailures, prefs),
                     matchThreshold = prefs.threshold,
                     playbackGain = prefs.playbackGain,
                     ttsThreads = prefs.ttsThreads,
@@ -228,10 +257,40 @@ class SettingsViewModel
                 staged =
                     when (pack.pack.engineId) {
                         TESS_ENGINE_ID -> TessDataStager.isStaged(filesDir, pack.pack)
-                        TranslatePacks.PACK_ENGINE_ID -> TranslatePackStager.isStaged(filesDir)
-                        else -> false
+                        else ->
+                            TranslatePacks.byPackId(pack.pack.id)?.let {
+                                TranslatePackStager.isStaged(filesDir, it)
+                            } ?: false
                     },
             )
+
+        /** The Translation picker's rows (decisions #182): registry order
+         * (shipped first), each joined with its pack's live state and staged
+         * flag. An engine with no registry row (a pure-JVM harness without the
+         * translate descriptors) still renders — its state is NotDownloaded. */
+        private fun translateEngineRows(
+            packs: List<PackState>,
+            installFailures: Map<String, String>,
+            prefs: AppSettings.Snapshot,
+        ): List<TranslateEngineRow> =
+            TranslatePacks.all.map { engine ->
+                val state = packs.firstOrNull { it.pack.id == engine.pack.id }
+                TranslateEngineRow(
+                    id = engine.id,
+                    label = engine.label,
+                    summary = engine.summary,
+                    packId = engine.pack.id,
+                    packName = engine.pack.displayName,
+                    sizeLabel = engine.sizeLabel,
+                    status = state?.status ?: PackStatus.NotDownloaded,
+                    progress =
+                        (state?.status as? PackStatus.Downloading)
+                            ?.let { it.downloadedBytes.toDouble() / it.totalBytes },
+                    error = installFailures[engine.pack.id] ?: (state?.status as? PackStatus.Failed)?.reason?.shortMessage(),
+                    staged = TranslatePackStager.isStaged(filesDir, engine),
+                    selected = engine.id == prefs.translateEngine,
+                )
+            }
 
         fun download(packId: String) {
             // A companion artifact is never listed as its own row: its base
@@ -305,13 +364,25 @@ class SettingsViewModel
 
         /** A verified-but-unstaged translate pack (download completed but the
          * extract died, or a reinstall) self-heals when settings opens; the
-         * ~730 MB extract itself is the installer's (`TranslatePackStager`,
-         * decisions #114/#162). */
+         * 730 MB–1.7 GB extract itself is the installer's (`TranslatePackStager`,
+         * decisions #114/#162). EVERY engine is checked, not just the selected
+         * one — the other engine can hold a finished download the user is about
+         * to switch to. */
         private suspend fun autoStageTranslate() {
-            if (TranslatePackStager.isStaged(filesDir)) return
-            val id = readyPackId(TranslatePacks.pack.id) ?: return
-            install(listOf(id))
+            TranslatePacks.all.forEach { engine ->
+                if (TranslatePackStager.isStaged(filesDir, engine)) return@forEach
+                val id = readyPackId(engine.pack.id) ?: return@forEach
+                install(listOf(id))
+            }
         }
+
+        /** #182: the read-in-language engine radio. The choice is global and it
+         * keys every translation of a book (speech render path `t<id>` + the
+         * stored text's translator column), so the next resolve re-translates
+         * under the newly selected engine instead of reusing the other one's
+         * artifacts. A selection whose pack is not downloaded yet is allowed:
+         * the read-in flow then offers that engine's download. */
+        fun setTranslateEngine(id: String) = viewModelScope.launch { settings.setTranslateEngine(id) }
 
         /** Live espeak-ng readiness from the staged bundle (downloads change it). */
         private fun espeakReady(filesDir: File): Boolean = EspeakStager.isStaged(filesDir)

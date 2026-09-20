@@ -4,6 +4,73 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 182. Read-in-language gets a second engine: LFM2.5-2.6B-Base as a user option (2026-09-20, owner)
+
+Owner: *"lets add this middle ground as an option."* #181 established the landscape (the
+shipped LFM2.5-1.2B is fast and slips on prose; translategemma-4b reads best and costs
+3–6x the time plus 1.4 GB; LFM2.5-2.6B-Base measured chrF 70.44 with a 1.67 GB pack).
+This entry is the product slice that makes the middle one selectable.
+
+**What ships.** The read-in-language engine becomes a user setting (Speech → Translation),
+two options, default unchanged:
+
+| | LFM2.5-1.2B-Instruct (default) | LFM2.5-2.6B-Base |
+|---|---|---|
+| pack | `translate-lfm12b-q4-v1.zip`, 730,895,330 B | `translate-lfm26b-base-q4-v1.zip`, 1,674,466,090 B, sha256 `e299b921…` |
+| staged root | `files/translate-lfm` | `files/translate-lfm26b` |
+| translator id (`t<id>`) | `lfm12b` | `lfm26b` |
+| measured on the S22 (#181) | chrF 67.37, 3.30 / 4.42 s per sentence | chrF 70.44, 4.95 / 7.79 s |
+| licence | LFM Open License v1.0 | LFM Open License v1.0 |
+
+An untouched install keeps the shipped pack, its cache keys and its behaviour: no
+re-download, no re-translation, no key churn.
+
+**Design — the parts that are load-bearing.**
+
+- **One registry, one option per engine.** `TranslatePacks` (core-translate) holds a
+  `TranslateEngine` per option: pack descriptor, staged bundle root, GGUF file name,
+  picker label/summary and a `sizeLabel` derived from the descriptor (copy can never
+  drift from the pin). The composition root registers ONE pack-registry descriptor per
+  engine, so each pack is downloaded, installed and removed independently, and the
+  stager resolves the engine from the pack it is asked to stage.
+- **The engine id IS the translator identity** — the `t<id>` audio-cache segment and the
+  stored-text translator column. `TranslationTarget.translator` lost its default: every
+  construction site names the active engine explicitly, so the *compiler* proves no site
+  was missed (a silent default would let one engine's audio or text be served under
+  another engine's key). The vocabulary spans three modules that cannot see each other
+  (core-translate's ids, core-player's `PregenKey` constants, core-persistence's stored
+  default); `TranslateEngineVocabularyTest` (feature-player, which sees all three) pins
+  them together at one assertion.
+- **The runtime resolves the selection on every open** and closes a session left over
+  from a previous selection — two models are never resident (the shipped leg is ~1.5 GB,
+  the new one ~3.4 GB peak on the S22). Readiness follows the selected engine, so the
+  Speech row, the read-in picker's download row and the reader/library sheets all speak
+  about the engine that will actually translate.
+- **Switching does not delete the other engine's renders.** They are a cache miss for the
+  new id and stay on disk until the book's cache is cleared — the same rule the target
+  language already follows; a user who switches back and forth pays no re-download and no
+  surprise deletion.
+- The speech engines' `engine` key segment is untouched: it names the TTS engine, not the
+  translator (the `livePregenKey` KDoc now says so, in the file where the two are one line
+  apart).
+
+**Open step — the asset is not published yet.** The release the descriptor pins,
+`translate-lfm26b-base-v1`, does not exist. The archive is built and pinned
+(1,674,466,090 B, sha256 `e299b921…`, STORED, one entry per file:
+`LFM2.5-2.6B-Base.Q4_K_M.gguf` 1,674,454,080 B sha256 `bff5a730…`, the model's
+`LICENSE` and a `SOURCE-OFFER.txt` pointing at the upstream model and quant — the
+convention the shipped pack follows), but until it is uploaded the option's Download
+row can only fail, and the shipped engine stays the only usable one. The owner owns that
+upload (the repo's packs are self-hosted; the model's licence permits redistribution with
+the licence text, exactly as the shipped pack does).
+
+**Verification state at this entry.** JVM lanes green (`core-translate`, `core-player`,
+`core-persistence`, `feature-player`, `feature-settings`, `feature-library`, `core-ui`,
+`app` unit tests), `:app:compileDebugKotlin` and the instrumented-test compilation green.
+NOT yet device-verified end-to-end: the download+stage+switch path needs the published
+asset, so the honest device pass is the owner's next step with it (or a debug-variant
+install, which would wipe the release app's data — not taken).
+
 ## 181. translategemma-4b is better prose and is not adopted: too slow, too big for realtime (2026-09-18, owner)
 
 Owner question after the host gates: was the translation-specialized challenger

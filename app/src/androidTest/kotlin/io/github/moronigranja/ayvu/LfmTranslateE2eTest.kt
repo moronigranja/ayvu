@@ -92,7 +92,7 @@ class LfmTranslateE2eTest {
     /** The pack end-to-end: descriptor URL → sha256/size verification → staged GGUF. */
     @Test
     fun packDownloadsVerifiesStagesThenTranslatesOnDevice() {
-        val pack = TranslatePacks.pack
+        val pack = TranslatePacks.shipped.pack
         val cache = PackCache(files)
         val downloader = PackDownloader(cache, AndroidHttpTransport())
 
@@ -107,9 +107,9 @@ class LfmTranslateE2eTest {
             "staging must succeed",
             runBlocking { TranslatePackStager.stage(files, cache, pack) },
         )
-        assertTrue("staged bundle must be ready", TranslatePackStager.isStaged(files))
-        val gguf = File(TranslatePackStager.bundleDir(files), TranslatePackStager.MODEL_FILE)
-        assertEquals(730_895_168L, gguf.length())
+        assertTrue("staged bundle must be ready", TranslatePackStager.isStaged(files, TranslatePacks.shipped))
+        val gguf = TranslatePackStager.modelFile(files, TranslatePacks.shipped)
+        assertEquals("the shipped LFM2.5-1.2B GGUF", 730_895_168L, gguf.length())
         Log.i(TAG, "staged ${gguf.path} (${gguf.length()} B)")
 
         // The runtime opens it — this is where the packaged ggml CPU backends
@@ -169,7 +169,7 @@ class LfmTranslateE2eTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                target = TranslationTarget("pt-BR"),
+                target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR),
             )
         cache.put(key, PregenAudio(ByteArray(2_000) { 3 }, 24_000, null))
 

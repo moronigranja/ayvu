@@ -351,7 +351,7 @@ class PcmPassageCacheTest {
                 "pf_dora",
                 1.0,
                 engine = PregenKey.DEFAULT_ENGINE,
-                target = TranslationTarget("pt-BR"),
+                target = TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR),
             )
         val small100 = lfm.copy(target = TranslationTarget("pt-BR", PregenKey.SMALL100_TRANSLATOR))
         cache.put(small100, audio(3))

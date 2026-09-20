@@ -249,7 +249,10 @@ class PregenWorker
                                 ),
                             )
                         },
-                        target = translateLang?.let { TranslationTarget(it) },
+                        // The language plus which translator renders it (the
+                        // ACTIVE engine, decisions #182): the `t<translator>`
+                        // segment — never the other option's audio.
+                        target = translateLang?.let { TranslationTarget(it, selector.translateEngineId) },
                         // G2: yield to an engaged playback session (manual runs too).
                         shouldContinue = { !PlaybackActive.engineInUse },
                     )

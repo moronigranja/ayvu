@@ -10,6 +10,7 @@ import io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMetadata
 import io.github.moronigranja.ayvu.tts.piper.PiperVoiceMetadata
 import io.github.moronigranja.ayvu.tts.translate.LfmLang
 import io.github.moronigranja.ayvu.tts.translate.TranslateLanguages
+import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import io.github.moronigranja.ayvu.tts.translate.TranslatingEngine
 import javax.inject.Inject
 import javax.inject.Named
@@ -108,6 +109,20 @@ class EngineSelector
         // ---- read-in-language (decisions #114) ----
 
         /**
+         * The ACTIVE read-in-language translate engine id (decisions #182) —
+         * the global `translate_engine` setting resolved through the registry,
+         * so an unknown/stale stored id names the engine the runtime actually
+         * opens ([TranslateRuntime]'s `activeEngine`). THE translator identity
+         * of every translation: the `t<translator>` cache-key segment and the
+         * stored rows' translator column ([TranslationTarget]), so one engine's
+         * audio or text can never be served for another engine's request. The
+         * single source every construction site reads (the reader's display
+         * seed/prefetch, the speech render, both pre-generation paths).
+         */
+        val translateEngineId: String
+            get() = TranslatePacks.byId(settings.state.value.translateEngine).id
+
+        /**
          * The book's in-force SPEECH target (app language code), or null when
          * it reads in the original language. THE single resolution choke
          * point of the speech-vs-display constraint: a passage is translated
@@ -156,9 +171,10 @@ class EngineSelector
         /**
          * The first voice of the ACTIVE engine catalog whose language matches
          * [target] (normalized `-`/`_`/case; `pt-BR` matches `pt_BR` and the
-         * bare base `pt`). Deterministic catalog order. The pseudo-engine
-         * [io.github.moronigranja.ayvu.tts.translate.TranslateSpec] is
-         * not an engine — this only reads the selectable engines' voice rows.
+         * bare base `pt`). Deterministic catalog order. The read-in-language
+         * [io.github.moronigranja.ayvu.tts.translate.TranslateEngine] rows are
+         * registry-only pseudo-engines, never selectable as TTS engines — this
+         * only reads the selectable engines' voice rows.
          */
         fun bestVoiceFor(target: String): String? = TranslateLanguages.firstVoiceFor(activeCatalog(), target)
 
@@ -192,11 +208,11 @@ class EngineSelector
          * The single playback resolution point: engine + voice for [bookId].
          * engine = [engineFor] of the effective voice, wrapped in a
          * [TranslatingEngine] when the book has a translate target AND the
-         * active engine has a voice for it AND the translate pack is ready —
-         * any missing link falls back to the plain engine (never a
-         * half-translated render). voice = the effective voice, unchanged:
-         * the decorator swaps the synthesis voice internally, so callers and
-         * cache keys keep the original voice semantics.
+         * active engine has a voice for it AND the ACTIVE translate engine's
+         * pack is ready — any missing link falls back to the plain engine
+         * (never a half-translated render). voice = the effective voice,
+         * unchanged: the decorator swaps the synthesis voice internally, so
+         * callers and cache keys keep the original voice semantics.
          */
         fun resolve(bookId: String?): Pair<TTSEngine?, String> {
             val voice = if (bookId == null) resolveVoice(settings.state.value.voice) else effectiveVoice(bookId)
@@ -231,6 +247,11 @@ class EngineSelector
                     voiceServable &&
                     translate.translator() != null
                 ) {
+                    // The translator identity is captured WITH the target: a
+                    // mid-render engine switch must not key this request's text
+                    // under the other engine (the queue's own key was built from
+                    // the same read).
+                    val translator = translateEngineId
                     // The translated render needs an instance that SERVES the
                     // target voice: Piper is one-voice-per-instance, so the
                     // base (original-voice) instance fails typed on the
@@ -252,7 +273,12 @@ class EngineSelector
                             if (id == null) {
                                 null
                             } else {
-                                translationService.translate(id, chapterIndex, passageIndex, TranslationTarget(target))
+                                translationService.translate(
+                                    id,
+                                    chapterIndex,
+                                    passageIndex,
+                                    TranslationTarget(target, translator),
+                                )
                             }
                         },
                         targetVoice = targetVoice,

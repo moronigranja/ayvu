@@ -60,6 +60,14 @@ third-party repositories:
   The licence text is included in that release archive; its terms (including the
   revenue threshold for commercial use) apply to the model, not to Ayvu's own
   GPL-3.0 code.
+- **LFM2.5-2.6B-Base** translate model `LFM2.5-2.6B-Base.Q4_K_M.gguf`
+  (1,674,454,080 B, SHA-256 `bff5a730…`) — **LFM Open License v1.0** (from
+  LiquidAI) — served from this project's `translate-lfm26b-base-v1` release:
+  <https://github.com/moronigranja/ayvu/releases/tag/translate-lfm26b-base-v1>
+  (upstream project: <https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base>; the
+  Q4_K_M quant is by mradermacher). The licence text is included in that release
+  archive; its terms (including the revenue threshold for commercial use) apply
+  to the model, not to Ayvu's own GPL-3.0 code.
 - **Piper** VITS voices (one model + config per voice, 22050 Hz) — from the
   MIT-licensed `rhasspy/piper-voices` repository @ `1162a917`; per-voice dataset
   terms are stated on each upstream voice card: `en_US-lessac-medium` (Blizzard

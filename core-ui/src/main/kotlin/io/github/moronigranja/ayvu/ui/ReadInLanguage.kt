@@ -51,10 +51,22 @@ data class ReadInLanguageUiState(
      * no display language is set — the speech rows are the full catalog (the
      * library surface, where the display section is absent). */
     val speechLanguages: List<String>? = null,
-    /** The translate pack verified (or null: the download row shows). */
+    /** The ACTIVE translate engine's pack verified (or null: the download row
+     * shows). Readiness describes the engine that will actually translate —
+     * a user on the second engine is offered the second engine's download
+     * (decisions #182). */
     val packDownloaded: Boolean? = null,
     /** Non-null while the pack download is in flight (0..1). */
     val downloadProgress: Float? = null,
+    /** The ACTIVE engine's download-row name — the pack descriptor's display
+     * name, i.e. what the Speech settings row shows ("LFM2.5-1.2B translate
+     * model (Q4_K_M)"). Empty in previews/fixtures: the row then shows the
+     * generic line alone. */
+    val engineLabel: String = "",
+    /** The ACTIVE engine's pack size label ("~730 MB" / "~1.7 GB"), from the
+     * translate engine registry's own pack descriptor so the copy cannot
+     * drift from the download. */
+    val packSizeLabel: String = "",
     /** Why the selected target is not rendering (null = in force, or Off).
      * The picker's feedback row — a silent degrade reads as "broken". */
     val degradeReason: String? = null,
@@ -87,9 +99,12 @@ private const val AUTO_ID = "__auto__"
 
 /**
  * Rows: "Off" + one per [ReadInLanguageUiState.languages]; selecting persists
- * the per-book target (null = off). When the translate pack is not verified
- * an inline download row with progress takes the action instead — selecting a
- * language before the pack exists would only degrade silently.
+ * the per-book target (null = off). When the ACTIVE translate engine's pack is
+ * not verified an inline download row with progress takes the action instead —
+ * selecting a language before the pack exists would only degrade silently. The
+ * row names that engine and its size ([ReadInLanguageUiState.engineLabel] +
+ * [ReadInLanguageUiState.packSizeLabel], decisions #182), never a fixed model:
+ * the download it starts is the selected engine's own.
  *
  * The DISPLAY surface ([onDisplaySelect] non-null — the reader) adds a
  * "Show translation in" dropdown before the speech rows: its options are
@@ -222,9 +237,15 @@ fun ReadInLanguagePicker(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = false, onClick = { onDownload() })
                     Column {
-                        Text("Download translation pack (~730 MB)", style = MaterialTheme.typography.bodyMedium)
+                        val size = state.packSizeLabel.takeIf { it.isNotBlank() }
+                        val engine = state.engineLabel.takeIf { it.isNotBlank() }
                         Text(
-                            "LFM2.5-1.2B, all supported languages. Sizes and status come from the Speech settings section.",
+                            "Download translation pack" + (size?.let { " ($it)" } ?: ""),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            (engine?.let { "$it. " } ?: "") +
+                                "All supported languages. Sizes and status come from the Speech settings section.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

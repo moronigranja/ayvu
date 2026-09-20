@@ -49,10 +49,14 @@ class PlaybackServicePregenKeyTest {
             null to "af_bella",
             "pt" to "pf_dora",
         ).forEach { (translateLang, voice) ->
-            val edge = service.livePregenKey(book, position, voice, 1.0, translateLang)
+            val edge = service.livePregenKey(book, position, voice, 1.0, translateLang, PregenKey.LFM_TRANSLATOR)
             val canonical =
-                PregenPlanner(book, voice, 1.0, target = translateLang?.let { TranslationTarget(it) })
-                    .key(chapterIndex = 0, passageIndex = 1)
+                PregenPlanner(
+                    book,
+                    voice,
+                    1.0,
+                    target = translateLang?.let { TranslationTarget(it, PregenKey.LFM_TRANSLATOR) },
+                ).key(chapterIndex = 0, passageIndex = 1)
             assertEquals(
                 "edge key must be the builder's key (translateLang=$translateLang)",
                 canonical.toString(),
@@ -63,23 +67,26 @@ class PlaybackServicePregenKeyTest {
 
     /** The identity itself: the read-in-language session's key carries the target
      * language AND the translator that rendered it, so a translated render can
-     * never be read as the original's audio (decisions #114/#162).
+     * never be read as the original's audio (decisions #114/#162) — nor as the
+     * OTHER read-in-language engine's render (decisions #182: the engine is a
+     * user option and its id IS this segment).
      *
-     * The `kokoro` segment is the key's DEFAULT engine: no product site supplies
-     * an engine today — the dimension exists in the key and is documented as
-     * preventing cross-engine collisions, but nothing populates it (queued
-     * finding, 2026-09-15 audit). These strings pin today's on-disk identity, so
-     * wiring a real engine later must update them deliberately. */
+     * The `kokoro` segment is the key's DEFAULT engine (the speech engine), not
+     * the translator. These strings pin today's on-disk identity: changing the
+     * translator vocabulary must update them deliberately. */
     @Test
     fun `the translated key carries the target language and the translator`() {
         val service = PlaybackService()
         val position = PlayerPosition(book.id, 0, 1)
 
-        val original = service.livePregenKey(book, position, "af_bella", 1.0, null)
-        val translated = service.livePregenKey(book, position, "pf_dora", 1.0, "pt")
+        val original = service.livePregenKey(book, position, "af_bella", 1.0, null, PregenKey.LFM_TRANSLATOR)
+        val translated = service.livePregenKey(book, position, "pf_dora", 1.0, "pt", PregenKey.LFM_TRANSLATOR)
+        val better = service.livePregenKey(book, position, "pf_dora", 1.0, "pt", PregenKey.LFM26B_TRANSLATOR)
 
         assertEquals("${book.id}/kokoro/af_bella/1/c0p1", original.toString())
         assertEquals("${book.id}/kokoro/pf_dora/1/xpt/tlfm12b/c0p1", translated.toString())
+        assertEquals("${book.id}/kokoro/pf_dora/1/xpt/tlfm26b/c0p1", better.toString())
         assertNotEquals(original.toString(), translated.toString())
+        assertNotEquals(translated.toString(), better.toString())
     }
 }

@@ -68,7 +68,7 @@ reader page (blocks ── ChapterDisplay.project(chapterPassages, translations,
     │   land:  ready ──► TranslationReady ──► translation block
     │   audio: TranslatingEngine ↦ translate(bookId, ch, p, target)  (SAME artifact)
     ▼
-text store (Room, `translations` v4, keyed book/chapter/passage/lang/translatorVersion)
+text store (Room, `translations` v4, keyed book/chapter/passage/lang/translatorVersion — the last being the selected engine id)
     ▼
 ChapterDisplay.join/offsets ──► PaginatedChapter renders the three modes
 ```
@@ -95,15 +95,23 @@ module placement, colour-only differentiation, no eviction, prefetch).
 
 ### 0 — `TranslationTarget` value type (cheap, do first)
 
-`(translateLang, translator)` travels as **two loose nullable Strings** through
+`(translateLang, translator)` travelled as **two loose nullable Strings** through
 `PregenPlanner`, `PregenQueue`, `OfflinePregen`, `PregenSpaceEstimator`,
-`PlaybackService.livePregenKey` and `PregenWorker`, always set together (the translator is
+`PlaybackService.livePregenKey` and `PregenWorker`, always set together (the translator was
 derived by `translateLang?.let { PregenKey.LFM_TRANSLATOR }` — exactly three production
-sites). Unify into one value type carried inside `PregenKey`.
+sites). It shipped as one value type carried inside `PregenKey`.
 
-Buys: the translator **version** dimension (needed by step 3's cache key) becomes one edit
-instead of six, and the impossible "lang null, translator set" state that `PregenKey`
-guards against at parse time is deleted.
+The translator is the **selected engine id** — `lfm12b` or `lfm26b` — a GLOBAL setting
+(Settings → Speech, "Translation"); the target *language* stays per book. It is threaded
+explicitly into every `TranslationTarget`: the type carries **no default**, so each
+construction site names the active engine and the compiler is what proves none was missed.
+The id is both the `t<id>` audio-cache segment (`PregenKey`) and the stored-text translator
+column, which is what keeps two engines from serving each other's audio or text.
+
+Buys: the translator **version** dimension (step 3's cache key) becomes one edit instead of
+six, and the impossible "lang null, translator set" state that `PregenKey` guards against at
+parse time is deleted. Switching engines is a **cache miss**, not a rewrite: the other
+engine's rows and renders stay on disk until the book's cache is cleared.
 
 ### 1 — Extract the reader-text collaborator, with a display-block seam
 
@@ -162,8 +170,8 @@ Cancellation semantics are deliberately *not* cancel: the decode cannot be inter
 the service drops stale results by identity + generation instead of trying to stop them.
 
 Availability needs a **display-side sibling** of `TranslateAvailability` (`:29-38`), which
-is voice-*and*-translator shaped: showing a translation needs the translator pack only, not
-a voice that can speak the target.
+is voice-*and*-translator shaped: showing a translation needs the selected engine's pack
+only, not a voice that can speak the target.
 
 ### 3 — Translated-text store
 
@@ -252,9 +260,11 @@ isolation forces it, and this slice forces neither.
    `RoomLibraryStore.delete` drops progress/bookmarks/history/activity/passages/book but
    **not** `book.*` settings rows, though `SettingsStore` and decisions #156 claim it does.
    The new display key would inherit the leak — fix it in this slice.
-6. **A model bump invalidates the text cache.** #162's byte-identical gate means a
-   translator swap must miss old entries; that is what the key's `translatorVersion`
-   dimension is for (and why step 0 comes first).
+6. **A model bump — or an engine switch — invalidates the text cache.** #162's
+   byte-identical gate means a different translator must miss old entries; that is what the
+   key's `translatorVersion` dimension (the engine id) is for (and why step 0 comes first).
+   Switching engines is a cache miss, not a migration: the other engine's rows stay on disk
+   until the book's cache is cleared.
 7. **Export must not be foreclosed.** The store is ordered and queryable per book, so a
    future whole-book text batch is an `OfflinePregen`-shaped job — but it needs a named,
    versioned artifact, and a listen-quality translation is not automatically

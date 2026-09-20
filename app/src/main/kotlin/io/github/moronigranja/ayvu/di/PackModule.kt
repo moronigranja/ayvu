@@ -28,7 +28,6 @@ import io.github.moronigranja.ayvu.tts.system.SystemTtsEngine
 import io.github.moronigranja.ayvu.tts.system.SystemTtsSeam
 import io.github.moronigranja.ayvu.tts.translate.TranslatePackStager
 import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
-import io.github.moronigranja.ayvu.tts.translate.TranslateSpec
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -85,11 +84,14 @@ object PackModule {
             DefaultEngines.descriptors +
                 listOf(
                     EngineDescriptor(TrainedDataPacks.spec, TrainedDataPacks.all),
-                    // Read-in-language: a registry-only pseudo-engine (the
-                    // selector's switch stays closed; TranslateRuntime owns
-                    // staging + sessions for this pack, decisions #114).
-                    EngineDescriptor(TranslateSpec, TranslatePacks.all),
-                )
+                ) +
+                // Read-in-language engines (decisions #114/#161/#182): registry-only
+                // pseudo-engines (the selector's switch stays closed; TranslateRuntime
+                // owns staging + sessions). One descriptor PER ENGINE OPTION, so each
+                // pack carries its own engine id — that is the pack-cache subtree
+                // (`files/packs/<engineId>/<packId>`), which is what lets both engines
+                // be downloaded, installed and removed independently.
+                TranslatePacks.all.map { EngineDescriptor(it.spec, listOf(it.pack)) }
         return PackRegistry(cache, downloader, descriptors, ioDispatcher)
     }
 
@@ -123,7 +125,7 @@ object PackModule {
                 withContext(io) {
                     when {
                         pack.id == KokoroPacks.espeak.id -> EspeakStager.stage(filesDir, cache, pack)
-                        pack.id == TranslatePacks.pack.id -> TranslatePackStager.stage(filesDir, cache, pack)
+                        TranslatePacks.byPackId(pack.id) != null -> TranslatePackStager.stage(filesDir, cache, pack)
                         pack.engineId == TrainedDataPacks.ENGINE_ID -> TessDataStager.stage(filesDir, cache, pack)
                         else -> true // model/voice artifacts are consumed in place
                     }

@@ -971,7 +971,7 @@ class PlaybackService : Service() {
             // key (the request voice above stays the original's; the decorator
             // re-renders under the target voice).
             val keyVoice = selector.renderVoice(activeBook.id)
-            val key = livePregenKey(activeBook, position, keyVoice, current.speed, translateLang)
+            val key = livePregenKey(activeBook, position, keyVoice, current.speed, translateLang, selector.translateEngineId)
             // Deterministic re-seek (layer 2): in-flight first-listen persists
             // land before any re-fetch, so a played passage is always on disk.
             pendingPersists.forEach { it.join() }
@@ -1053,7 +1053,7 @@ class PlaybackService : Service() {
                     queue
                         ?.peek(nextTarget.chapterIndex, nextTarget.passageIndex)
                         ?: pregenCache.cache.get(
-                            livePregenKey(activeBook, nextTarget, keyVoice, current.speed, translateLang),
+                            livePregenKey(activeBook, nextTarget, keyVoice, current.speed, translateLang, selector.translateEngineId),
                         )
                 if (nextPcm != null) output.prearm(nextPcm.pcm.size, nextPcm.sampleRateHz)
             }
@@ -1552,9 +1552,13 @@ class PlaybackService : Service() {
      * used to omit the read-in-language pair and so peeked the ORIGINAL
      * language's audio in a translated session).
      *
-     * The engine segment is left at [PregenKey.DEFAULT_ENGINE]: no product site
-     * supplies one today (queued finding — the dimension exists in the key and is
-     * documented as preventing cross-engine collisions, but nothing populates it).
+     * The engine segment (the TTS engine that rendered the audio) is left at
+     * [PregenKey.DEFAULT_ENGINE]: no product site supplies one today (queued
+     * finding — the dimension exists in the key and is documented as preventing
+     * cross-engine collisions, but nothing populates it). The read-in-language
+     * pair's translator segment IS populated with the active
+     * [EngineSelector.translateEngineId] (decisions #182) — `engine` here never
+     * refers to the translate engine.
      */
     internal fun livePregenKey(
         book: Book,
@@ -1562,6 +1566,7 @@ class PlaybackService : Service() {
         voice: String,
         speed: Double,
         translateLang: String?,
+        translator: String,
     ): PregenKey =
         PregenKey(
             book.id,
@@ -1569,9 +1574,13 @@ class PlaybackService : Service() {
             position.passageIndex,
             voice,
             speed,
-            // The language plus which translator rendered it (decisions #162):
-            // only an LFM render is a hit for this key.
-            target = translateLang?.let { TranslationTarget(it) },
+            // The language plus which translator rendered it (decisions
+            // #162/#182): only the ACTIVE engine's render is a hit for this
+            // key. The caller passes `selector.translateEngineId` — like
+            // [translateLang] it is a parameter, not ambient state, so this
+            // builder stays pure and a test can pin the on-disk identity of
+            // both engines.
+            target = translateLang?.let { TranslationTarget(it, translator) },
         )
 
     /** The book's cover bitmap for the media notification, cached per book
@@ -1680,8 +1689,8 @@ class PlaybackService : Service() {
             // The queue's keys carry the book's translate target (language +
             // translator) so the translated audio cannot collide with the
             // original's (the `x<lang>`/`t<translator>` path segments,
-            // decisions #114/#162).
-            target = translateLang?.let { TranslationTarget(it) },
+            // decisions #114/#162/#182) nor with the other engine's render.
+            target = translateLang?.let { TranslationTarget(it, selector.translateEngineId) },
             synthesize = { text, chapterIndex, passageIndex ->
                 val (engine, voice) = selector.resolve(activeBook.id)
                 engine?.synthesize(

@@ -26,7 +26,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `core-locate` | N-gram book/passage identification, launch-time index rebuild, `TextIndex.best` for below-threshold hints |
 | `core-tts` | TTSEngine + Kokoro-82M (onnxruntime behind a compileOnly seam), espeak-ng phonemization, pinned pack descriptors, Pt-BR voices verified; Piper engine (`piper-v1`, D4) with pinned per-voice packs — decisions #154 |
 | `core-player` | Player state machine, transactional progress + bookmarks + undo ring, sleep timer, speed; T5 pre-generation queue + PCM cache |
-| `core-translate` | Read-in-language seam: `TranslatingEngine` TTSEngine decorator (degrades to the original on any failure), language surface, translate pack descriptor + stager; model-agnostic (a suspend lambda) |
+| `core-translate` | Read-in-language seam: `TranslatingEngine` TTSEngine decorator (degrades to the original on any failure), language surface, engine registry (shipped LFM2.5-1.2B + selectable LFM2.5-2.6B-Base, one pack descriptor + staged bundle each) + stager; model-agnostic (a suspend lambda), with the selected engine named on every target |
 | `core-backup` | Versioned v1 SAF backup archive: codec + DTOs — consumed by persistence + settings (E1) |
 | `core-ocr` | OCR engine seam, screenshot downscaler, six pinned legacy-traineddata packs (tess-two 9.1.0 can't init LSTM models — decisions #36) |
 
@@ -64,8 +64,9 @@ signing-certificate fingerprint). The `v0.1.1` tag points at the shipped tree.
    arm64 native library, so 32-bit and x86 installs are not supported.
 2. Install it, allowing "install unknown apps" for your browser or file manager.
 3. First run downloads the free packs — Kokoro model + voices, the espeak-ng phonemizer
-   bundle and (optionally) OCR languages and, for read-in-language, the LFM2.5-1.2B
-   translate model — explicitly, resumably and SHA-256-verified.
+   bundle and (optionally) OCR languages and, for read-in-language, the default
+   LFM2.5-1.2B translate model (a better-reading LFM2.5-2.6B-Base option, ~1.7 GB,
+   is selectable in Settings → Speech) — explicitly, resumably and SHA-256-verified.
    After the TTS packs land the app is fully offline.
 
 **Updating (when it ships):** the signing key is stable across releases, so a newer APK
@@ -108,8 +109,10 @@ fingerprint published with the release, and see
   Model and language packs are on-demand downloads, never bundled (decisions #7). Portuguese is a
   first-class voice family (`pf_`/`pm_`, verified end-to-end, decisions #40); the
   translate-then-read decorator (`core-translate` — any advertised target language,
-  decisions #101; LFM2.5-1.2B on llama.cpp adopted as the engine, decisions #162) is
-  live and wired into app, feature-settings, feature-library and feature-player.
+  decisions #101; LFM2.5-1.2B on llama.cpp is the default read-in-language engine,
+  decisions #162, with a better-reading LFM2.5-2.6B-Base option selectable beside it,
+  decisions #182) is live and wired into app, feature-settings, feature-library and
+  feature-player.
 - **OCR engine:** tess-two 9.1.0's native build is pre-LSTM, so the pinned language
   packs are legacy 3.04.00 tessdata (decisions #36) — accuracy upgrade waits on a
   maintained binding.
@@ -143,7 +146,7 @@ core-ebook/   parsers + segmentation + importer
 core-locate/  identification + index
 core-tts/     engine seam + Kokoro impl + pack descriptors
 core-player/  playback state machine + pre-generation
-core-translate/  read-in-language TTSEngine decorator + translate pack
+core-translate/  read-in-language TTSEngine decorator + engine packs (LFM2.5-1.2B / 2.6B-Base)
 core-llm/     llama.cpp native leg for the translate runtime (arm64-v8a)
 core-ui/      design tokens + shared Compose components
 core-ocr/     OCR seam + downscaler + traineddata packs

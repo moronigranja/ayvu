@@ -135,8 +135,10 @@ class ReaderViewModel
         // ---- read-in-language (decisions #114) ----
 
         /** The voice-sheet "Read in" section state: the active book's target,
-         * the target languages the active engine can voice, and pack
-         * readiness (selection is disabled until the pack is staged). */
+         * the target languages the active engine can voice, and the ACTIVE
+         * translate engine's pack readiness (selection is disabled until that
+         * pack is staged — a user on the second engine is offered the second
+         * engine's download, decisions #182). */
         val translateState: StateFlow<ReadInLanguageUiState> =
             combine(settings.state, registry.packs, PlaybackStateHolder.state) {
                 prefs,
@@ -145,8 +147,12 @@ class ReaderViewModel
                 ->
                 // The translate row's progress is registry truth (the download
                 // runs as a foreground operation, not in this VM's scope).
+                // Readiness follows the ACTIVE engine (decisions #182): the
+                // user must be offered the download of the engine that will
+                // actually translate.
+                val engine = TranslatePacks.byId(prefs.translateEngine)
                 val progress =
-                    (packs.firstOrNull { it.pack.id == TranslatePacks.pack.id }?.status as? PackStatus.Downloading)
+                    (packs.firstOrNull { it.pack.id == engine.pack.id }?.status as? PackStatus.Downloading)
                         ?.let { it.downloadedBytes.toFloat() / it.totalBytes }
                 val bookId = playback.bookId
                 val display = bookId?.let { prefs.bookDisplays[it] }
@@ -189,10 +195,14 @@ class ReaderViewModel
                     translateVoiceReady =
                         storedTargetVoice?.let { SetupEnginePacks.readyFor(prefs.ttsEngine, it, packs) } ?: true,
                     packDownloaded =
-                        packs.any { it.pack.id == TranslatePacks.pack.id && it.status == PackStatus.Ready } &&
-                            TranslatePackStager.isStaged(context.filesDir),
+                        packs.any { it.pack.id == engine.pack.id && it.status == PackStatus.Ready } &&
+                            TranslatePackStager.isStaged(context.filesDir, engine),
                     downloadProgress = progress,
                     degradeReason = selector.translateDegradeReason(bookId),
+                    // The download row's copy names the engine the user would
+                    // actually get (never a fixed LFM2.5-1.2B ~730 MB line).
+                    engineLabel = engine.pack.displayName,
+                    packSizeLabel = engine.sizeLabel,
                 )
             }.stateIn(
                 viewModelScope,
@@ -215,14 +225,19 @@ class ReaderViewModel
             val entries: Map<Int, TranslationState>,
         )
 
-        /** The seed identity — distinguishes book/chapter/passage-count AND
-         * the display target for the current book, so setting/clearing a
-         * display language mid-chapter re-seeds (distinctUntilChanged). */
+        /** The seed identity — distinguishes book/chapter/passage-count, the
+         * display target for the current book AND the active translate engine,
+         * so setting/clearing a display language or switching engines
+         * mid-chapter re-seeds (distinctUntilChanged). The engine is part of
+         * the identity because a translation belongs to the (language,
+         * translator) pair (decisions #182): the other engine's text and the
+         * blank rows a fresh engine starts from must never mix in one map. */
         private data class SeedKey(
             val bookId: String?,
             val chapter: Int,
             val passageCount: Int,
             val display: String?,
+            val translator: String,
         )
 
         /** The projected chapter the reader renders: blocks composed from the
@@ -268,21 +283,26 @@ class ReaderViewModel
             )
 
         init {
-            // Seed on every book/chapter change AND every display-target
-            // change for the current book (setting a display language
-            // mid-chapter must re-project with Pending blocks + stored rows —
-            // the eager path of the progressive landing). Stored rows become
-            // Ready, absent rows Pending; never a flash of the original-only
-            // layout: the projection is emitted only after the seed lands.
+            // Seed on every book/chapter change, every display-target change
+            // for the current book (setting a display language mid-chapter
+            // must re-project with Pending blocks + stored rows — the eager
+            // path of the progressive landing) and every translate-engine
+            // change (the new engine's rows must replace the old engine's
+            // text, not merge with it). The engine resolves through the
+            // registry, so the identity is the engine the runtime opens. Stored
+            // rows become Ready, absent rows Pending; never a flash of the
+            // original-only layout: the projection is emitted only after the
+            // seed lands.
             viewModelScope.launch {
                 combine(
                     PlaybackStateHolder.state.map { Triple(it.bookId, it.chapterIndex, it.chapterPassages.size) },
                     settings.state.map { it.bookDisplays },
-                ) { nav, displays ->
-                    SeedKey(nav.first, nav.second, nav.third, displays[nav.first])
+                    settings.state.map { TranslatePacks.byId(it.translateEngine).id },
+                ) { nav, displays, translator ->
+                    SeedKey(nav.first, nav.second, nav.third, displays[nav.first], translator)
                 }.distinctUntilChanged()
                     .collect { key ->
-                        seedTranslations(key.bookId, key.chapter, key.passageCount, key.display)
+                        seedTranslations(key.bookId, key.chapter, key.passageCount, key.display, key.translator)
                     }
             }
             // A play press made before the chapter landed (the loading/empty
@@ -315,7 +335,7 @@ class ReaderViewModel
                     val display = settings.bookDisplay(ready.bookId)
                     val belongs =
                         display != null &&
-                            ready.target == TranslationTarget(display) &&
+                            ready.target == TranslationTarget(display, selector.translateEngineId) &&
                             ready.bookId == current.bookId &&
                             ready.chapter == current.chapterIndex
                     if (!belongs) return@collect
@@ -335,12 +355,13 @@ class ReaderViewModel
             chapter: Int,
             passageCount: Int,
             display: String?,
+            translator: String,
         ) {
             if (bookId == null || passageCount == 0 || display == null) {
                 chapterTranslations.value = ChapterTranslations(chapter, emptyMap())
                 return
             }
-            val target = TranslationTarget(display)
+            val target = TranslationTarget(display, translator)
             // Absent rows are Pending while a decode is possible; with the
             // translator pack removed / failed-open they are Unavailable from
             // the start (the original renders plus the inline note — never an
@@ -366,7 +387,14 @@ class ReaderViewModel
             passages: List<Int>,
         ) {
             val display = settings.bookDisplay(bookId) ?: return
-            translationService.prefetch(bookId, chapter, passages.distinct(), TranslationTarget(display))
+            translationService.prefetch(
+                bookId,
+                chapter,
+                passages.distinct(),
+                // The active engine's id, so the fill decodes (and keys) the
+                // same (language, translator) pair the seed read.
+                TranslationTarget(display, selector.translateEngineId),
+            )
             // The pack can vanish mid-session (removed/failed-open): the next
             // page entry is where Unavailable is (re)derived — Pending rows
             // that can never decode flip to the inline note; the rows retry on
@@ -437,11 +465,14 @@ class ReaderViewModel
             changeVoice(settings.state.value.voice)
         }
 
-        /** The translation pack row's download (per-book, never a global
-         * gate): explicit, resumable, verified (decision #7) and it stages the
-         * bundle after Ready — one cancellable foreground operation. */
+        /** The ACTIVE translate engine's pack download (per-book row, never a
+         * global gate): explicit, resumable, verified (decision #7) and it
+         * stages the bundle after Ready — one cancellable foreground
+         * operation. The selected engine's own pack, so a user on the second
+         * option is never handed the shipped one (decisions #182). */
         fun downloadTranslatePack() {
-            operations?.installPacks(installer, listOf(TranslatePacks.pack.id))
+            val engine = TranslatePacks.byId(settings.state.value.translateEngine)
+            operations?.installPacks(installer, listOf(engine.pack.id))
         }
 
         /** C2: select a voice AND rebuild the active book under it at the same
