@@ -284,7 +284,7 @@ D7 legs.
 | OPUS-MT per-pair | measured record; specialist alternative (tc-big int8 speed-disqualified; fp32 quality fallback) |
 | LFM2.5-1.2B-Instruct | **SHIPPED as the read-in-language translator (#162)** — llama.cpp-android on S22: 22.3 tok/s, chrF 67.37, 730 MB, co-residency passed; LiteRT-LM deadlocks on the S22 (all 3 profiles), host-measured 6.4-6.5× slower — exception closed |
 | LFM2.5-350M | REJECTED — chrF 59.11 below the retired incumbent (62.77); drops content, code-switches to English; there is no low-memory translator fallback (#162) |
-| LFM2.5-2.6B-Base | **IN TREE as the second read-in-language engine option (#182, 2026-09-20; its pack release is not published yet, so the shipped engine is still the only usable one)** — measured on the S22: chrF 70.44 idle and under Kokoro playback, 4.95/7.79 s per sentence, 1.67 GB pack, zero lmkd events; user-selectable in Settings → Speech, with the shipped LFM2.5-1.2B staying the default |
+| LFM2.5-2.6B-Base | **SHIPPED as the second read-in-language engine option (#182, 2026-09-20)** — pack on the `translate-lfm26b-base-v1` release, DEVICE-VERIFIED end-to-end (download → sha256 verify → its own staged bundle → translate → switch back); measured on the S22: chrF 70.44 idle and under Kokoro playback, 4.95/7.79 s per sentence, 1.67 GB pack, zero lmkd events; user-selectable in Settings → Speech, with the shipped LFM2.5-1.2B staying the default |
 | Gemma-4-E2B QAT | measured ceiling, not selected — chrF 68.11 on-device at 3.35 GB |
 
 ## Active work

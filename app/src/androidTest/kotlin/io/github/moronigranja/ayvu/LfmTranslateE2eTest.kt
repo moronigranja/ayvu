@@ -45,7 +45,9 @@ import java.io.File
  * (`m/flores/flores101_dataset/devtest/eng.devtest`), so a timing run here is
  * directly comparable with `docs/prints/beam-spike/lfm_ondevice.json`.
  *
- * Requires: network (the 730 MB pack downloads once; later runs hit the cache).
+ * Requires: network (the shipped 730 MB pack downloads once; the second engine's
+ * 1.67 GB pack downloads only for the test that asks for it; later runs hit the
+ * cache).
  */
 @RunWith(AndroidJUnit4::class)
 class LfmTranslateE2eTest {
@@ -132,6 +134,62 @@ class LfmTranslateE2eTest {
             }
         } finally {
             translator.close()
+        }
+    }
+
+    /**
+     * Decisions #182 on the device: the SECOND engine's pack comes off its own
+     * release (descriptor URL → sha256/size verification → its own staged
+     * bundle), [TranslateRuntime] opens whichever engine the stored selection
+     * names, and a selection change closes the resident session and opens the
+     * other model — two models are never resident together.
+     *
+     * Readiness follows the selection, not the staged set: with the shipped
+     * engine selected and NOT staged the runtime declines with a typed failure
+     * instead of quietly translating through the other engine's bundle.
+     */
+    @Test
+    fun secondEngineStagesAndTheRuntimeFollowsTheSelection() {
+        val pack = TranslatePacks.better.pack
+        val cache = PackCache(files)
+        val downloader = PackDownloader(cache, AndroidHttpTransport())
+
+        val outcome =
+            runBlocking {
+                downloader.download(pack) { done, total -> Log.i(TAG, "download $done/$total") }
+            }
+        Log.i(TAG, "second-pack download outcome=$outcome")
+        assertTrue("second pack must verify ($outcome)", cache.isVerified(pack))
+        assertTrue(
+            "staging must succeed",
+            runBlocking { TranslatePackStager.stage(files, cache, pack) },
+        )
+        val gguf = TranslatePackStager.modelFile(files, TranslatePacks.better)
+        assertEquals("the LFM2.5-2.6B-Base GGUF", 1_674_454_080L, gguf.length())
+        Log.i(TAG, "staged ${gguf.path} (${gguf.length()} B)")
+
+        val settings = settings()
+        val runtime = TranslateRuntime(context, settings)
+
+        runBlocking {
+            settings.setTranslateEngine(TranslatePacks.better.id)
+            assertTrue("the selected, staged engine must be openable", runtime.canOpen)
+            val translated = runtime.translate(sentences[0], "Brazilian Portuguese")
+            assertNotNull("the 2.6B engine must translate (failure=${runtime.failureReason})", translated)
+            Log.i(TAG, "lfm26b: $translated")
+
+            settings.setTranslateEngine(TranslatePacks.shipped.id)
+            assertFalse("readiness must follow the selection, not the staged set", runtime.canOpen)
+            assertNull(
+                "the unstaged engine must not be opened from the other engine's bundle",
+                runtime.translate(sentences[0], "Brazilian Portuguese"),
+            )
+            Log.i(TAG, "shipped-selected failure=${runtime.failureReason}")
+
+            settings.setTranslateEngine(TranslatePacks.better.id)
+            val again = runtime.translate(sentences[0], "Brazilian Portuguese")
+            assertNotNull("switching back must re-open the staged engine", again)
+            Log.i(TAG, "lfm26b again: $again")
         }
     }
 

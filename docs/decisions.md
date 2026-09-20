@@ -54,22 +54,39 @@ re-download, no re-translation, no key churn.
   translator (the `livePregenKey` KDoc now says so, in the file where the two are one line
   apart).
 
-**Open step — the asset is not published yet.** The release the descriptor pins,
-`translate-lfm26b-base-v1`, does not exist. The archive is built and pinned
-(1,674,466,090 B, sha256 `e299b921…`, STORED, one entry per file:
-`LFM2.5-2.6B-Base.Q4_K_M.gguf` 1,674,454,080 B sha256 `bff5a730…`, the model's
+**Asset published 2026-09-20** — the release the descriptor pins,
+`translate-lfm26b-base-v1`
+(<https://github.com/moronigranja/ayvu/releases/tag/translate-lfm26b-base-v1>),
+carries the archive (1,674,466,090 B, sha256 `e299b921…`, STORED, one entry per
+file: `LFM2.5-2.6B-Base.Q4_K_M.gguf` 1,674,454,080 B sha256 `bff5a730…`, the model's
 `LICENSE` and a `SOURCE-OFFER.txt` pointing at the upstream model and quant — the
-convention the shipped pack follows), but until it is uploaded the option's Download
-row can only fail, and the shipped engine stays the only usable one. The owner owns that
-upload (the repo's packs are self-hosted; the model's licence permits redistribution with
-the licence text, exactly as the shipped pack does).
+convention the shipped pack follows). The tag does not match the CI `v*` gate, exactly
+like `translate-lfm12b-v1`.
 
-**Verification state at this entry.** JVM lanes green (`core-translate`, `core-player`,
-`core-persistence`, `feature-player`, `feature-settings`, `feature-library`, `core-ui`,
-`app` unit tests), `:app:compileDebugKotlin` and the instrumented-test compilation green.
-NOT yet device-verified end-to-end: the download+stage+switch path needs the published
-asset, so the honest device pass is the owner's next step with it (or a debug-variant
-install, which would wipe the release app's data — not taken).
+**Verification.** JVM lanes green (`core-translate`, `core-player`, `core-persistence`,
+`feature-player`, `feature-settings`, `feature-library`, `core-ui`, `app` unit tests),
+`ktlintCheck` green, `:app:compileDebugKotlin` + instrumented-test compilation green.
+
+**Device-verified 2026-09-20**, debug build on the S22, the new
+`LfmTranslateE2eTest#secondEngineStagesAndTheRuntimeFollowsTheSelection` (logcat tag
+`LfmE2e`): the pack came off the published release (`download outcome=Ready`, i.e. the
+pin's sha256/size verified), staged into its own root
+(`files/translate-lfm26b/LFM2.5-2.6B-Base.Q4_K_M.gguf`, 1,674,454,080 B), the runtime
+translated with it selected, and both selection invariants held —
+`failure=translation pack not ready (LFM2.5-1.2B (read-in-language))` when the setting
+pointed at the unstaged shipped engine (no cross-engine bundle use), then a working
+re-open of the staged engine on the switch back. Test time 114.6 s including the
+1.67 GB download.
+
+The phone's app data was preserved across the debug install: the release app's own
+Backup export (Settings → Backup & restore, with "Include book files") to
+`/sdcard/Books/ayvu-0.1.3-pree2e.zip` (a copy on the host), then the release 0.1.3 APK
+reinstalled and the archive restored through the same screen —
+"Restored 1 books, 0 bookmarks, 1 resume points", the library row back at its 4% resume
+point. Downloaded packs are not part of the archive, so they were re-fetched on the
+device afterwards (Kokoro model/voices/espeak + the shipped translate pack, all
+"ready · installed"); the old audio cache went with the uninstall and will regenerate on
+playback.
 
 ## 181. translategemma-4b is better prose and is not adopted: too slow, too big for realtime (2026-09-18, owner)
 
