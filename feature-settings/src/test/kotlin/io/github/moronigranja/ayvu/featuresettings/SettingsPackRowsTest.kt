@@ -34,7 +34,7 @@ import java.io.File
  * the registered engines' [EngineDescriptor]s — no hardcoded id lists — so
  * piper-v1's rows appear with no settings-surface edit, and the degraded
  * system voice shows the open-weight upgrade path. The OCR subpane derives
- * its language rows from the tess-two descriptor the same way.
+ * its language rows from the OCR engine descriptor the same way.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsPackRowsTest {
@@ -76,7 +76,7 @@ class SettingsPackRowsTest {
     }
 
     /** The real engine descriptors (kokoro + piper + gated CosyVoice3) plus
-     * the tess-two OCR language packs — the exact registry shape the app
+     * the OCR language packs — the exact registry shape the app
      * wires in PackModule. */
     private fun viewModel(dao: FakeSettingsDao): SettingsViewModel {
         val registry =
@@ -144,7 +144,7 @@ class SettingsPackRowsTest {
         }
 
     @Test
-    fun `ocr rows derive from the tess-two descriptor`() =
+    fun `ocr rows derive from the OCR engine descriptor`() =
         runTest(dispatcher) {
             val vm = viewModel(FakeSettingsDao())
             backgroundScope.launch { vm.state.collect {} }

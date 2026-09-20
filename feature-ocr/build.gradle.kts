@@ -38,9 +38,11 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    // tess-two 9.1.0: Tesseract 4.0 (LSTM) + Leptonica for Android, ships
-    // arm64/x86 natives in the AAR — the only module that sees tess-two.
-    implementation("com.rmtheis:tess-two:9.1.0")
+    // Tesseract4Android 4.9.0 (Tesseract 5.5.1 + Leptonica, arm64/x86 natives in
+    // the AAR, JitPack distribution) — the maintained successor to the retired
+    // pre-LSTM tess-two 9.1.0; the only module that sees the OCR binding
+    // (decisions #186). Same package/API shape as tess-two.
+    implementation(libs.tesseract4android)
 
     implementation(project(":core-ocr"))
     // TtsPack/PackCache types (the pack machinery lives in core-tts); the

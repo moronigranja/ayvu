@@ -10,6 +10,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Tesseract4Android (the Tesseract 5 OCR binding, decisions #186) is
+        // distributed by JitPack only — scoped to its group so no other
+        // dependency can come from there.
+        maven("https://jitpack.io") {
+            content { includeGroup("cz.adaptech.tesseract4android") }
+        }
     }
 }
 

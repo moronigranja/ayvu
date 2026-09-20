@@ -7,7 +7,7 @@ import android.graphics.Paint
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import io.github.moronigranja.ayvu.featureocr.TessTwoOcrEngine
+import io.github.moronigranja.ayvu.featureocr.TesseractOcrEngine
 import io.github.moronigranja.ayvu.featureshare.ImageDecoder
 import io.github.moronigranja.ayvu.featureshare.ShareInput
 import io.github.moronigranja.ayvu.featureshare.ShareResolution
@@ -29,14 +29,14 @@ import java.io.File
 
 /**
  * S2 on-device verification: the real pipeline against the real index and
- * the real tess-two engine. The text branch resolves a shared quote; the
+ * the real Tesseract engine. The text branch resolves a shared quote; the
  * image branch renders the quote to a bitmap, decodes it through
  * [ImageDecoder] (the same code the share activity runs), and resolves the
  * OCR text back to the book passage.
  *
  * Constructed manually (no Hilt harness — the app's @HiltAndroidApp bypass
  * needs a test-manifest override this AGP setup doesn't apply); the pieces
- * are the app's own: tess-two engine + stager path, core-ocr downscaler,
+ * are the app's own: Tesseract engine + stager path, core-ocr downscaler,
  * TextIndex + IndexRebuilder + the S2 resolver. Threshold/languages default
  * to the V1 settings defaults (0.6 / "eng").
  *
@@ -83,7 +83,7 @@ class SharePipelineInstrumentedTest {
                 ),
             ),
         )
-        val ocr = TessTwoOcrEngine(TessDataStager.tesseractDataPath(context.filesDir))
+        val ocr = TesseractOcrEngine(TessDataStager.tesseractDataPath(context.filesDir))
         return ShareSnippetResolver(
             index = index,
             rebuildGate = gate,

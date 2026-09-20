@@ -19,7 +19,7 @@ the change.
 - **Behaviour coverage.** Host-testable behaviour is covered by a test that fails
   without the change (conventions.md §Definition of done). Neither half is absolute:
   `core-model`'s store contract and `core-llm`'s prompt shape got their first tests in
-  the 2026-09-15 cleanup (decisions #163), while `feature-ocr` (tess-two native init) and
+  the 2026-09-15 cleanup (decisions #163), while `feature-ocr` (Tesseract native init) and
   `spike-tts` (device benchmarks) have no host-testable surface, and there is no coverage
   *metric* yet — the cleanup's verification-floor pass adds per-module floors at today's
   numbers rather than a target percentage.
@@ -31,7 +31,7 @@ core-model      canonical domain: Book(id, title, authors, chapters), Chapter, T
 core-ebook      EBookParser + EBookFormats + EpubParser/MobiParser → Book;
                 BookSegmentation (grain, front/back matter); BookImporter (parse→segment→index)
 core-locate     TextIndex, TextMatcher, TextNormalizer, MatchResult; IndexRebuilder (launch-time sync)
-core-ocr        (live) tess-two behind OcrEngine/TessTwoOcrEngine + stager; six pinned legacy-traineddata packs (#36)
+core-ocr        (live) Tesseract behind OcrEngine/TesseractOcrEngine + stager; six pinned tessdata_fast 4.1.0 LSTM packs (#186)
 core-tts        (live) TTSEngine interface + pack registry; model/language-pack download, verify + caching
 core-player     (live) v1 player state machine: transport, transactional writes, ring, sleep timer, bookmarks; PlayerStore contract; A5 single-writer command model (generations); PregenQueue + PregenPlanner + PregenKey, PcmPassageCache (A4 LRU), PregenStorage façade; read-in display projection (ChapterDisplay) + TranslationService/TranslationTarget (#166)
 core-persistence (live) Room v4: books, cached passages, progress (offset+speed), settings, bookmarks, position_history, activity_seconds (#157), translations (#166); LibraryStore + PlayerStore impls; ImportCoordinator/IndexLock boundary (A3); BackupStore snapshot/merge + BookFileStore sidecars (E1, #111)
@@ -41,7 +41,7 @@ core-translate  (live) read-in-language seam (#114/#160/#162/#182): TranslatingE
 core-llm        (live, android.library + vendored native) the translate runtime's native leg (#162): llama.cpp pinned by tools/fetch-llama-cpp.sh into the gitignored build/llama.cpp-src, AGP externalNativeBuild (arm64-v8a only), LlamaTranslator (JNI session, single-flight, greedy) — opens the SELECTED engine's staged GGUF; consumed by feature-player
 feature-library (live) SAF import + library list UI (Compose, Hilt) — C5/C6, F2 search (#90), F3 folder import via SAF tree (root + one level, 200-file cap, #108); row pre-gen action + usage/estimate/delete
 feature-player (live, T4-2) PlaybackService (MediaSession, focus, foreground) + docked read-along ReaderScreen; PregenWorker/PregenManager single-mode manual pre-gen
-feature-ocr     (live) TessTwoOcrEngine (tess-two 9.1.0) + TessDataStager + Hilt; legacy-traineddata packs (#36)
+feature-ocr     (live) TesseractOcrEngine (Tesseract4Android 4.9.0) + TessDataStager + Hilt; LSTM packs (#186)
 feature-settings (live) settings screen, packs download UI, voice picker + favorites, offline-audio section, "Backup & restore" SAF export/import (E1, #111)
 feature-share   (live) ACTION_SEND gateway (text+image), typed resolver, found/not-found UX, OpenTarget + listen-from-here
 app             (live) Hilt composition root (app.di owns shared infrastructure, A6): PersistenceModule, import-core providers, OcrModule, BackupModule (BookFileStore + BackupStore, E1); first-run SetupScreen (C1, voice-step dropdown #112; engine-aware required packs + engine radio #159); MainActivity → LibraryScreen; checkFeatureBoundaries rejects feature-* → feature-* edges
@@ -121,7 +121,7 @@ shared snippet → normalize → word n-grams → recall vs every indexed passag
   cached parses by `IndexRebuilder` — never re-parses a source file; mirror-set
   semantics (ids absent from the cache are purged), idempotent under concurrent
   imports (P2).
-- OCR (live, core-ocr): tess-two behind `OcrEngine` (`TessTwoOcrEngine`), languages downloadable
+- OCR (live, core-ocr): Tesseract behind `OcrEngine` (`TesseractOcrEngine`), languages downloadable
   (`eng+spa+fra+deu+por+ita` start), screenshot downscale; feeds the same snippet path
   (S1 shipped, #36).
 

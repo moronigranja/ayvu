@@ -26,6 +26,19 @@ class TrainedDataPacksTest {
         assertEquals(ids.size, ids.distinct().size)
     }
 
+    /** A re-pin is only valid as a whole: every URL must come from the same
+     *  `tessdata_fast` release the SHA-256 table in the descriptor was measured
+     *  against, or a mixed pin would verify the wrong bytes. */
+    @Test
+    fun `every url comes from the pinned tessdata_fast release`() {
+        for (pack in TrainedDataPacks.all) {
+            assertTrue(
+                pack.url.startsWith("https://github.com/tesseract-ocr/tessdata_fast/raw/${TrainedDataPacks.RELEASE}/"),
+                "${pack.id} url: ${pack.url}",
+            )
+        }
+    }
+
     @Test
     fun `engine spec advertises the six languages`() {
         assertEquals(TrainedDataPacks.all.map { it.id }.toSet(), TrainedDataPacks.spec.languages)

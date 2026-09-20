@@ -12,7 +12,7 @@ this app. The app identifies which book + chapter/passage the shared text came f
 - **Matches only books already imported/indexed in the app.** The share feature can only
   recognize books the user has loaded. This is by design (no cloud text DB).
 - Reflowable content ⇒ identify **chapter/passage**, not physical pages.
-- **OCR is fully open-source: tess-two (Tesseract on Android). Not Google ML Kit.**
+- **OCR is fully open-source: Tesseract 5 (Tesseract4Android, decisions #186). Not Google ML Kit.**
 - **Multilingual OCR — languages `eng+spa+fra+deu+por+ita` to start** (English, Spanish,
   French, German, Portuguese, Italian). All roman-alphabet, all supported by Tesseract.
   More languages ⇒ slower OCR + larger app + marginally lower per-language accuracy. No
@@ -23,7 +23,7 @@ this app. The app identifies which book + chapter/passage the shared text came f
 ```
 Share (text or image)
   → ShareReceiver (ACTION_SEND) extracts payload
-  → image → OCRService (tess-two) → text;  text/plain → as-is
+  → image → OCRService (Tesseract) → text;  text/plain → as-is
   → TextIndex.query(snippet, minConfidence) → MatchResult(bookId, bookTitle, chapterIndex, chapterTitle, passageIndex, confidence)?
   → "Found: book · chapter · passage" + "Start listening here"  (player wiring = next slice)
 ```
@@ -65,10 +65,10 @@ segmentation, and `BookImporter` in `core-ebook` (50 tests), plus the SAF import
 library UI in `feature-library` (7 unit tests, Hilt, verified in the Docker toolchain) —
 **98 tests total** across the repo. Persistence is live (P1/P2): `LibraryStore`
 contract in core-model, Room-backed store in `core-persistence`, and `TextIndex` is
-rebuilt at launch from the cached parses — never re-parsed. OCR (`tess-two`) and the
+rebuilt at launch from the cached parses — never re-parsed. OCR (Tesseract) and the
 `ShareReceiver` are the remaining Android components (roadmap S1/S2) — designed here,
 verified on-device later; player-resume wiring is the slice after that.
 
 **Recorded decisions.** Default confidence threshold **0.6, configurable in settings**;
-OCR = tess-two, `eng+spa+fra+deu+por+ita`, roman-alphabet curated set; slice = match
+OCR = Tesseract 5, `eng+spa+fra+deu+por+ita`, roman-alphabet curated set; slice = match
 core + index + share receiver, text + OCR; import pipeline must also index each book.

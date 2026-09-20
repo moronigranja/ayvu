@@ -9,7 +9,7 @@ package io.github.moronigranja.ayvu.ocr
  * already be installed (the settings UI owns the downloads); engines treat an
  * unknown language as a failed pass rather than a silent empty result.
  *
- * Implementations live behind this core: a tess-two adapter on Android
+ * Implementations live behind this core: the Tesseract adapter on Android
  * (feature-ocr), fakes/alternates in tests and tooling.
  */
 interface OcrEngine {

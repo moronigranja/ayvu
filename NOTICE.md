@@ -15,8 +15,10 @@ components (revisited at each release — decisions #126):
 - **llama.cpp / ggml** (native libs bundled via `core-llm`, vendored at commit
   `b75ecd1971bf2d3f29d5d334520868a01942cbc6` by `tools/fetch-llama-cpp.sh`) —
   MIT License — <https://github.com/ggml-org/llama.cpp>
-- **tess-two 9.1.0** (Android AAR with arm64-v8a natives, via `feature-ocr`) —
-  Apache-2.0 — <https://github.com/rmtheis/tess-two>
+- **Tesseract4Android 4.9.0** (Android AAR with Tesseract 5.5.1 + Leptonica
+  natives, via `feature-ocr`, from JitPack) — Apache-2.0 —
+  <https://github.com/adaptech-cz/tesseract4android> (the maintained successor
+  to tess-two, Apache-2.0, <https://github.com/rmtheis/tess-two>)
 - **Jetpack Compose / Material 3 / Room / Hilt / WorkManager,
   kotlinx-coroutines, Kotlin stdlib** — Apache-2.0 (per the AndroidX and
   Kotlin project licenses)
@@ -76,9 +78,9 @@ third-party repositories:
   `it_IT-serena-medium` (CC-BY-4.0, attribution: Serena dataset):
   <https://huggingface.co/rhasspy/piper-voices>
 - **Tesseract OCR** data (tessdata, one file per OCR language) — Apache-2.0 — served
-  from the upstream `tesseract-ocr/tessdata` repository (tag `3.04.00`, legacy
-  non-LSTM models; see the README's OCR limitation):
-  <https://github.com/tesseract-ocr/tessdata>
+  from the upstream `tesseract-ocr/tessdata_fast` repository (tag `4.1.0`, LSTM
+  models for the Tesseract 5 engine):
+  <https://github.com/tesseract-ocr/tessdata_fast>
 
 Every pack is SHA-256-verified against a value pinned in the source before it is used.
 Because some of the hosts are third-party repositories, a deleted or re-tagged

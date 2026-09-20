@@ -41,6 +41,28 @@ class TessDataStagerTest {
     }
 
     @Test
+    fun `the pre-LSTM generation is never staged and is reclaimed on the next stage run`() {
+        val filesDir = File(tempDir, "files").also { it.mkdirs() }
+        // What 0.1.x left on disk: a legacy 3.04.00 model exactly where the old
+        // binding read it, plus the retired engine's pack-cache artifacts.
+        val retiredStaged = File(filesDir, "tesseract/tessdata").also { it.mkdirs() }
+        File(retiredStaged, "eng.traineddata").writeText("legacy model")
+        val retiredCache = File(File(tempDir, "packs"), TrainedDataPacks.RETIRED_ENGINE_ID).also { it.mkdirs() }
+        File(retiredCache, "eng").writeText("legacy artifact")
+
+        val verified = verifyArtifact(tempDir, MODEL_BYTES)
+        assertFalse(
+            TessDataStager.isStaged(filesDir, verified.pack),
+            "a legacy-generation file must never read as a staged pack",
+        )
+
+        assertTrue(runBlocking { TessDataStager.stage(filesDir, verified.cache, verified.pack) })
+        assertFalse(retiredStaged.exists(), "the retired staging directory is reclaimed")
+        assertFalse(retiredCache.exists(), "the retired engine's cached artifacts are reclaimed")
+        assertTrue(TessDataStager.isStaged(filesDir, verified.pack))
+    }
+
+    @Test
     fun `a cancelled copy leaves no staged file and keeps the previous model`() {
         val filesDir = File(tempDir, "files").also { it.mkdirs() }
         val verified = verifyArtifact(tempDir, MODEL_BYTES)
@@ -82,7 +104,7 @@ class TessDataStagerTest {
         val pack =
             TtsPack(
                 id = "eng",
-                engineId = "tess-two",
+                engineId = TrainedDataPacks.ENGINE_ID,
                 kind = PackKind.LANGUAGE,
                 displayName = "English",
                 url = "https://example.com/eng.traineddata",

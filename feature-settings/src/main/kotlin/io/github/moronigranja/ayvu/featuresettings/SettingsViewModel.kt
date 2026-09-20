@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.moronigranja.ayvu.model.LibraryStore
 import io.github.moronigranja.ayvu.ocr.TessDataStager
+import io.github.moronigranja.ayvu.ocr.TrainedDataPacks
 import io.github.moronigranja.ayvu.ops.OperationRunner
 import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.persistence.SettingsStore
@@ -42,7 +43,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
 
-internal const val TESS_ENGINE_ID = "tess-two"
+internal const val TESS_ENGINE_ID = TrainedDataPacks.ENGINE_ID
 
 data class PackRow(
     val packId: String,
@@ -52,7 +53,7 @@ data class PackRow(
     val status: PackStatus,
     val progress: Double? = null, // 0..1 while downloading
     val error: String? = null,
-    val staged: Boolean = false, // tessdata copied into the tess-two data dir
+    val staged: Boolean = false, // tessdata copied into the engine's data dir
 )
 
 /**
@@ -117,7 +118,7 @@ data class SettingsUiState(
  * theme, OCR language selection. All writes go through [AppSettings]
  * (playback hot-path mirror); downloads go through the [PackRegistry]
  * (explicit, resumable, verified — decision #7); staged tess data is copied
- * into the tess-two data dir after each language download.
+ * into the OCR engine's data dir after each language download.
  *
  * C2: [voiceAudition] is the composition-root coordinator — one sample at a
  * time, narration-safe via [PlayerCommands]. Defaulted null so the pure-JVM

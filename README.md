@@ -28,7 +28,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `core-player` | Player state machine, transactional progress + bookmarks + undo ring, sleep timer, speed; T5 pre-generation queue + PCM cache |
 | `core-translate` | Read-in-language seam: `TranslatingEngine` TTSEngine decorator (degrades to the original on any failure), language surface, engine registry (shipped LFM2.5-1.2B + selectable LFM2.5-2.6B-Base, one pack descriptor + staged bundle each) + stager; model-agnostic (a suspend lambda), with the selected engine named on every target |
 | `core-backup` | Versioned v1 SAF backup archive: codec + DTOs — consumed by persistence + settings (E1) |
-| `core-ocr` | OCR engine seam, screenshot downscaler, six pinned legacy-traineddata packs (tess-two 9.1.0 can't init LSTM models — decisions #36) |
+| `core-ocr` | OCR engine seam, screenshot downscaler, six pinned `tessdata_fast` 4.1.0 LSTM packs (Tesseract 5 — decisions #186) |
 
 **Live modules (Android, Docker toolchain):**
 
@@ -40,7 +40,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `core-llm` | The translate runtime's native leg: llama.cpp vendored into a gitignored build dir by `tools/fetch-llama-cpp.sh` + AGP `externalNativeBuild` (arm64-v8a only), and `LlamaTranslator` (JNI session, single-flight, greedy) |
 | `feature-settings` | Settings screen (root + Speech subscreen, Android-settings-style panes): engine/voice/OCR pack downloads (engine-agnostic rows), voice picker + favorites (collapsible by language, display names + upstream grades, decisions #143), match threshold, OCR languages, theme, offline pre-generation audio, playback volume, synthesis thread count, backup & restore (SAF export/import), About (version, in-app Licences viewer for the bundled GPL-3.0 + NOTICE texts, GPL-3.0 source link, NOTICE, privacy); Android HTTP transport |
 | `feature-share` | ACTION_SEND gateway (text + image, plus F4 book-file routing to the import gateway), typed resolver (found / not-found with closest hint), OpenTarget contract |
-| `feature-ocr` | TessTwoOcrEngine (tess-two 9.1.0) + tessdata stager, Hilt wiring |
+| `feature-ocr` | TesseractOcrEngine (Tesseract4Android 4.9.0 / Tesseract 5.5.1) + tessdata stager, Hilt wiring |
 | `feature-player` | PlaybackService (MediaSession, audio focus, foreground notification) + docked read-along ReaderScreen with sentence highlighting, pre-generation wiring |
 | `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
@@ -113,9 +113,9 @@ fingerprint published with the release, and see
   decisions #162, with a better-reading LFM2.5-2.6B-Base option selectable beside it,
   decisions #182) is live and wired into app, feature-settings, feature-library and
   feature-player.
-- **OCR engine:** tess-two 9.1.0's native build is pre-LSTM, so the pinned language
-  packs are legacy 3.04.00 tessdata (decisions #36) — accuracy upgrade waits on a
-  maintained binding.
+- **OCR engine:** Tesseract 5.5.1 (Tesseract4Android 4.9.0, decisions #186) with
+  `tessdata_fast` 4.1.0 LSTM packs — the pre-LSTM tess-two 9.1.0 binding and its
+  legacy 3.04.00 packs are gone (#36).
 
 ## Capabilities
 
@@ -156,7 +156,7 @@ feature-library/   SAF + external-file import with in-library overlay, library U
 feature-player/    playback service + reader UI
 feature-settings/  settings UI + pack downloads
 feature-share/     ACTION_SEND gateway + resolver
-feature-ocr/       tess-two adapter + stager
+feature-ocr/       Tesseract adapter + stager
 app/          Hilt composition root (Library / Reader / Settings routes)
 spike-tts/    measurement harnesses (benchmark, grain spike, device spikes)
 tools/        docker-build.sh (containerized Android toolchain), gen_mobi_fixtures.py

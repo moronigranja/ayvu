@@ -14,6 +14,9 @@ kotlinx-coroutines-test = "1.11.0"
 kotlinx-serialization-json = "1.11.0"
 onnxruntime = "1.29.0"
 jna = "5.17.0"
+# Tesseract 5 for Android (Tesseract4Android; JitPack-only distribution) —
+# the OCR binding, decisions #186.
+tesseract4android = "4.9.0"
 room = "2.8.4"
 robolectric = "4.16.1"
 junit4 = "4.13.2"
@@ -48,6 +51,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 onnxruntime-jvm = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = "onnxruntime" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+tesseract4android = { module = "cz.adaptech.tesseract4android:tesseract4android", version.ref = "tesseract4android" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

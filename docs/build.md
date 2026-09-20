@@ -738,7 +738,7 @@ tools/docker-build.sh assembleDebug      # full APK
 ```
 
 - `Dockerfile` bakes in JDK 21, command-line tools, `platforms;android-36`,
-  `build-tools;36.0.0` and `ndk;27.2.12479018` (NDK is required by tess-two in
+  `build-tools;36.0.0` and `ndk;27.2.12479018` (NDK is required by the OCR binding in
   core-ocr later). Bump pins when the toolchain moves.
 - `tools/docker-build.sh` runs any Gradle task in the image with `android-gradle` /
   `android-local` volumes for caches (mounted at `/builder/.gradle` and
@@ -820,14 +820,19 @@ adb shell "run-as io.github.moronigranja.ayvu sh -c \\
 Stage the OCR/import test data alongside the packs (S1/S-debug):
 
 ```bash
-adb push ~/.cache/local-tts-reader/tessdata/eng.traineddata /data/local/tmp/eng.traineddata
+# the pinned pack (tessdata_fast 4.1.0 eng, 4.1 MB; URLs/sizes/SHAs live in
+# core-ocr TrainedDataPacks — decisions #186)
+curl -L -o /tmp/eng.traineddata \
+  https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata
+adb push /tmp/eng.traineddata /data/local/tmp/eng.traineddata
 # a real epub (e.g. Gutenberg pg1342-images.epub) for the import probe:
 adb push pp.epub /data/local/tmp/pp.epub
 # an entity-laden real epub (decisions #53: XML-valid &amp; in OPF metadata) for the second probe case:
 adb push nmmng.epub /data/local/tmp/nmmng.epub
+# the staged dir is the versioned engine data path (TessDataStager.tesseractDataPath)
 adb shell "run-as io.github.moronigranja.ayvu sh -c \
-  'mkdir -p files/tesseract/tessdata files/import-probe && \
-   cp /data/local/tmp/eng.traineddata files/tesseract/tessdata/eng.traineddata && \
+  'mkdir -p files/tesseract/fast-4.1.0/tessdata files/import-probe && \
+   cp /data/local/tmp/eng.traineddata files/tesseract/fast-4.1.0/tessdata/eng.traineddata && \
    cp /data/local/tmp/pp.epub files/import-probe/pp.epub && \
    cp /data/local/tmp/nmmng.epub files/import-probe/nmmng.epub'"
 ```

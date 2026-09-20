@@ -65,7 +65,7 @@ class PackRegistry(
 
     /**
      * Bumped after each staged pack. Surfaces that derive readiness from the
-     * filesystem (espeak-ng lib+data, the tess-two data dir, the translate
+     * filesystem (espeak-ng lib+data, the OCR engine's data dir, the translate
      * bundle) need that re-evaluation, and staging changes no [packs] entry —
      * the pack is already `Ready` — so nothing else would re-emit.
      */

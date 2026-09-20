@@ -4,6 +4,77 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 186. OCR binding: tess-two → Tesseract4Android 4.9.0, packs re-pinned to tessdata_fast 4.1.0 (2026-09-20, owner)
+
+Owner picked the OCR slice from the scoping report (`agent://OcrScope`). The
+register's oldest open row (#36/#37 consequence: "LSTM models via a maintained
+binding when accuracy demands it") is now addressed.
+
+**The swap.** `com.rmtheis:tess-two:9.1.0` (a pre-LSTM Tesseract build,
+unmaintained — its own README points to the successor) → `cz.adaptech
+.tesseract4android:tesseract4android:4.9.0` (Tesseract **5.5.1** + Leptonica
+1.85.0, Apache-2.0, the only maintained Tesseract-5 Android binding; scout:
+941★, last commit 2026-02; AAR 12.8 MB all-ABI, arm64 natives ≈ 7.6 MB, built
+with LSTM support). Distribution is **JitPack only** (Maven Central 404 for that
+group; both JitPack paths were byte-compared identical). Accepted tradeoff: a
+second repository, scoped by `content { includeGroup(...) }` in
+`settings.gradle.kts`, version-pinned in the catalog (`libs.tesseract4android`
+— this also discharges the "catalog bypass" review finding for this dep). The
+AAR keeps tess-two's `com.googlecode.tesseract.android` package and API shape,
+so `TesseractOcrEngine` (renamed from `TessTwoOcrEngine`) is unchanged except
+the teardown call — `recycle()` is the documented one; `end()` is gone.
+
+**The packs.** Legacy `tesseract-ocr/tessdata` 3.04.00 (88 MB for six) →
+**`tesseract-ocr/tessdata_fast` tag 4.1.0** LSTM models (**13.1 MiB** for six;
+eng 4.1 MB vs 21.9 MB). Sizes and SHA-256s were measured on the host by
+downloading all six once (never fabricated; table in `TrainedDataPacks`) and a
+test pins that every URL comes from the same release the SHA table was measured
+against. Accuracy tier: `fast` (distro-standard, matches this app's size
+discipline); `best` (55.9 MiB) stays the documented alternative if accuracy
+proves short after the device pass — a one-line re-pin.
+
+**Engine identity + storage layout.** `ENGINE_ID` moved `tess-two` →
+`tesseract` (pack-cache namespace + registry key; the settings constant now
+aliases the descriptor instead of duplicating the literal). The staged data path
+is **versioned by pack tier and release** — `files/tesseract/fast-4.1.0/tessdata/`
+— because the OCR path is invoked with the user's configured languages without a
+stagedness check (`ShareSnippetResolver.extractText`), so a same-name legacy file
+left in `files/tesseract/tessdata/` would otherwise be served to a Tesseract 5
+engine. `TessDataStager.stage()` reclaims the retired generation once (the old
+staging directory and `packs/tess-two/` — bytes no UI can free), pinned by a
+test that also asserts a legacy-generation file never reads as staged.
+
+**Not taken:** ML Kit (Google ToS + GMS artifacts), RapidOCR/PP-OCR on the
+already-shipped ORT (Apache-2.0, ≈30 MB, but owning det+CTC+reading-order code
+is ~4–6 weeks and per-language packs collapse into one multilingual model),
+docTR/EasyOCR (no first-class Android runtime). Re-entry condition for the ONNX
+path: Tesseract 5 accuracy proven insufficient on the device pass.
+
+**Verification.** Host: ktlint + the full JVM lane (`:core-ocr:test` including the
+two new tests, `:feature-settings:test`, `:app:testDebugUnitTest`), and the app
+debug APK built against the JitPack artifact.
+
+Device (Android 16, x86_64 emulator, debug build — the OCR natives are present
+for the emulator ABI): with a hand-planted legacy generation on disk
+(`files/tesseract/tessdata/eng.traineddata` + `files/packs/tess-two/eng`), the
+settings OCR pane downloaded English and reported **ready · installed**; the
+staged file at `files/tesseract/fast-4.1.0/tessdata/eng.traineddata` hashes to
+`7d4322bd…` — the pinned value, byte-identical to the host download — the marker
+reads `verified:7d4322bd…`, and **both retired directories are gone**
+(`files/tesseract/tessdata/`, `files/packs/tess-two/`) — the reclaim ran in the
+real app. `OcrSmokeInstrumentedTest` passes against those app-downloaded bytes
+(rendered glyphs read as "HELLO WORLD 123") and `SharePipelineInstrumentedTest`
+(2 tests) passes with the real engine, and logcat pins the engine that came up:
+`tesseract 5.5.1 engineMode=1` (1 = LSTM-only) under the versioned data path —
+the exact thing #36 recorded failing. The smoke fixture needed one honest fix: at
+1200 px the trailing glyph was clipped off the canvas (Tesseract 5 read "12:";
+the retired legacy engine's "123" was a guess off the sliver) — the canvas is
+wider now, assertion unchanged.
+
+Remaining: the same smoke on an **arm64 device** (the S22) lands with the next
+release install; the staged-model recipe in `build.md` is updated to the
+versioned path.
+
 ## 185. Bookmark jumps keep their offset; the line-break defect was mis-recorded (2026-09-20, owner)
 
 Owner picked two bugs to fix from the register's open list, plus scoping for the OCR
@@ -6960,6 +7031,12 @@ Consequences/tuning found on the S22:
     invocation anyway, decision #34).
 Open: LSTM models via a maintained binding when accuracy demands it — the only
 remaining #36 item (S2/S3 shipped, #37/#38).
+**Amended 2026-09-20: resolved (decisions #186).** The maintained binding is
+Tesseract4Android 4.9.0 (Tesseract 5.5.1, LSTM-only), and the packs are re-pinned
+to `tessdata_fast` 4.1.0 (4.1 MB eng vs the legacy 21.9 MB). tess-two 9.1.0 and
+the legacy 3.04.00 pins are gone from the build; the staged-data path is
+versioned by pack tier+release and the retired generation's bytes are reclaimed
+on the next staging run.
 
 ## 35. T5-core: pre-generation queue + cache keying (2026-08-26)
 The in-v1 pre-generation core (roadmap T5) lands in `core-player` — pure JVM,

@@ -2,7 +2,7 @@ package io.github.moronigranja.ayvu.ocr
 
 /**
  * Screenshot downscale (S1): phones share display-resolution rasters
- * (1440×3088 on the S22) — far too many pixels for tess-two's speed or its
+ * (1440×3088 on the S22) — far too many pixels for Tesseract's speed or its
  * text-line segmentation. Bilinear resize to a cap on the long side (default
  * 1600 px ≈ 180–300 dpi for typical page screenshots), single pass, one
  * output buffer, per-channel ARGB interpolation with edge clamping.

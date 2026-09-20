@@ -932,7 +932,10 @@ player state machinery.
 
 ### Targeted follow-up reviews
 
-- OCR replacement technology for the known legacy-tessdata accuracy ceiling.
+- ~~OCR replacement technology for the known legacy-tessdata accuracy ceiling.~~
+  Landed 2026-09-20 (decisions #186): Tesseract4Android 4.9.0 + `tessdata_fast`
+  4.1.0 LSTM packs; the `best` tier stays available if the device pass shows
+  accuracy short.
 - Library metadata: series, author normalization, duplicate editions and sorting.
 - A privacy-preserving local diagnostic export containing versions, pack/storage state
   and typed failures, never book text.
