@@ -27,7 +27,9 @@ ebooks and listen to them narrated on-device. No account, no telemetry, no cloud
 - Unminified signed release build, **≈52 MB**; the signing key is stable, so it installs
   straight over 0.1.1/0.1.2 with your library, progress, bookmarks and settings kept.
 - No in-app update check: watch this repository's Releases page.
-- Shipped `Ayvu-0.1.3.apk`, <size> B, `sha256 <digest>`; signer `a5057984…` (CN=Ayvu).
+- Shipped `Ayvu-0.1.3.apk`, 51,837,070 B,
+  `sha256 6e664d42c7d9f9214f7af38499c9ff93e532e0ed82cb7e802e3f9fa6ac8427f2`;
+  signer `a5057984…` (CN=Ayvu) — the same certificate as 0.1.1/0.1.2.
 
 ## First run
 
