@@ -40,6 +40,11 @@ class RoomTranslationStore(
         )
     }
 
+    override suspend fun countsByLanguage(
+        bookId: String,
+        translator: String,
+    ): Map<String, Int> = database.translationDao().countsByLanguage(bookId, translator).associate { it.lang to it.count }
+
     override suspend fun chapter(
         bookId: String,
         chapter: Int,

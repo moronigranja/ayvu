@@ -39,4 +39,17 @@ interface TranslationDao {
     /** One-shot read of every row — the backup snapshot source (E1). */
     @Query("SELECT * FROM translations")
     suspend fun all(): List<TranslationEntity>
+
+    /** One row per language with stored translations for [translator]. */
+    @Query("SELECT lang, COUNT(*) AS count FROM translations WHERE bookId=:bookId AND translator=:translator GROUP BY lang")
+    suspend fun countsByLanguage(
+        bookId: String,
+        translator: String,
+    ): List<LanguageCount>
 }
+
+/** One row per language with stored translations for a translator. */
+data class LanguageCount(
+    val lang: String,
+    val count: Int,
+)

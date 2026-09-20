@@ -87,7 +87,8 @@ class SettingsStore(
      */
     suspend fun bookTranslate(bookId: String): String? = settingsDao.get(bookTranslateKey(bookId))?.takeIf { it.isNotBlank() }
 
-    /** Writes or clears [bookId]'s translate target (null clears — "Off"). */
+    /** Writes or clears [bookId]'s translate target (null clears — the
+     * original language). */
     suspend fun setBookTranslate(
         bookId: String,
         targetLang: String?,

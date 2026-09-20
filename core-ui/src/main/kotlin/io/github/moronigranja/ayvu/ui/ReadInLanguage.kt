@@ -97,8 +97,11 @@ fun languageLabel(code: String): String =
 private const val OFF_ID = "__off__"
 private const val AUTO_ID = "__auto__"
 
+/** The unset option of both target dropdowns: the book's own language. */
+private const val OFF_LABEL = "Original language"
+
 /**
- * Rows: "Off" + one per [ReadInLanguageUiState.languages]; selecting persists
+ * Rows: "Original language" + one per [ReadInLanguageUiState.languages]; selecting persists
  * the per-book target (null = off). When the ACTIVE translate engine's pack is
  * not verified an inline download row with progress takes the action instead —
  * selecting a language before the pack exists would only degrade silently. The
@@ -140,9 +143,9 @@ fun ReadInLanguagePicker(
         if (displaySelect != null) {
             LabeledDropdown(
                 label = "Show translation in",
-                selectedLabel = state.displayTarget?.let(::languageLabel) ?: "Off",
+                selectedLabel = state.displayTarget?.let(::languageLabel) ?: OFF_LABEL,
                 options =
-                    listOf(DropdownOption(OFF_ID, "Off")) +
+                    listOf(DropdownOption(OFF_ID, OFF_LABEL)) +
                         state.languages.map { DropdownOption(it, languageLabel(it)) },
                 onSelect = { id -> displaySelect(id.takeUnless { it == OFF_ID }) },
                 modifier = Modifier.padding(bottom = AyvuSpacing.SM),
@@ -177,9 +180,9 @@ fun ReadInLanguagePicker(
         val speechRows = state.speechLanguages ?: state.languages
         LabeledDropdown(
             label = "Read aloud in",
-            selectedLabel = state.target?.let(::languageLabel) ?: "Off",
+            selectedLabel = state.target?.let(::languageLabel) ?: OFF_LABEL,
             options =
-                listOf(DropdownOption(OFF_ID, "Off")) +
+                listOf(DropdownOption(OFF_ID, OFF_LABEL)) +
                     speechRows.map { DropdownOption(it, languageLabel(it)) },
             onSelect = { id -> onSelect(id.takeUnless { it == OFF_ID }) },
             modifier = Modifier.padding(bottom = AyvuSpacing.SM),

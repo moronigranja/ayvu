@@ -70,6 +70,22 @@ class AndroidOperationRunnerTest {
     }
 
     @Test
+    fun `run posts an export operation on the export channel`() {
+        val exportSpec =
+            OperationSpec(
+                id = "export:book-1",
+                channel = OperationChannel.EXPORT,
+                title = "Ayvu — exporting Book",
+            )
+        val latch = CompletableDeferred<Unit>()
+        runner.run(exportSpec) { latch.await() }
+
+        val notification = shadowOf(notificationManager).allNotifications.single()
+        assertEquals("ayvu-export", notification.channelId)
+        assertEquals(exportSpec.title, notification.extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    @Test
     fun `run requests the foreground service for the operation`() {
         val latch = CompletableDeferred<Unit>()
         runner.run(spec) { latch.await() }

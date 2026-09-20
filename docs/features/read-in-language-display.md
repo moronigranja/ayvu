@@ -30,7 +30,14 @@ slice adds the display half and moves translation out of the synthesis path.
   affect measurement, so the render's wrap stays identical to the measured chapter.
 - **Bookmarks must survive any language configuration.** A bookmark taken with one
   language must open with two, and vice versa.
-- Future (planned for, not built here): **export translated book**.
+- **Export translated book shipped 2026-09-20** (decisions #187): a per-book "Export
+  translation…" action opens a dialog choosing the language (the configured display /
+  read-aloud languages, plus every language the book has stored rows for under the active
+  engine, each row showing `ready of total passages`), the file type (Markdown / plain text
+  / EPUB 3) and the content (translated text only / original + translation). Unstored
+  passages are translated *during* the export through the same per-passage
+  `TranslationService.translate` seam (never a batched decode — #168); the artifact is
+  written once, after it is complete.
 
 ## The invariant this slice must not break
 
@@ -265,12 +272,15 @@ isolation forces it, and this slice forces neither.
    key's `translatorVersion` dimension (the engine id) is for (and why step 0 comes first).
    Switching engines is a cache miss, not a migration: the other engine's rows stay on disk
    until the book's cache is cleared.
-7. **Export must not be foreclosed.** The table is keyed
-   `(bookId, chapterIndex, passageIndex, lang, translator)`, so a whole book's translated
-   text is one ordered query away (today's surface is per-chapter `chapter()` plus the
-   backup snapshot's all-rows `all()` — no per-book query exists yet), and the batch itself
-   is an `OfflinePregen`-shaped job. It does need a named, versioned artifact, and a
-   listen-quality translation is not automatically export-quality.
+7. **Export must not be foreclosed — and now it has shipped (2026-09-20, decisions #187).**
+   The table is keyed `(bookId, chapterIndex, passageIndex, lang, translator)`, and the
+   artifact walks the book through the per-passage `TranslationService.translate` seam in
+   spine order, so no per-book ordered query was needed: the only store addition is
+   `TranslationStore.countsByLanguage(bookId, translator)`, the export dialog's
+   candidate-language list. The named, versioned artifact is the one-line identity header
+   `Ayvu translation export v1 · <title> · <language> · <translator> · <ISO UTC>` (plus the
+   EPUB `dc:description`), and the "listen-quality is not automatically export-quality"
+   concern is disclosed in the file itself ("Machine translation, unrevised.").
 
 ## Acceptance
 

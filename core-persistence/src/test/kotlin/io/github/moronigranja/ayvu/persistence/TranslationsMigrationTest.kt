@@ -129,6 +129,22 @@ class TranslationsMigrationTest {
                     store.get("b1", 0, 1, TranslationTarget("pt-BR", "small100")),
                 )
                 assertNotNull(store.chapter("b1", 0))
+
+                // Stored counts per language are per the exact translator: rows
+                // written by another engine are a different translation (decisions
+                // #161/#182) and never reuse.
+                migrated.translationDao().put(TranslationEntity("b2", 0, 0, "pt-BR", "lfm12b", "Um", 800))
+                migrated.translationDao().put(TranslationEntity("b2", 0, 1, "pt-BR", "lfm12b", "Dois", 801))
+                migrated.translationDao().put(TranslationEntity("b2", 0, 2, "pt-BR", "lfm12b", "Três", 802))
+                migrated.translationDao().put(TranslationEntity("b2", 0, 0, "es", "lfm12b", "Uno", 803))
+                migrated.translationDao().put(TranslationEntity("b2", 0, 1, "es", "lfm12b", "Dos", 804))
+                migrated.translationDao().put(TranslationEntity("b2", 0, 0, "pt-BR", "lfm26b", "Outra vez", 805))
+                assertEquals(
+                    mapOf("pt-BR" to 3, "es" to 2),
+                    store.countsByLanguage("b2", "lfm12b"),
+                )
+                // A book with no rows yields no candidate languages.
+                assertTrue(store.countsByLanguage("unknown", "lfm12b").isEmpty())
             }
         } finally {
             migrated.close()

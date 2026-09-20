@@ -29,7 +29,8 @@ the change.
 ```
 core-model      canonical domain: Book(id, title, authors, chapters), Chapter, TextPassage, LibraryEntry
 core-ebook      EBookParser + EBookFormats + EpubParser/MobiParser → Book;
-                BookSegmentation (grain, front/back matter); BookImporter (parse→segment→index)
+                BookSegmentation (grain, front/back matter); BookImporter (parse→segment→index);
+                ebook/export — ExportDocument + Markdown/plain-text/EPUB-3 writers + TranslationExportJob (#187)
 core-locate     TextIndex, TextMatcher, TextNormalizer, MatchResult; IndexRebuilder (launch-time sync)
 core-ocr        (live) Tesseract behind OcrEngine/TesseractOcrEngine + stager; six pinned tessdata_fast 4.1.0 LSTM packs (#186)
 core-tts        (live) TTSEngine interface + pack registry; model/language-pack download, verify + caching
@@ -39,7 +40,7 @@ core-ui         (live) AyvuTheme design tokens (B1, #68): brand light/dark color
 core-backup     (live) versioned v1 backup archive codec + DTOs — BackupSnapshot/BackupCodec (E1 phase 1, #89); consumed by core-persistence (BackupStore) + feature-settings (SAF edge) — E1 complete (#111)
 core-translate  (live) read-in-language seam (#114/#160/#162/#182): TranslatingEngine TTSEngine decorator (degrades to the original audio on any failure), language surface, translate ENGINE registry — the shipped LFM2.5-1.2B and the selectable LFM2.5-2.6B-Base, each with its own pack descriptor + staged bundle root — plus TranslatePackStager; model-agnostic by construction (a suspend translate lambda, with the selected engine named on every target); consumed by feature-player/feature-library/feature-settings/app
 core-llm        (live, android.library + vendored native) the translate runtime's native leg (#162): llama.cpp pinned by tools/fetch-llama-cpp.sh into the gitignored build/llama.cpp-src, AGP externalNativeBuild (arm64-v8a only), LlamaTranslator (JNI session, single-flight, greedy) — opens the SELECTED engine's staged GGUF; consumed by feature-player
-feature-library (live) SAF import + library list UI (Compose, Hilt) — C5/C6, F2 search (#90), F3 folder import via SAF tree (root + one level, 200-file cap, #108); row pre-gen action + usage/estimate/delete
+feature-library (live) SAF import + library list UI (Compose, Hilt) — C5/C6, F2 search (#90), F3 folder import via SAF tree (root + one level, 200-file cap, #108); row pre-gen action + usage/estimate/delete; row "Export translation…" + its dialog and screen-level SAF create-document (#187)
 feature-player (live, T4-2) PlaybackService (MediaSession, focus, foreground) + docked read-along ReaderScreen; PregenWorker/PregenManager single-mode manual pre-gen
 feature-ocr     (live) TesseractOcrEngine (Tesseract4Android 4.9.0) + TessDataStager + Hilt; LSTM packs (#186)
 feature-settings (live) settings screen, packs download UI, voice picker + favorites, offline-audio section, "Backup & restore" SAF export/import (E1, #111)

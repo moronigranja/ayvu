@@ -34,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -65,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.moronigranja.ayvu.ebook.export.ExportFormat
+import io.github.moronigranja.ayvu.ebook.export.ExportShape
 import io.github.moronigranja.ayvu.player.PlayerPhase
 import io.github.moronigranja.ayvu.player.PregenJobState
 import io.github.moronigranja.ayvu.player.TodayStats
@@ -73,7 +76,9 @@ import io.github.moronigranja.ayvu.ui.AyvuMotion
 import io.github.moronigranja.ayvu.ui.AyvuSpacing
 import io.github.moronigranja.ayvu.ui.BookCover
 import io.github.moronigranja.ayvu.ui.ConfirmDialog
+import io.github.moronigranja.ayvu.ui.DropdownOption
 import io.github.moronigranja.ayvu.ui.EmptyState
+import io.github.moronigranja.ayvu.ui.LabeledDropdown
 import io.github.moronigranja.ayvu.ui.LabeledProgress
 import io.github.moronigranja.ayvu.ui.LocalReducedMotion
 import io.github.moronigranja.ayvu.ui.PlayerCard
@@ -133,6 +138,54 @@ fun LibraryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // The export operation's terminal state — one snackbar per finished/failed
+    // export, consumed once (the operation outlives the dialog that started it).
+    val exportState by viewModel.exportState.collectAsState()
+    LaunchedEffect(exportState) {
+        val message =
+            when (val terminal = exportState) {
+                is ExportUiState.Finished -> "Exported ${terminal.fileName}"
+                is ExportUiState.Failed -> terminal.message
+                else -> null
+            }
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.consumeExportResult()
+        }
+    }
+
+    // The export picker lives HERE, not in the dialog that asks for it: the
+    // dialog dismisses itself the moment Export is tapped, and a launcher
+    // registered inside it is unregistered with the dialog — before the picker
+    // returns — so the chosen Uri would be dropped and nothing exported.
+    var exportRequest by remember { mutableStateOf<ExportRequest?>(null) }
+    // The mime follows the request's format (the picker's filter and the created
+    // file's type), so the contract is remembered on that format.
+    val exportContract =
+        remember(exportRequest?.format) {
+            ActivityResultContracts.CreateDocument(exportRequest?.format?.mimeType ?: ExportFormat.MARKDOWN.mimeType)
+        }
+    val exportLauncher =
+        rememberLauncherForActivityResult(exportContract) { uri ->
+            val request = exportRequest
+            exportRequest = null
+            if (uri != null && request != null) {
+                viewModel.exportBook(
+                    bookId = request.bookId,
+                    fileName = request.fileName,
+                    language = request.language,
+                    format = request.format,
+                    shape = request.shape,
+                    destination = uri,
+                )
+            }
+        }
+    // Launched from an effect so the frame that installs the contract has
+    // already registered the launcher for the request's format.
+    LaunchedEffect(exportRequest) {
+        exportRequest?.let { exportLauncher.launch(it.fileName) }
+    }
 
     val fileLauncher =
         rememberLauncherForActivityResult(
@@ -407,6 +460,7 @@ fun LibraryScreen(
                             offline = offline[entry.book.id],
                             readFraction = readProgress[entry.book.id] ?: 0f,
                             onOpenBook = onOpenBook,
+                            onExport = { exportRequest = it },
                             viewModel = viewModel,
                         )
                     }
@@ -424,6 +478,7 @@ fun LibraryScreen(
                             offline = offline[entry.book.id],
                             readFraction = readProgress[entry.book.id] ?: 0f,
                             onOpenBook = onOpenBook,
+                            onExport = { exportRequest = it },
                             viewModel = viewModel,
                         )
                     }
@@ -463,6 +518,7 @@ private fun BookRow(
     offline: LibraryViewModel.OfflineBook?,
     readFraction: Float,
     onOpenBook: (String) -> Unit,
+    onExport: (ExportRequest) -> Unit,
     viewModel: LibraryViewModel,
 ) {
     // A6: the pre-generation row observes the core PregenJobState contract
@@ -488,6 +544,7 @@ private fun BookRow(
     var confirmRemove by remember { mutableStateOf(false) }
     var confirmDeleteAudio by remember { mutableStateOf(false) }
     var readInBookId by remember { mutableStateOf<String?>(null) }
+    var exportBookId by remember { mutableStateOf<String?>(null) }
 
     if (budgetDialog) {
         PregenBudgetDialog(
@@ -621,6 +678,13 @@ private fun BookRow(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Export translation…") },
+                            onClick = {
+                                menuOpen = false
+                                exportBookId = bookId
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Remove from library") },
                             onClick = {
                                 menuOpen = false
@@ -662,6 +726,9 @@ private fun BookRow(
     readInBookId?.let { dialogBookId ->
         ReadInLanguageDialog(dialogBookId, viewModel, onDismiss = { readInBookId = null })
     }
+    exportBookId?.let { dialogBookId ->
+        ExportTranslationDialog(dialogBookId, viewModel, onExport = onExport, onDismiss = { exportBookId = null })
+    }
 }
 
 /** The shared per-book "Read in language" dialog (decisions #114): the same
@@ -688,6 +755,119 @@ private fun ReadInLanguageDialog(
             )
         },
         confirmButton = {},
+    )
+}
+
+/**
+ * One export the dialog asked for. The screen owns the SAF picker, so the
+ * dialog only states what to write and the screen opens the picker with the
+ * matching contract (see the launcher comment in [LibraryScreen]).
+ */
+private data class ExportRequest(
+    val bookId: String,
+    val fileName: String,
+    val language: String,
+    val format: ExportFormat,
+    val shape: ExportShape,
+)
+
+/**
+ * The "Export translation" dialog: pick the language (every language this book
+ * can be written in, each row naming how many passages are already stored
+ * under the active engine), the file type, and whether the artifact carries the
+ * translation alone or the original beside it. Export opens the SAF
+ * create-document picker with a suggested `<title> (<language>).<ext>` name;
+ * passages without a stored translation are translated during the export.
+ */
+@Composable
+private fun ExportTranslationDialog(
+    bookId: String,
+    viewModel: LibraryViewModel,
+    onExport: (ExportRequest) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val languages by viewModel.exportLanguages.collectAsState()
+    LaunchedEffect(bookId) { viewModel.loadExportLanguages(bookId) }
+    var language by remember(bookId) { mutableStateOf<String?>(null) }
+    // Default to the first option; recover when the loaded list no longer holds it.
+    LaunchedEffect(languages) {
+        if (language == null || languages.none { it.code == language }) {
+            language = languages.firstOrNull()?.code
+        }
+    }
+    var format by remember { mutableStateOf(ExportFormat.MARKDOWN) }
+    var shape by remember { mutableStateOf(ExportShape.TRANSLATED_ONLY) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Export translation") },
+        text = {
+            Column {
+                if (languages.isEmpty()) {
+                    Text(
+                        "Set “Show translation in” or “Read aloud in” for this book, or pre-generate it, to have something to export.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    LabeledDropdown(
+                        label = "Language",
+                        selectedLabel = languages.firstOrNull { it.code == language }?.label ?: "",
+                        options = languages.map { DropdownOption(it.code, it.label) },
+                        onSelect = { language = it },
+                        modifier = Modifier.padding(bottom = AyvuSpacing.SM),
+                    )
+                }
+                LabeledDropdown(
+                    label = "File type",
+                    selectedLabel = format.label,
+                    options = ExportFormat.entries.map { DropdownOption(it.name, it.label) },
+                    onSelect = { id -> format = ExportFormat.valueOf(id) },
+                    modifier = Modifier.padding(bottom = AyvuSpacing.SM),
+                )
+                Text("Content", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(AyvuSpacing.XS)) {
+                    FilterChip(
+                        selected = shape == ExportShape.TRANSLATED_ONLY,
+                        onClick = { shape = ExportShape.TRANSLATED_ONLY },
+                        label = { Text("Translated text only") },
+                    )
+                    FilterChip(
+                        selected = shape == ExportShape.BILINGUAL,
+                        onClick = { shape = ExportShape.BILINGUAL },
+                        label = { Text("Original + translation") },
+                    )
+                }
+                Text(
+                    "Passages not translated yet are translated now; the read-in-language engine must be available.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = AyvuSpacing.SM),
+                )
+                Text(
+                    "Machine translation, unrevised.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = language != null,
+                onClick = {
+                    val chosen = language ?: return@TextButton
+                    onExport(
+                        ExportRequest(
+                            bookId = bookId,
+                            fileName = viewModel.exportFileName(bookId, chosen, format),
+                            language = chosen,
+                            format = format,
+                            shape = shape,
+                        ),
+                    )
+                    onDismiss()
+                },
+            ) { Text("Export") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 

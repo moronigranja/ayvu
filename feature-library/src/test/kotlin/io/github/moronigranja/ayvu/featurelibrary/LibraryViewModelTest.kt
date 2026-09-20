@@ -9,8 +9,19 @@ import io.github.moronigranja.ayvu.ebook.EpubFixture.opf
 import io.github.moronigranja.ayvu.ebook.EpubFixture.zip
 import io.github.moronigranja.ayvu.ebook.ImportCoordinator
 import io.github.moronigranja.ayvu.locate.TextIndex
+import io.github.moronigranja.ayvu.model.Book
+import io.github.moronigranja.ayvu.model.Chapter
 import io.github.moronigranja.ayvu.model.InMemoryLibraryStore
+import io.github.moronigranja.ayvu.model.LibraryEntry
+import io.github.moronigranja.ayvu.model.TextPassage
+import io.github.moronigranja.ayvu.persistence.AppSettings
+import io.github.moronigranja.ayvu.persistence.SettingEntity
+import io.github.moronigranja.ayvu.persistence.SettingsDao
+import io.github.moronigranja.ayvu.persistence.SettingsStore
 import io.github.moronigranja.ayvu.player.PlayerCommands
+import io.github.moronigranja.ayvu.player.StoredTranslation
+import io.github.moronigranja.ayvu.player.TranslationStore
+import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import io.github.moronigranja.ayvu.tts.DownloadTransport
 import io.github.moronigranja.ayvu.tts.OpenResult
 import io.github.moronigranja.ayvu.tts.PackCache
@@ -118,6 +129,8 @@ class LibraryViewModelTest {
         indexLock: io.github.moronigranja.ayvu.locate.IndexLock =
             io.github.moronigranja.ayvu.locate
                 .IndexLock(),
+        settings: AppSettings? = null,
+        translationStore: TranslationStore? = null,
     ): LibraryViewModel {
         val holder = ImportStateHolder()
         val imports =
@@ -137,7 +150,68 @@ class LibraryViewModelTest {
             installer = installer(),
             imports = imports,
             importStateHolder = holder,
+            settings = settings,
+            translationStore = translationStore,
         )
+    }
+
+    /** The settings table with no rows (defaults apply) — the export tests flip
+     *  the per-book display language through [AppSettings]. */
+    private class FakeSettingsDao : SettingsDao {
+        val rows = mutableMapOf<String, String>()
+
+        override suspend fun get(key: String): String? = rows[key]
+
+        override suspend fun put(setting: SettingEntity) {
+            rows[setting.key] = setting.value
+        }
+
+        override suspend fun delete(key: String) {
+            rows.remove(key)
+        }
+
+        override suspend fun all(): List<SettingEntity> = rows.map { SettingEntity(it.key, it.value) }.sortedBy { it.key }
+
+        override suspend fun putAll(settings: List<SettingEntity>) {
+            settings.forEach { rows[it.key] = it.value }
+        }
+
+        override suspend fun deleteAll(keys: List<String>) {
+            keys.forEach { rows.remove(it) }
+        }
+    }
+
+    /** The translated-text store fake: only the per-language counts matter to
+     *  the export dialog (the other methods are unused here). */
+    private class FakeTranslations(
+        private val counts: Map<String, Int> = emptyMap(),
+    ) : TranslationStore {
+        override suspend fun get(
+            bookId: String,
+            chapter: Int,
+            passage: Int,
+            target: TranslationTarget,
+        ): String? = null
+
+        override suspend fun put(
+            bookId: String,
+            chapter: Int,
+            passage: Int,
+            target: TranslationTarget,
+            text: String,
+        ) = Unit
+
+        override suspend fun chapter(
+            bookId: String,
+            chapter: Int,
+        ): List<StoredTranslation> = emptyList()
+
+        override suspend fun countsByLanguage(
+            bookId: String,
+            translator: String,
+        ): Map<String, Int> = counts
+
+        override suspend fun deleteByBook(bookId: String) = Unit
     }
 
     // ------------------------------------------------------------------
@@ -460,5 +534,67 @@ class LibraryViewModelTest {
             // Clearing the query restores the full list.
             vm.setQuery("")
             assertEquals(2, vm.searchResults.first().size)
+        }
+
+    // ------------------------------------------------------------------
+    // Translated-book export (the dialog's language rows)
+
+    private suspend fun threePassageStore(): InMemoryLibraryStore =
+        InMemoryLibraryStore().also { store ->
+            store.add(
+                LibraryEntry(
+                    Book(
+                        id = "b1",
+                        title = "Light Years",
+                        authors = listOf("Ana Dias"),
+                        chapters =
+                            listOf(
+                                Chapter(0, "One", listOf(TextPassage("a"), TextPassage("b"))),
+                                Chapter(1, "Two", listOf(TextPassage("c"))),
+                            ),
+                    ),
+                    importedAtEpochMillis = 1,
+                ),
+            )
+        }
+
+    @Test
+    fun `the export languages lead with the configured display language then the stored ones`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val settings = AppSettings(SettingsStore(FakeSettingsDao()))
+            settings.setBookDisplay("b1", "pt-BR")
+            val vm =
+                viewModel(
+                    store = threePassageStore(),
+                    settings = settings,
+                    translationStore = FakeTranslations(mapOf("pt-BR" to 2, "es" to 1)),
+                )
+
+            vm.loadExportLanguages("b1")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    LibraryViewModel.ExportLanguageOption("pt-BR", "Portuguese (Brazil) — 2 of 3 passages ready"),
+                    LibraryViewModel.ExportLanguageOption("es", "Spanish — 1 of 3 passages ready"),
+                ),
+                vm.exportLanguages.first(),
+            )
+        }
+
+    @Test
+    fun `a book with no configured target and no stored rows offers no export language`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val vm =
+                viewModel(
+                    store = threePassageStore(),
+                    settings = AppSettings(SettingsStore(FakeSettingsDao())),
+                    translationStore = FakeTranslations(emptyMap()),
+                )
+
+            vm.loadExportLanguages("b1")
+            advanceUntilIdle()
+
+            assertTrue(vm.exportLanguages.first().isEmpty())
         }
 }

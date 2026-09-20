@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import io.github.moronigranja.ayvu.featurelibrary.BookExportOperations
+import io.github.moronigranja.ayvu.featurelibrary.ExportStateHolder
 import io.github.moronigranja.ayvu.featureplayer.playback.PregenManager
 import io.github.moronigranja.ayvu.locate.IndexLock
 import io.github.moronigranja.ayvu.locate.IndexRebuilder
@@ -38,6 +40,12 @@ class AyvuApp :
     @Inject lateinit var indexLock: IndexLock
 
     @Inject lateinit var pregenManager: PregenManager
+
+    // The device E2E drives the export operation through the same graph the
+    // library row uses (the orchestrator + its state holder).
+    @Inject lateinit var bookExports: BookExportOperations
+
+    @Inject lateinit var exportStateHolder: ExportStateHolder
 
     @Inject lateinit var appScope: CoroutineScope
 

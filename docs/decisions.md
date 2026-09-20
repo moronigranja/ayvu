@@ -4,6 +4,95 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 187. Export a book's translated text: Markdown / plain text / EPUB 3, language chosen in the dialog (2026-09-20, owner)
+
+"Export translated book" was planned-but-unbuilt (the design doc's product decisions; its
+ancillary concern 7 asked only that export stay unforeclosed) and today the translated
+text leaves the device only inside the full backup archive (the optional `translations.json`
+section, #166). It is now a library-row action: **"Export translation…"** opens a dialog
+(language, file type, content) and the artifact lands wherever the SAF create-document
+picker points.
+
+**The language is chosen in the dialog, not fixed by the settings.**
+`LibraryViewModel.loadExportLanguages(bookId)` deduplicates by code, in this order: the
+book's `book.display.<bookId>` ("Show translation in"), then its `book.translate.<bookId>`
+("Read aloud in"), then every language that has stored rows under the **active** engine
+(count descending, then code ascending); each row reads
+`"<languageLabel> — <ready> of <total> passages ready"`. The readiness source is the
+slice's only store addition — `TranslationStore.countsByLanguage(bookId, translator)`
+(`TranslationDao.countsByLanguage` + a `LanguageCount` projection, `RoomTranslationStore`
+delegating) — keyed by translator, because a row another engine wrote is a different
+translation, not a reuse (#161/#182). A language absent from the map exports at 0 ready,
+which simply means the whole book is translated during the export.
+
+**Three formats, two shapes.** New package `core-ebook/.../ebook/export/`: `ExportFormat`
+(MARKDOWN/PLAIN_TEXT/EPUB, each carrying extension + SAF mime + dialog label),
+`ExportShape` (TRANSLATED_ONLY / BILINGUAL) and one `ExportDocument`
+(`ExportChapter`/`ExportPassage`) written by `ExportWriters.of(format)`. BILINGUAL
+prefixes **every** translation line with `> ` in Markdown/plain text and marks the
+translation paragraph `class="translation" xml:lang=…` in EPUB; TRANSLATED_ONLY omits the
+original. All three emit the same one-line identity header
+`Ayvu translation export v1 · <title> · <languageLabel> · <translator> · <ISO-8601 UTC>`
+(HTML comment in Markdown, bare first line in plain text, `dc:description` +
+`dcterms:modified` in EPUB). It is deliberately one line: a front-matter block would land
+in the first chapter when the artifact is re-imported (`TextParser` has no front-matter
+handling).
+
+**EPUB 3 is written, not approximated.** OCF `mimetype` is the first entry and STORED with
+its own size/compressed size/CRC (a DEFLATED `mimetype` is the classic invalid container),
+then `META-INF/container.xml`, `content.opf`, `nav.xhtml` and one XHTML per chapter; every
+entry's zip time is the document's `generatedAtEpochMillis`, so the same document yields
+identical bytes twice (diffable/checksummable — the core-backup #89 convention). **MOBI/KF8
+is not an export type**: no writer exists (the container is palmDOC/EXTH/INDX binary, and
+`MobiParser` is a read-only Kotlin port of KindleUnpack), so it stays a separate slice if
+ever required.
+
+**One write, after the artifact is complete.** `TranslationExportJob` walks
+`CachedBook.passages` in spine order (rows are already spine-ordered; consecutive
+`chapterIndex` runs become `ExportChapter`s) through a per-passage seam that
+`BookExportOperations` wires to `TranslationService.translate(...)` with
+`TranslationTarget(language, activeEngineId)` — cache-first, so a fully stored book exports
+without opening the engine, and unstored passages decode during the export. Batching stays
+rejected (#168). A null or blank translation is the typed
+`TranslationExportError.Unavailable(chapter, passage)` — never a silent gap — and a
+passage-less book is `EmptyBook`; neither reaches the destination. Progress
+(`n/N passages`, percent) reports after every passage and cancellation is cooperative at
+every passage (`ensureActive()`), so Stop writes nothing. The SAF
+`CreateDocument(format.mimeType)` destination is written by `ExportSink` in ONE
+`openOutputStream` call, only after the artifact is complete — no partial file. The
+picker's launcher is registered at the **screen**, never inside the dialog: the dialog
+dismisses itself the moment Export is tapped, and a launcher owned by a dialog that left
+the composition is unregistered before the picker returns, so the chosen `Uri` is dropped
+and the export silently never starts (found on device: a 0-byte destination, no
+notification, no message). The dialog therefore only states what to write
+(`ExportRequest`); `LibraryScreen` opens the picker with the contract for that format.
+
+
+**Hosting.** `BookExportOperations` mirrors `ImportOperations`: operation id
+`export:<bookId>`, one export at a time (a new start supersedes the running one), the new
+`OperationChannel.EXPORT` → the `ayvu-export` notification channel ("Ayvu exports"), the
+body on the process-lifetime app scope so it outlives the dialog that started it, and a
+hostless path (no `OperationRunner`) for the JVM harness. The singleton `ExportStateHolder`
+carries Idle/Running/Finished/Failed; the library screen shows one snackbar per terminal
+state and consumes it once.
+
+**"Off" → "Original language".** Both target dropdowns' unset option is now the shared
+`OFF_LABEL` in `ReadInLanguage.kt` (one literal, so the two rows cannot drift); `OFF_ID`
+and every selection path are unchanged, and the "null = Off" notes on
+`AppSettings.bookTranslate` / `SettingsStore.setBookTranslate` moved with the label.
+
+Evidence: `ExportWritersTest` (exact Markdown/plain-text bytes in both shapes, EPUB
+round-trip through `EpubParser`, `mimetype` first + STORED + every XML part well-formed,
+byte-stability); `TranslationExportJobTest` (chapter grouping and stored reuse, typed
+coordinates, blank = the same failure, empty book, cancellation produces no document);
+`TranslationsMigrationTest` (counts exclude the other engine's rows; an unknown book is
+empty); `BookExportOperationsTest` (one sink write, the chosen language reaches the
+provider and the header, `Unavailable` never writes, unknown book, supersede, `EmptyBook`);
+`LibraryViewModelTest` (the option list and its order, plus the empty case);
+`AndroidOperationRunnerTest` (an EXPORT operation posts on `ayvu-export`); device
+`TranslationExportE2eTest` (a display-language export contains the header, the chapter
+heading and one translated paragraph per passage; the unknown-book failure writes no file).
+
 ## 186. OCR binding: tess-two → Tesseract4Android 4.9.0, packs re-pinned to tessdata_fast 4.1.0 (2026-09-20, owner)
 
 Owner picked the OCR slice from the scoping report (`agent://OcrScope`). The

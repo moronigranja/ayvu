@@ -12,9 +12,9 @@ class OperationRunnerTest {
     }
 
     @Test
-    fun `channels are exactly downloads and import`() {
+    fun `channels are exactly downloads, import and export`() {
         assertEquals(
-            listOf("DOWNLOADS", "IMPORT"),
+            listOf("DOWNLOADS", "IMPORT", "EXPORT"),
             OperationChannel.entries.map { it.name },
         )
     }

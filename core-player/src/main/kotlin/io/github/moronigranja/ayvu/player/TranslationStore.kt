@@ -29,6 +29,13 @@ interface TranslationStore {
         text: String,
     )
 
+    /** Stored-translation counts per language for [bookId] under [translator] —
+     *  the export dialog's candidate list (a language absent here has nothing to reuse). */
+    suspend fun countsByLanguage(
+        bookId: String,
+        translator: String,
+    ): Map<String, Int>
+
     /** Every translation of one chapter (any translator) — the reader seed. */
     suspend fun chapter(
         bookId: String,

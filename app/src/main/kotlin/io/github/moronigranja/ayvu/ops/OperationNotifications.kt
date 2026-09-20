@@ -23,6 +23,7 @@ const val TERMINAL_NOTIFICATION_ID_BASE = 200
 
 private const val CHANNEL_ID_DOWNLOADS = "ayvu-downloads"
 private const val CHANNEL_ID_IMPORT = "ayvu-import"
+private const val CHANNEL_ID_EXPORT = "ayvu-export"
 
 /** Creates the operation channels if absent (`createNotificationChannel` is
  *  idempotent). */
@@ -34,6 +35,9 @@ fun ensureChannels(context: Context) {
     manager.createNotificationChannel(
         NotificationChannel(CHANNEL_ID_IMPORT, "Book import", NotificationManager.IMPORTANCE_LOW),
     )
+    manager.createNotificationChannel(
+        NotificationChannel(CHANNEL_ID_EXPORT, "Ayvu exports", NotificationManager.IMPORTANCE_LOW),
+    )
 }
 
 /** The notification channel id for [channel]. */
@@ -41,6 +45,7 @@ fun channelId(channel: OperationChannel): String =
     when (channel) {
         OperationChannel.DOWNLOADS -> CHANNEL_ID_DOWNLOADS
         OperationChannel.IMPORT -> CHANNEL_ID_IMPORT
+        OperationChannel.EXPORT -> CHANNEL_ID_EXPORT
     }
 
 /** The Stop action's intent: routes back into [OperationService] with

@@ -59,9 +59,9 @@ historical scope — deviations from it are in the design doc's Status). Full pl
 [features/read-in-language-display.md](features/read-in-language-display.md). The goal
 widened from "separate translation from TTS" once the owner settled the product shape: the
 translation becomes **visible** in the reader (interleaved single column, plus a
-translated-only option, export planned for later), and the **spoken language is independent
-of the displayed one**. Six ordered steps, 0–5; steps 0 and 1 are prerequisites, not
-optional:
+translated-only option — **export shipped 2026-09-20, decisions #187**), and the **spoken
+language is independent of the displayed one**. Six ordered steps, 0–5; steps 0 and 1 are
+prerequisites, not optional:
 
 - **0 — `TranslationTarget`** (as previously scoped): `(translateLang, translator)` is
   threaded as two loose nullable Strings through `PregenPlanner` / `PregenQueue` /
@@ -179,6 +179,7 @@ Post-v1 phases, one line each:
 | G4 | Speed selector removed; playback pinned 1.0× | decisions #71, #109 |
 | Immersive reader | Full-screen reader: overlay title + minimal player, book-wide passage indicator, follow-active-sentence, middle double-tap chrome toggle, play-from-view, stop-on-turn, keep-page | decisions #120–#122, #125 |
 | TTS/player polish | Playback volume gain; manual pregen budget anchors at the reading position and is listening-time; player-card coverage-bar redo + generation notification; slice-relative pregen progress + library Stop control; configurable synthesis thread count; emit-early per-window streaming | decisions #129, #132–#138 |
+| Translated-book export | Library-row **"Export translation…"**: dialog-chosen language (the configured display/read-aloud targets plus every language stored under the active engine, each row showing its ready count), Markdown / plain text / EPUB 3, translated-only or original + translation, one SAF write only after the artifact is complete, progress + Stop | decisions #187 |
 
 Historical estimates and completed implementation specifications were removed from this
 file. Git history and the decision ledger retain them.

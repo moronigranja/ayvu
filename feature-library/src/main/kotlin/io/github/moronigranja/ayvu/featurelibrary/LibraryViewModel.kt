@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.moronigranja.ayvu.ebook.EBookSource
+import io.github.moronigranja.ayvu.ebook.export.ExportFormat
+import io.github.moronigranja.ayvu.ebook.export.ExportShape
 import io.github.moronigranja.ayvu.featurelibrary.CoverStore
 import io.github.moronigranja.ayvu.locate.IndexLock
 import io.github.moronigranja.ayvu.locate.TextIndex
@@ -33,6 +35,7 @@ import io.github.moronigranja.ayvu.player.PregenJobState
 import io.github.moronigranja.ayvu.player.PregenScheduler
 import io.github.moronigranja.ayvu.player.Streak
 import io.github.moronigranja.ayvu.player.TodayStats
+import io.github.moronigranja.ayvu.player.TranslationStore
 import io.github.moronigranja.ayvu.player.WeekSummary
 import io.github.moronigranja.ayvu.tts.PackInstaller
 import io.github.moronigranja.ayvu.tts.PackRegistry
@@ -45,6 +48,7 @@ import io.github.moronigranja.ayvu.tts.translate.TranslateLanguages
 import io.github.moronigranja.ayvu.tts.translate.TranslatePackStager
 import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
 import io.github.moronigranja.ayvu.ui.ReadInLanguageUiState
+import io.github.moronigranja.ayvu.ui.languageLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,6 +66,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 
 /**
@@ -108,6 +113,11 @@ class LibraryViewModel
         private val operations: OperationRunner? = null,
         private val imports: ImportOperations? = null,
         private val importStateHolder: ImportStateHolder? = null,
+        // Null in the pure-JVM harness; Hilt supplies all three. The store is
+        // only needed for the export dialog's per-language readiness counts.
+        private val exports: BookExportOperations? = null,
+        private val exportHolder: ExportStateHolder? = null,
+        private val translationStore: TranslationStore? = null,
     ) : ViewModel() {
         /** Books the user has covers for (extracted at import; sidecar files). */
         fun cover(bookId: String): ByteArray? = context?.let { CoverStore(File(it.filesDir, "covers")).load(bookId) }
@@ -238,6 +248,109 @@ class LibraryViewModel
                 SettingsStore.PIPER_ENGINE -> TranslateLanguages.codes(PiperVoiceMetadata.all)
                 else -> TranslateLanguages.codes(KokoroVoiceMetadata.all)
             }
+
+        // ---- translated-book export ----
+
+        /** One language the export can be written in, with its readiness line. */
+        data class ExportLanguageOption(
+            val code: String,
+            val label: String,
+        )
+
+        private val _exportLanguages = MutableStateFlow<List<ExportLanguageOption>>(emptyList())
+
+        /** The export dialog's language rows (loaded per book on dialog open). */
+        val exportLanguages: StateFlow<List<ExportLanguageOption>> = _exportLanguages.asStateFlow()
+
+        /** The one export's progress/terminal state (the screen's snackbar). */
+        val exportState: StateFlow<ExportUiState> = exportHolder?.state ?: MutableStateFlow(ExportUiState.Idle)
+
+        /**
+         * Loads the candidate languages for [bookId]: the book's configured
+         * display language, then its read-aloud language, then every language it
+         * has stored translations for under the ACTIVE engine (ordered by
+         * readiness, most complete first) — deduplicated by code. Each row shows
+         * how many of the book's passages are already stored, so a 0-ready row
+         * reads as "the whole book is translated during the export".
+         */
+        fun loadExportLanguages(bookId: String) {
+            viewModelScope.launch {
+                val total =
+                    withContext(ioDispatcher) {
+                        repository
+                            .cachedBooks()
+                            .firstOrNull { it.id == bookId }
+                            ?.passages
+                            ?.size ?: 0
+                    }
+                val translator = TranslatePacks.byId(settings?.state?.value?.translateEngine).id
+                val counts = translationStore?.countsByLanguage(bookId, translator) ?: emptyMap()
+                val codes = LinkedHashSet<String>()
+                settings?.bookDisplay(bookId)?.let(codes::add)
+                settings?.bookTranslate(bookId)?.let(codes::add)
+                counts.entries
+                    .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+                    .forEach { codes += it.key }
+                _exportLanguages.value =
+                    codes.map { code ->
+                        ExportLanguageOption(
+                            code = code,
+                            label = "${languageLabel(code)} — ${counts[code] ?: 0} of $total passages ready",
+                        )
+                    }
+            }
+        }
+
+        /** `<sanitised title> (<language code>).<ext>` — the picker's suggestion. */
+        fun exportFileName(
+            bookId: String,
+            language: String,
+            format: ExportFormat,
+        ): String {
+            val title =
+                repository.books.value
+                    .firstOrNull { it.book.id == bookId }
+                    ?.book
+                    ?.title
+                    .orEmpty()
+            val sanitised =
+                title
+                    .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                    .take(60)
+                    .ifBlank { "book" }
+            return "$sanitised ($language).${format.extension}"
+        }
+
+        /**
+         * Starts the export of [bookId]'s [language] translation to [destination].
+         * The write is the operation's LAST step (one `openOutputStream`), so a
+         * failure before it leaves the file untouched.
+         */
+        fun exportBook(
+            bookId: String,
+            fileName: String,
+            language: String,
+            format: ExportFormat,
+            shape: ExportShape,
+            destination: Uri,
+        ) {
+            val ctx = context ?: return
+            val sink =
+                ExportSink { bytes ->
+                    withContext(ioDispatcher) {
+                        ctx.contentResolver.openOutputStream(destination)?.use { it.write(bytes) }
+                            ?: throw IOException("The chosen file could not be opened.")
+                    }
+                }
+            exports?.start(bookId, fileName, language, format, shape, sink, operations)
+        }
+
+        /** Consumes the terminal export state once (the screen's snackbar). */
+        fun consumeExportResult() {
+            exportHolder?.consumeTerminal()
+        }
 
         /** All library rows, in import order — the F2 search filter source. */
         val library: StateFlow<List<LibraryEntry>> = repository.books

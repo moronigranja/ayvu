@@ -88,6 +88,15 @@ class TranslationServiceImplTest {
             chapter: Int,
         ): List<StoredTranslation> = rows.values.filter { it.bookId == bookId && it.chapterIndex == chapter }
 
+        override suspend fun countsByLanguage(
+            bookId: String,
+            translator: String,
+        ): Map<String, Int> =
+            rows.values
+                .filter { it.bookId == bookId && it.translator == translator }
+                .groupingBy { it.lang }
+                .eachCount()
+
         override suspend fun deleteByBook(bookId: String) {
             rows.entries.removeAll { it.value.bookId == bookId }
         }

@@ -22,7 +22,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | Module | What it does |
 |---|---|
 | `core-model` | Canonical domain: Book, Chapter, TextPassage, LibraryEntry |
-| `core-ebook` | EPUB2/3 + AZW3/KF8 + MOBI/AZW + TXT/Markdown parsers, passage segmentation, import pipeline (C7) |
+| `core-ebook` | EPUB2/3 + AZW3/KF8 + MOBI/AZW + TXT/Markdown parsers, passage segmentation, import pipeline (C7); translated-book export artifact + Markdown/plain-text/EPUB-3 writers (#187) |
 | `core-locate` | N-gram book/passage identification, launch-time index rebuild, `TextIndex.best` for below-threshold hints |
 | `core-tts` | TTSEngine + Kokoro-82M (onnxruntime behind a compileOnly seam), espeak-ng phonemization, pinned pack descriptors, Pt-BR voices verified; Piper engine (`piper-v1`, D4) with pinned per-voice packs — decisions #154 |
 | `core-player` | Player state machine, transactional progress + bookmarks + undo ring, sleep timer, speed; T5 pre-generation queue + PCM cache |
@@ -35,7 +35,7 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | Module | What it does |
 |---|---|
 | `core-persistence` | Room schema v3 (books, cached passages, progress + offset/speed, settings, bookmarks, position_history, activity_seconds); stores + launch-time rebuild; `BackupStore` snapshot/merge + book-file sidecars (E1) |
-| `feature-library` | SAF multi-file + folder import (F3 tree grant), external-file intake (F4: ACTION_VIEW / shared book files land on MainActivity), one import overlay with progress + stage (reading/parsing/saving/indexing) + typed failures, idempotent; library list UI |
+| `feature-library` | SAF multi-file + folder import (F3 tree grant), external-file intake (F4: ACTION_VIEW / shared book files land on MainActivity), one import overlay with progress + stage (reading/parsing/saving/indexing) + typed failures, idempotent; library list UI; row "Export translation…" (dialog-chosen language + file type + content, one SAF write, #187) |
 | `core-ui` | AyvuTheme design tokens (brand light/dark roles, typography, shapes, spacing, motion) + shared stateless components (SectionHeader, PillButton, PlayerCard, BookCover, VoiceSelector — the one voice-picking surface); no business logic/ViewModels; depends on core-player + core-tts |
 | `core-llm` | The translate runtime's native leg: llama.cpp vendored into a gitignored build dir by `tools/fetch-llama-cpp.sh` + AGP `externalNativeBuild` (arm64-v8a only), and `LlamaTranslator` (JNI session, single-flight, greedy) |
 | `feature-settings` | Settings screen (root + Speech subscreen, Android-settings-style panes): engine/voice/OCR pack downloads (engine-agnostic rows), voice picker + favorites (collapsible by language, display names + upstream grades, decisions #143), match threshold, OCR languages, theme, offline pre-generation audio, playback volume, synthesis thread count, backup & restore (SAF export/import), About (version, in-app Licences viewer for the bundled GPL-3.0 + NOTICE texts, GPL-3.0 source link, NOTICE, privacy); Android HTTP transport |
@@ -142,7 +142,7 @@ fingerprint published with the release, and see
 
 ```
 core-model/   canonical domain
-core-ebook/   parsers + segmentation + importer
+core-ebook/   parsers + segmentation + importer + translated-book export writers
 core-locate/  identification + index
 core-tts/     engine seam + Kokoro impl + pack descriptors
 core-player/  playback state machine + pre-generation
@@ -152,7 +152,7 @@ core-ui/      design tokens + shared Compose components
 core-ocr/     OCR seam + downscaler + traineddata packs
 core-persistence/  Room stores (library, player, settings)
 core-backup/  versioned SAF backup archive codec + DTOs
-feature-library/   SAF + external-file import with in-library overlay, library UI
+feature-library/   SAF + external-file import with in-library overlay, library UI, translated-book export
 feature-player/    playback service + reader UI
 feature-settings/  settings UI + pack downloads
 feature-share/     ACTION_SEND gateway + resolver

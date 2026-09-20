@@ -1,8 +1,9 @@
 package io.github.moronigranja.ayvu.ops
 
 /** The user-facing surface a long operation appears on (the implementation maps
- *  each member to its Android notification channel). */
-enum class OperationChannel { DOWNLOADS, IMPORT }
+ *  each member to its Android notification channel: downloads, book import,
+ *  translation export). */
+enum class OperationChannel { DOWNLOADS, IMPORT, EXPORT }
 
 /** One long operation. [id] is the stable key: starting an id that is already
  *  running cancels the running one first (supersede), and [cancel] addresses it. */

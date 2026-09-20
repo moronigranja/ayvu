@@ -128,7 +128,7 @@ class AppSettings
          * [io.github.moronigranja.ayvu.featureplayer.playback.EngineSelector]. */
         fun bookTranslate(bookId: String): String? = _state.value.bookTranslate[bookId]
 
-        /** Writes or clears [bookId]'s translate target (null = "Off") and
+        /** Writes or clears [bookId]'s translate target (null = the original language) and
          * mirrors it. The caller re-dispatches so the service rebuilds the book
          * under the new target (same changeVoice path). */
         suspend fun setBookTranslate(
