@@ -302,9 +302,15 @@ python3 tools/reshape_conv_1d_to_2d.py --in $MODELS/kokoro-v1.0.onnx \
 ### Device staging (per device serial)
 
 ```bash
-S=<serial>                     # wireless: Fold 8 192.168.0.112:5555 · S22 192.168.0.116:5555 ·
+S=<serial>                     # wireless: Fold 8 192.168.0.112:5555 · S22 192.168.0.120:5555 ·
                                #           HiBreak 192.168.0.135:5555 (all on "Granjas 5ghz", host .125);
                                #           or the USB serial. DHCP moves them — re-read before a pass.
+                               # Keep BOTH paths live on a long pass: `adb tcpip 5555` once (survives
+                               # until reboot), then `adb connect <ip>:5555`, and check that
+                               # `adb devices` lists the wifi transport next to the USB one — a flaky
+                               # cable then costs nothing (the 2.5 GB translategemma push ran over wifi
+                               # at 47 MB/s while the cable stayed attached). Addresses are read with
+                               # `adb -s <usb-serial> shell ip -4 addr show wlan0`.
 MODELS=~/.cache/ayvu-spike/models
 adb -s $S install -r spike-tts/build/outputs/apk/debug/spike-tts-debug.apk
 adb -s $S install -r spike-tts/build/outputs/apk/androidTest/debug/spike-tts-debug-androidTest.apk

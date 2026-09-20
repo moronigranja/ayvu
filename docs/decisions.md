@@ -4,6 +4,67 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 181. translategemma-4b is better prose and is not adopted: too slow, too big for realtime (2026-09-18, owner)
+
+Owner question after the host gates: was the translation-specialized challenger
+actually better than the shipped LFM2.5-1.2B (#161/#162)? Two artifacts answer it and
+disagree — that disagreement is the finding, and the ruling is the owner's.
+
+**Quality — the owner's read is the verdict.** Six long paragraphs of a real novel
+(*We Are Legion (We Are Bob)*) through both engines on the production prompt shape
+(`docs/prints/book-samples/`, both local GGUFs, greedy): **translategemma-4b is
+superior.** No untranslated English left in the output ("slow motion"), no agreement
+slips or invented verbs ("Eu apertou a ponte da minha narina e sussurrou"), no
+mistranslated subjects ("Bill" → "O contrato", "Eight version-3 Bobs" → "Otebrante
+versão-3 Bobs"), no dropped tail after a dialogue block. The owner declined a
+passage-level blind read as unnecessary — the verdict was already in.
+
+**The FLORES gate disagrees, deliberately recorded so it is not re-read as a verdict.**
+On the S22 (arm64 llama.cpp build of 2026-09-14, `-t 4`, greedy, driven over wireless
+adb) 40 FLORES devtest en→por sentences score LFM2.5-1.2B **67.37** against
+translategemma's **66.04** — single news sentences exercise none of the prose failure
+modes that decided it. The shipped model's chrF is stable under load, and so is the
+challenger's (66.04 → 66.18 with Kokoro playing); load moves speed, not quality.
+
+**Cost, measured on the same device with Kokoro playback live:**
+
+| | translategemma-4b Q4_K_M | LFM2.5-1.2B Q4_K_M |
+|---|---:|---:|
+| chrF (idle / during playback) | 66.04 / 66.18 | 67.37 / 67.37 |
+| ms per sentence (idle / playback) | 9,977 / 20,826 | 3,302 / 4,419 |
+| tok/s (idle / playback) | 6.8 / 3.2 | 17.9 / 11.7 |
+| llama-server VmRSS peak | 2,933 MB | 1,540 MB |
+| app PSS peak / MemAvailable floor | 1,462 MB / 1,904 MB | 1,538 MB / 3,739 MB |
+| playback at end / lmkd | PLAYING / 1 third-party reclaim | PLAYING / none |
+
+Whole-book pregen at 2,878 passages: ≈8.0 h idle and **16.6 h** co-resident, against
+LFM's 2.6 h / 3.5 h. At 20.8 s per passage it cannot stay ahead of ~2.7 s of audio, and
+its resident set pushed the phone into lmkd reclaiming an unrelated process
+(`com.android.providers.calendar`, "low watermark is breached and swap is low").
+
+**Ruling: no swap — #162 stands.** The quality advantage is real and the price is not
+one this product can pay in the read-aloud path: 3–6x the wall time and +1.4 GB
+resident. The middle ground the owner asked for was measured the next day
+(`docs/prints/book-samples/middle-ground.md`, a 14-paragraph excerpt through five
+engines): LFM2.5-2.6B-Base reads clearly better than the shipped model and is complete
+under its own chat template at 1.67 GB / ~2x the per-paragraph time, while its *gate*
+harness (2-shot completion, the one behind chrF 68.30) **echoes a demonstration instead
+of translating on 2 of 14 paragraphs** — so the Base tier is only a candidate in its
+chat form, and Gemma-4-E2B (3.35 GB) stays in translategemma's memory class. No tier is
+adopted by this entry.
+
+**Also found in this pass, and open:** LFM2.5-1.2B stops generating at the first line
+break inside a passage (`finish_reason: stop`, silent truncation of everything after
+it; 3 of 6 single-paragraph probes, every multi-paragraph block). Registered in
+`open-bugs.md`; exposure is the TXT/Markdown import path only.
+
+**Device fact corrected:** this unit reports MemTotal 11,473,792 kB — **12 GB**
+(`SM-S908U1`, `dumpsys meminfo` "Total RAM: 11,473,792K"), not the 8 GB #160/#161
+carried. Those budget statements are conservative for this phone.
+
+Evidence: `docs/prints/beam-spike/README.md` §"S22 device gate + co-residency" with six
+raw JSONs, `tgemma_gate.py`, `coresidency.py`; `docs/prints/book-samples/samples.md`.
+
 ## 180. The player holds a partial wake lock while the buffer is dry (2026-09-17)
 
 Owner report: with the screen off, playback occasionally stopped and buffered (Fold).
