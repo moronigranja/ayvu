@@ -4,6 +4,35 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 189. Roadmap/README drift reconciled to the shipped state (2026-09-21)
+
+Doc-only, no source and no behavior. Three claims had drifted from the code and this
+ledger:
+
+- **`roadmap.md` §Current state** led with "v0.1.1 is published" while v0.1.2 (#178) and
+  v0.1.3 (#183) had shipped. It now leads with v0.1.3 and records that each later
+  release ran its own smoke (0.1.2 on an Android 14 emulator + the S22 update; 0.1.3 on
+  the uploaded artifact on the S22) rather than repeating the 0.1.1 list.
+- **`roadmap.md` §D7** was written as an unrun plan though the run is recorded in #150
+  (2026-09-11). A status paragraph now carries the verdicts (int8 rejected on the peer
+  artifact; window length is a latency lever — cap 150; per-window output fails both
+  gates, `MODE_STATIC` stays; ADPF hint sessions are the one measured speed lever; duty
+  cycling is thermal, not energy; the int4 CPU-EP kernel exists on ORT 1.29; **leg F2
+  stopped** with its reopening condition), the queue-order line flips to measured, and
+  the peer-app cross-check's "two verdicts held open" now records #150's answers. The
+  original leg list stays as the reference scope.
+- **Cleanup pass 4** said its remaining `PlaybackService` collaborator extraction was
+  "gated on D5 + G1"; both gates are discharged (#173, #164), so the row now reads
+  **open (unblocked)**.
+- **`README.md` §Install** still offered `Ayvu-0.1.1.apk` and "Updating (when it
+  ships)"; both now point at v0.1.3, and `roadmap.md`'s "next release increments
+  `versionCode` (3 → 4, v0.1.3)" reads 4 → 5 (v0.1.3 shipped with 4;
+  `app/build.gradle.kts`).
+
+Not touched: the `PregenKey.engine` inert-dimension item stays open — it needs a
+decision, not an edit; and the D7-gated int8 gate amendment remains un-taken (#150
+supplied the evidence, the owner has not amended the 0.001 oracle gate).
+
 ## 188. Previous-passage context in the translate prompt: measured, then ABANDONED (2026-09-20, owner)
 
 Owner question: "add the last translated paragraph to the prompt on a translation" —

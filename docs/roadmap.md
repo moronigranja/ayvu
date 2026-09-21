@@ -7,21 +7,25 @@ until they are promoted here.
 
 ## Current state
 
-v0.1.1 is **published** (2026-09-17). The signed-APK pipeline, the on-device sanity pass
-on the signed build and `docs/release-notes-0.1.1.md` are all done (decisions #126, #128),
-the release gate (pass 7 — untrusted-input hardening, licence/NOTICE completeness) closed
-2026-09-17 (decisions #174), the device smoke on the signed release build passed on the S22
-(launch, pack download, TTS preview, EPUB import, playback, in-app licences, export and a
-real restore), and the release is live with the `v0.1.1` tag on the shipped tree
-(<https://github.com/moronigranja/ayvu/releases/tag/v0.1.1>). The v1 capability
+v0.1.3 is **published** (2026-09-20) —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.3> — with v0.1.2 and v0.1.1
+(2026-09-17) before it, all signed with the same key. The signed-APK pipeline, the
+on-device sanity pass on the signed build and `docs/release-notes-0.1.1.md` are all done
+(decisions #126, #128), the release gate (pass 7 — untrusted-input hardening,
+licence/NOTICE completeness) closed 2026-09-17 (decisions #174), and the device smoke on
+the signed release build passed on the S22 (launch, pack download, TTS preview, EPUB
+import, playback, in-app licences, export and a real restore). Later releases ran their
+own smoke rather than repeating that full list (0.1.2 on an Android 14 emulator plus the
+S22 update, #178; 0.1.3 on the uploaded artifact on the S22, #183). The v1 capability
 spine is complete and device-verified: import → index → local TTS playback with
 read-along → share-and-resume, plus settings, OCR, offline pre-generation, storage
 controls, backup & restore, and the app-wide player card. The current module and test
 snapshot lives in the [README](../README.md#status).
 
 Queue order (dependency-first): the **owner's G0 listening pass** → ~~D1~~ **done,
-device-verified** (2026-09-13, #155) → **D7** cross-app performance spike
-(measurement-only, decisions #148) → ~~D4~~ **adoption landed** (PiperEngine,
+device-verified** (2026-09-13, #155) → ~~D7~~ **measured** (cross-app performance
+spike, decisions #148; the run is recorded in #150 with leg F2 stopped and its
+reopening condition) → ~~D4~~ **adoption landed** (PiperEngine,
 #154/#155/#159 — K2 unblocked, es/it/pt-BR pinned) → ~~K5~~ **per-book voice landed**
 (#156) and ~~Phase H~~ **stats landed** (#157) → ~~D5~~ **CLOSED — the voice-clone
 engine class is deferred for the app** (owner decision, decisions #173; all three
@@ -140,7 +144,7 @@ Decisions #163 logs what landed; this table is the sequencing.
 | 1 — verification harness | `checkFeatureBoundaries` fixed (it read `dependencyConstraints` and could NEVER fire) + wired into CI; `:core-translate`/`:core-backup`/`:core-ui` unit tests added to the CI lanes; the 2,937-entry ktlint baseline deleted (one bulk format over 196 files, 60 hand fixes, a root `.editorconfig`, and `ktlintFormat` kept as the formatter twin) | **done** (#163) |
 | 2 — contract boundaries | `LibraryStore.cachedBooks()` on the contract (kills five concrete `RoomLibraryStore` injections); `ActivityStore` port for both halves of Phase H (service write side, library read side); `PlayerState.canUndo` owned by the state machine (edge mirror deleted, regression-tested) | **done** (#163) |
 | 3 — playback edge concurrency | **landed**: `addBookmarkAtPlayhead` serialized on the player thread inside `commandLock` (offset read at dispatch; still not a command, so the next command cannot cancel it) — it had no test at all before; the CR-2 `finalStopJob` stays uncancellable but serialized on the player thread, targets the session's own machine, and its teardown clear is generation-guarded (a superseded STOP no longer blanks a loading session); the sleep-timer cycle moved into `PlayerStateMachine` with its 30-minute constant. All four behaviours mutation-verified: reverting them fails exactly the four new tests | **done** (#163) |
-| 4 — `PlaybackService` decomposition | **mechanical half landed** (#163): one `bindBook` for the four machine-rebuild sites, one spine walk (`BookLayout.next` — the pre-arm's private copy deleted), one cache key (`livePregenKey`, pinned to the canonical `PregenPlanner.key`; the pre-arm used to drop the read-in-language dimensions and peek the original's audio). The remaining collaborator extraction (MediaSession / notification / audio-focus / coverage / probes) is still **gated on D5 + G1** — both land inside the same file — but the translate/TTS slice below argues for pulling the publication/text part forward | **open** (gated) |
+| 4 — `PlaybackService` decomposition | **mechanical half landed** (#163): one `bindBook` for the four machine-rebuild sites, one spine walk (`BookLayout.next` — the pre-arm's private copy deleted), one cache key (`livePregenKey`, pinned to the canonical `PregenPlanner.key`; the pre-arm used to drop the read-in-language dimensions and peek the original's audio). The remaining collaborator extraction (MediaSession / notification / audio-focus / coverage / probes) was **gated on D5 + G1** — both land inside the same file; **both gates are now discharged** (D5 closed, decisions #173; G1 complete, decisions #164), so the pass is unblocked but not started | **open** (unblocked) |
 | 5a — verification floor | **Split by the owner (2026-09-15): the half that needs no build churn is DONE; the coverage ratchet is deferred behind pass 6.** DONE — (i) **`architecture.md §6` is now the contract→enforcement MAP**: 7 contracts, each naming the test that enforces it, with the gaps stated instead of assumed (contract 1 is review-only, contract 4 is half-enforced — the 'same file parses to identical passages' half has NO test, contract 5 is enforced by construction rather than by a test); the ~60-line dated chronicle the section carried was deleted because it duplicated decisions #71-#79 (architecture.md 212 → 153 lines). (ii) **`InMemoryLibraryStoreTest`** — core-model's reference store had no test at all while every store-agnostic consumer is tested against it; five behaviours pinned (import order ≠ insertion order, replace-on-same-id, `contains` as the durable gate, delete + unknown-id no-op, `cachedBooks` spine-order flattening); no build change needed. (iii) The audit's `core-llm` item was already done (`LlamaTranslatorPromptTest` exists) and its `feature-ocr` item is **mis-scoped**: feature-ocr is a 75-LOC adapter with no failure typing of its own, core-ocr's seam exposes no failure type, and the typed-failure surface that DOES exist (the import pipeline's) is already covered by `IntakeRoutingTest`/`ImportLimitsTest`/`FolderScanPolicyTest`. (iv) **Unused-symbol inventory**: 18 candidates over 18 modules, with evidence per row and no unused files, vestigial parameters or dead test seams — see [the inventory](reviews/2026-09-15-unused-symbols-inventory.md). Twelve are one-line visibility/removal changes; SIX are deliberate keeps (test/device-pinned seams, and the sample-rate duplication decisions #77 records); FOUR are owner calls, of which one is a product question: the per-book voice override is READ in production and settable only from tests. Nothing is deleted without the owner's word. DEFERRED — coverage tooling + per-module floors: no Kover/JaCoCo is configured anywhere today, and per-module configuration is 18 build-file edits unless pass 6 lands first; its value is regression-ratcheting, not coverage. | **cheap half done; coverage deferred behind pass 6** |
 | 5b — doc reconciliation | **done (2026-09-15).** Re-deriving every claim against the CODE (not against the audit row) found that passes 1-4 had already fixed most of the list: README's release claim is honest ("release-ready but not published"), `modules.md` is "as of #163" with Room v3 + both migrations, `conventions.md` documents the real `ktlintCheck` (1.7.2, no baseline), `architecture.md` already declares its graph "representative, not exhaustive" and names each module's `build.gradle.kts` + `checkFeatureBoundaries` as authoritative, and `agents.md`'s engine primacy is CORRECT (code: Kokoro PRIMARY, Piper PRIMARY, CosyVoice3 FALLBACK-gated). What the pass actually changed: README's test counts 785/743/42 → **816/773/43**, re-derived with `grep -rn '@Test\b'` (the word boundary is why `@TestInstance` is not counted; no commented-out annotations exist); and the approved disk hygiene, with ONE plan correction — the corpus moved to `core-tts/src/test/resources/` instead of `src/main/resources/`, because a main-source resource **ships inside the app** and this is dev-only evidence (`G0CorpusGen` resolves its output from whichever source root it found, so the task works from either CWD). | **done** |
 | 6 — build convention | `build-logic` convention plugins: `compileSdk` re-typed ×10, `minSdk` ×9, Java 17 ×18, JUnit boilerplate ×17, and `spike-tts` has already diverged (minSdk 27) | **open** (only if the churn justifies it) |
@@ -270,11 +274,16 @@ synthesis throughput:
   candela's core-count heuristic. Unused here: ORT thread-pool spinning controls and
   Android ADPF `PerformanceHintManager`.
 
-Two verdicts are held open for measurement: the XNNPACK EP partitions **only 2D** convs
-(Kokoro's are 1D, so our "slower" result tested a graph the EP could not claim), and
-weight-only int4 (`MatMulNBits`) is claimed to have no CPU-EP kernel while our own
-HiBreak probe ran a MatMulNBits graph to finite output on ORT-android 1.23.2. Both are
-D7 legs.
+Both verdicts this section held open were answered by the D7 run (decisions #150,
+2026-09-11): weight-only int4 (`MatMulNBits`) **does** have a CPU-EP kernel on ORT 1.29
+(our probe ran the graph to finite output; the packed shapes are
+`B [N, k_blocks, block_size·bits/8]` and `zero_points [N, blob_size]`), so the source
+reading that no kernel existed is wrong for this version; and the XNNPACK 1-D→2-D conv
+rewrite is arithmetically exact (97 convs, 194 reshapes, per-conv onset test clean) but
+fails the plan's waveform parity gate because the model's harmonic generator amplifies
+fp32 kernel-order noise — **leg F2 was stopped**, with its reopening condition (a
+per-conv onset gate instead of the absolute tolerance) in
+`docs/prints/perfspike/xnnpack-reshape.md`.
 
 ### Phase J — offline NMT (decisions #114)
 
@@ -321,7 +330,20 @@ S22 19–31 ms, 0 synchronous-synthesis seeks and 0 Choreographer skips on eithe
 cold first play 236 s (B6, Kokoro RTF 2.9) / 44.8 s (S22). Rows:
 `docs/prints/d4/d1-seek-{hibreak,s22}.json`. Acceptance met.
 
-#### D7 — Cross-app performance spike (legs A–F) — decisions #148
+#### D7 — Cross-app performance spike (legs A–F) — MEASURED (decisions #148 → #150)
+
+**Ran 2026-09-11 (decisions #150); measurement only, nothing shipped.** Verdicts:
+**A** int8 rejected on the artifact the peers ship (≈2× slower than our fp32 and audibly
+damaged pt-br; oracle + blind sets in `docs/prints/perfspike/`); **B** window length is a
+latency lever, not a throughput one — **cap 150** for weak devices; **C** per-window
+output feeding fails both plan gates, so whole-passage `MODE_STATIC` stays; **D** ADPF
+hint sessions are **the one measured speed lever** (Fold RTF 0.596 → 0.459 at extra
+energy; the S22's ROM has no ADPF service); **E** duty cycling is a thermal tool, not an
+energy saver; **F1** the int4 CPU-EP kernel exists on ORT 1.29; **F2** stopped — the
+1-D→2-D rewrite is arithmetically exact but fails the waveform parity gate, reopening
+condition in `docs/prints/perfspike/xnnpack-reshape.md`. Adopting anything it found
+(the int8 tier, a power policy, a gate amendment) is still a separate decision; the
+original scope below is kept as the reference.
 
 One `spike-tts` measurement session on the S22 and the HiBreak, answering the four levers
 the peer-app survey surfaced and closing the two conflicting verdicts. Measurement only —
@@ -913,10 +935,11 @@ artifact record the next releaser diffs against; `tools/release.sh` keeps printi
 digest and the signer certificates for anyone who wants them. The 0.1.1 and 0.1.2 notes
 keep their copies of both sections: those files record what actually shipped.
 
-The next release increments `versionCode` (3 → 4, v0.1.3). Note from the 0.1.2 run: the
-draft upload rebuilds `packageRelease`, so the digest that goes into the notes must be
-the one printed by `tools/release.sh --upload` (a local build of the same commit had a
-different digest), and the `assemble-on-tag` gate does fire on the publish now (#174).
+The next release increments `versionCode` (4 → 5; v0.1.3 shipped with 4). Note from the
+0.1.2 run: the draft upload rebuilds `packageRelease`, so the digest that goes into the
+notes must be the one printed by `tools/release.sh --upload` (a local build of the same
+commit had a different digest), and the `assemble-on-tag` gate does fire on the publish
+now (#174).
 
 Deferred until a store listing is actually wanted: AAB + Play Data Safety, store privacy
 policy, listing/screenshots, supported-devices declaration. Native crash symbols and

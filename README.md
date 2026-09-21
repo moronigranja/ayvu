@@ -54,11 +54,12 @@ PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProb
 
 ## Install
 
-**v0.1.1 is published** — [Releases → v0.1.1](https://github.com/moronigranja/ayvu/releases/tag/v0.1.1)
+**v0.1.3 is published** — [Releases → v0.1.3](https://github.com/moronigranja/ayvu/releases/tag/v0.1.3)
 (signed release build, unminified, arm64-v8a; the release notes carry the SHA-256 and the
-signing-certificate fingerprint). The `v0.1.1` tag points at the shipped tree.
+signing-certificate fingerprint). The `v0.1.3` tag points at the shipped tree; v0.1.2 and
+v0.1.1 precede it under the same signing key.
 
-1. Download `Ayvu-0.1.1.apk` (signed release build, unminified, **≈52 MB** — ONNX Runtime
+1. Download `Ayvu-0.1.3.apk` (signed release build, unminified, **≈52 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
    (API 26)**: the build is arm64-only because the espeak-ng phonemizer it ships is an
    arm64 native library, so 32-bit and x86 installs are not supported.
@@ -69,7 +70,7 @@ signing-certificate fingerprint). The `v0.1.1` tag points at the shipped tree.
    is selectable in Settings → Speech) — explicitly, resumably and SHA-256-verified.
    After the TTS packs land the app is fully offline.
 
-**Updating (when it ships):** the signing key is stable across releases, so a newer APK
+**Updating:** the signing key is stable across releases, so a newer APK
 installs straight over the previous one — no uninstall, and your library, progress,
 bookmarks and settings are kept. There is no in-app update check; watch the Releases
 page. Pre-release builds under the old
