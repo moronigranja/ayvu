@@ -68,7 +68,7 @@ class TextIndex {
 
     /**
      * Best match for [snippet] across all indexed books, or null when no passage reaches
-     * [minConfidence] (the user-configurable threshold from settings, default 0.6).
+     * [minConfidence] (the user-configurable threshold from settings, default 0.3).
      * Ties keep the earliest book/passage in index (insertion) order.
      */
     @Synchronized

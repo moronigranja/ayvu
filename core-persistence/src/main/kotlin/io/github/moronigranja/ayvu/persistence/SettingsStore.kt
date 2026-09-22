@@ -283,7 +283,16 @@ class SettingsStore(
     }
 
     companion object {
-        const val DEFAULT_MATCH_THRESHOLD = 0.6
+        /** Share-match confidence floor (decisions #3, re-set by #191).
+         *
+         * 0.3 is the slider's minimum. The measured separation is wide: on the
+         * post-OCR-swap sweep (decisions #190) real screenshot legs score ≥0.909 while
+         * cross-book distractors stay ≤0.035, so the floor is a recall/precision dial
+         * rather than a correctness gate. What 0.3 admits that 0.6 rejected is the
+         * short-snippet branch (fewer than 4 tokens, token-recall): one hit in two
+         * tokens = 0.5 and one in three = 0.33, so generic 2-3-word shares
+         * ("Chapter One", "Thank you", "All rights reserved") now resolve. */
+        const val DEFAULT_MATCH_THRESHOLD = 0.3
         const val DEFAULT_VOICE = "af_heart"
         const val DEFAULT_OCR_LANGUAGE = "eng"
         const val DEFAULT_TTS_ENGINE = "kokoro-82m"

@@ -960,14 +960,23 @@ player state machinery.
 - ~~OCR replacement technology for the known legacy-tessdata accuracy ceiling.~~
   Landed 2026-09-20 (decisions #186): Tesseract4Android 4.9.0 + `tessdata_fast`
   4.1.0 LSTM packs; the `best` tier stays available if the device pass shows
-  accuracy short.
-- **Share-match threshold (0.6) after the OCR engine swap** (decisions #186). The
-  default, the n=4/3-gram scheme and the `≤0.05` cross-book margin were measured
-  against the retired legacy-tess-two error profile; Tesseract 5 + `tessdata_fast`
-  fails differently (measured once: the S2 pipeline test still resolves a rendered
-  quote at 0.6, and a clipped-glyph render read "12:" where the legacy engine
-  guessed "123"). The honest re-check is the original kind of sweep — realistic
-  screenshot noise, both directions — before the threshold is treated as settled.
+  accuracy short. **Arm64 device gate closed 2026-09-21 (decisions #190)** on the S22
+  — `OcrSmokeInstrumentedTest` + `SharePipelineInstrumentedTest` green with
+  `lib/arm64/libtesseract.so` loaded and `tesseract 5.5.1 engineMode=1` on the staged
+  `fast-4.1.0` data path; the `best` tier stays unneeded.
+- **Share-match threshold after the OCR engine swap** — **re-checked
+  2026-09-21 (decisions #190), then re-set to 0.3 (decisions #191, owner).** The sweep was
+  run in the shipped shape (phone-page renders → the app's bilinear downscale → Tesseract
+  5 LSTM-only `PSM_SINGLE_BLOCK` with the pinned `tessdata_fast` 4.1.0 eng): 100
+  screenshot legs over two books, worst true-positive **0.909** (a half-clipped last
+  line) and best cross-book distractor **0.035** — a 0.874 separation, i.e. both floors
+  sit in empty space and the choice is a recall/precision call, not correctness. The
+  owner picked the recall end: the default is now **0.3**, which newly admits the
+  short-snippet branch (`<4` tokens) — `Chapter One` 0.50, `Thank you` 0.50,
+  `All rights reserved` 0.33. The `≤0.05` margin is cross-book scoped and still holds;
+  the only rows above it are same-book near-duplicate paragraphs (max 0.179), which
+  affects which passage is picked, not which book. Evidence and the rerunnable harness:
+  `docs/prints/match-sweep/`.
 - Library metadata: series, author normalization, duplicate editions and sorting.
 - A privacy-preserving local diagnostic export containing versions, pack/storage state
   and typed failures, never book text.

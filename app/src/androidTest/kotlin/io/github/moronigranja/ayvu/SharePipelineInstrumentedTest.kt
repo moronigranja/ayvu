@@ -20,6 +20,7 @@ import io.github.moronigranja.ayvu.model.CachedPassage
 import io.github.moronigranja.ayvu.model.Chapter
 import io.github.moronigranja.ayvu.model.TextPassage
 import io.github.moronigranja.ayvu.ocr.TessDataStager
+import io.github.moronigranja.ayvu.persistence.SettingsStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,7 +39,7 @@ import java.io.File
  * needs a test-manifest override this AGP setup doesn't apply); the pieces
  * are the app's own: Tesseract engine + stager path, core-ocr downscaler,
  * TextIndex + IndexRebuilder + the S2 resolver. Threshold/languages default
- * to the V1 settings defaults (0.6 / "eng").
+ * to the product settings defaults ([SettingsStore.DEFAULT_MATCH_THRESHOLD] / "eng").
  *
  * Requires staged packs + `files/tesseract/tessdata/eng.traineddata`
  * (build.md), media volume 0.
@@ -87,7 +88,7 @@ class SharePipelineInstrumentedTest {
         return ShareSnippetResolver(
             index = index,
             rebuildGate = gate,
-            threshold = { 0.6 },
+            threshold = { SettingsStore.DEFAULT_MATCH_THRESHOLD },
             ocr = ocr,
             ocrLanguages = { listOf("eng") },
         )

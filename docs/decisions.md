@@ -4,6 +4,82 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 191. Share-match default threshold lowered 0.6 → 0.3 (2026-09-21, owner)
+
+Owner call: *"0.3 is a better default for the OCR threshold."* The dial is the one
+user-facing match-confidence floor (`SettingsStore.DEFAULT_MATCH_THRESHOLD`, applied by
+`ShareSnippetResolver` to both the copied-text and the OCR'd-image branch). There is no
+separate OCR-confidence gate to change — `OcrResult.confidence` is reported to the UI
+(`Match NN%` / `Closest: …`) and never gated.
+
+Why this is a recall/precision dial and not a correctness one: #190's post-OCR-swap sweep
+put the two populations far apart — real screenshot legs ≥0.909, cross-book distractors
+≤0.035 — so the floor sits in empty space and 0.3 vs 0.6 only decides which *marginal*
+snippets resolve. The owner's preference is the recall end, with the below-threshold
+"closest candidate" hint line still covering the misses.
+
+Exactly what it newly admits — the short-snippet branch (`<4` tokens falls back to token
+recall in `TextMatcher.scoreNormalized`), measured against the #190 corpus:
+`Chapter One` 0.50, `Thank you` 0.50, `All rights reserved` 0.33 (all rejected at 0.6,
+all accepted at 0.3). Longer unrelated text stays at 0.00 and the worst same-book
+near-duplicate is 0.179, so nothing outside that band crosses. Note the one-token case
+(`the` → 1.0) already passed at 0.6 — 0.3 does not open it, it predates the change.
+Raw run: `docs/prints/match-sweep/floor.txt`.
+
+Cutover: the constant, the three `core-locate` KDoc sites, `architecture.md`'s pipeline
+sketch, README's identification limitation (which now states the short-snippet behaviour
+instead of claiming those shares are rejected), and `SharePipelineInstrumentedTest`,
+which now injects the product constant rather than a literal. Installs that already
+stored a value keep it; nothing migrates. Device-verified by re-running the OCR/share
+instrumented pair on the S22.
+
+## 190. Track 1 verification debt closed: the OCR arm64 gate and the share-match threshold re-check (2026-09-21)
+
+Follows #189, which flagged this debt. Two items, both now measured rather than pending.
+
+**a) OCR arm64 device gate — closes open-bugs row 14's last line.** On the S22
+(SM-S908U1, arm64) the `0.1.3` debug build (versionCode 4) was installed over the debug
+build (same pinned debug key, so no data loss) and the pinned `tessdata_fast` 4.1.0 eng
+artifact staged at the versioned data path
+(`files/tesseract/fast-4.1.0/tessdata/eng.traineddata`, device sha256 `7d4322bd…`).
+`OcrSmokeInstrumentedTest` (1 test) and `SharePipelineInstrumentedTest` (2 tests) ran in
+their own `am instrument` invocations — green. Logcat proves the arm64 native legs and
+the LSTM-only engine: `Load …/lib/arm64/libleptonica.so`, `Load
+…/lib/arm64/libtesseract.so`, `Initialized Tesseract API with language=eng`, and
+`AyvuOcr: tesseract 5.5.1 engineMode=1 langs=eng under
+…/files/tesseract/fast-4.1.0` (`docs/prints/match-sweep/ocr-arm64-gate.log`).
+Deliberately NOT repeated on arm64: the settings download's SHA-verify/staging-marker
+path and the retired-generation reclaim are pure `File` logic — architecture-independent,
+pinned by `TessDataStagerTest`, emulator-verified 2026-09-20. No accuracy shortfall
+signal, so the `best` tier stays unused.
+
+**b) Share-match threshold re-check — the sweep the roadmap required after the engine
+swap.** The 0.6 default, the n=4/3-gram scheme and the `≤0.05` cross-book margin were
+measured against the retired legacy-tess-two error profile, so the sweep was re-run in
+the shipped shape: real passages from two epubs (fiction + nonfiction) → phone-page
+renders (1440×3088, 48 px serif) → the app's own bilinear downscale to long side 1600 →
+Tesseract 5 LSTM-only (`--oem 1 --psm 6`) against the **pinned** fast 4.1.0 eng model;
+scores come from the production `TextMatcher`/`TextNormalizer`, never a reimplementation.
+
+| leg | n | TP min | TP median | OCR token error max |
+|---|---|---|---|---|
+| clean page | 50 | 0.9538 | 1.0000 | 0.029 |
+| last line half-clipped | 50 | 0.9091 | 0.9769 | 0.057 |
+| verbatim control | 20 | 1.0000 | 1.0000 | 0 |
+| sentences reordered | 19 | 0.7973 | 0.9200 | n/a |
+
+Cross-book distractor max **0.0351**; separation **0.874** against the worst screenshot
+true positive. **Verdict: the separation holds at either floor — 0.6 and 0.3 both sit in
+empty space.** The default was then re-set to 0.3 by the owner (decisions #191); the
+measurement verdict here is unchanged, and the `≤0.05` cross-book margin with it. One new
+measured property is recorded (not a defect; the docs were already cross-book scoped): the
+only rows above the margin are *same-book near-duplicate paragraphs* (max 0.179 — a
+mutually 0.179/0.116 pair in the nonfiction corpus), which affects which passage is
+picked inside a matched book, not which book matches. Corpus caveat: 50 passages per book
+is a sample, so the distractor maximum is a lower bound — the separation leaves no
+plausible path to 0.6. Harness and raw data: `docs/prints/match-sweep/` (renderer,
+`pairs.tsv`, `scores.json`, the matcher runner kept beside it, the arm64 log).
+
 ## 189. Roadmap/README drift reconciled to the shipped state (2026-09-21)
 
 Doc-only, no source and no behavior. Three claims had drifted from the code and this
@@ -7790,6 +7866,8 @@ while cross-book text stays ≤0.05. Short snippets (<4 words) fall back to unig
 Recall semantics: "fraction of the snippet's word-groups found in a passage".
 1.0 = verbatim; realistic OCR stays ≥0.6; cross-book noise measures ≤0.05; reordered
 text ≈0.06 — a clean separation. 0.3 was proposed first; owner raised to 0.6.
+**Amendment (2026-09-21, decisions #191): re-set to 0.3 by the owner after the
+post-OCR-swap re-measurement (#190) — the separation holds at either floor.**
 
 ## 2. DI = Hilt (2026-08-24)
 Compile-time dependency graph with free ViewModel/Service/Compose integration.

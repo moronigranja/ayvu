@@ -113,7 +113,7 @@ file (SAF) ─EBookSource─▶ EBookFormats.parserFor(fileName) ─▶ Parser.p
 
 ```
 shared snippet → normalize → word n-grams → recall vs every indexed passage
-  → MatchResult(bookId, bookTitle, chapterIndex, chapterTitle, passageIndex, confidence) or null below threshold (0.6, configurable)
+  → MatchResult(bookId, bookTitle, chapterIndex, chapterTitle, passageIndex, confidence) or null below threshold (0.3, configurable)
 ```
 
 - `TextIndex`: in-memory, synchronized writes, snapshot reads (queries never block

@@ -95,8 +95,10 @@ fingerprint published with the release, and see
   navPoint filepos boundaries, titled from the navPoint labels; without one the
   book stays a single chapter and headings surface as passages.
 - **Identification:** assumes contiguous, in-order text (copied or OCR'd). Non-space
-  scripts (CJK) are not supported by the matcher yet; very short snippets are
-  unreliable and rejected by the confidence threshold (configurable, default 0.6).
+  scripts (CJK) are not supported by the matcher yet. Very short snippets are
+  unreliable — below four words the matcher falls back to token overlap, so a
+  two- or three-word share can resolve to a book (the threshold is configurable,
+  default 0.3; raise it to reject those).
 - **Share-and-identify** only recognizes books already imported into the library.
 - **TTS voices:** v1 ships Kokoro-82M as the primary engine (CosyVoice3 gated behind
   the fallback tier — far from realtime on the S22 CPU, decisions #21); the pinned

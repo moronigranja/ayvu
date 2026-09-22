@@ -9,9 +9,11 @@ package io.github.moronigranja.ayvu.locate
  * 1.0 = snippet fully contained (verbatim / contiguous chunk / truncated prefix);
  * unrelated text scores near 0.
  *
- * The 4-gram + 3-gram-fallback shape was chosen by measurement (see agents.md §8):
- * realistic OCR typo rates keep matches above the 0.6 default threshold while
- * cross-book distractors stay below ~0.05 and reordered text sits near 0.
+ * The 4-gram + 3-gram-fallback shape was chosen by measurement (decisions #4), and
+ * re-derived after the OCR engine swap (decisions #190): realistic OCR typo rates keep
+ * screenshot matches at ≥0.909 while cross-book distractors stay ≤0.035 and reordered
+ * text sits near 0, so the default floor (0.3, decisions #191) is a recall dial well
+ * clear of both populations.
  */
 object TextMatcher {
     const val DEFAULT_NGRAM_SIZE = 4
