@@ -69,7 +69,12 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        pendingTarget = consumeTarget(intent)
+        // The task's own intent keeps the share/identify OpenTarget extras for its whole
+        // life, and a configuration change (rotation) recreates this Activity: re-consuming
+        // it re-armed the reader's start target and restarted audio on every rotation
+        // (owner report 2026-09-22). Consume on a fresh launch only — a NEW share arrives
+        // through onNewIntent.
+        pendingTarget = if (savedInstanceState == null) consumeTarget(intent) else null
         dispatchExternalIntake(intent)
         // C1.4: the gate derives from durable facts (packs/books/engine) on
         // every cold start — never an onboarding flag (C3). Non-blocking:
@@ -117,6 +122,10 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     null
                                 },
+                            onStartTargetPlayed = {
+                                targetChapter = -1
+                                targetPassage = -1
+                            },
                             onClose = {
                                 openBookId = null
                                 targetChapter = -1

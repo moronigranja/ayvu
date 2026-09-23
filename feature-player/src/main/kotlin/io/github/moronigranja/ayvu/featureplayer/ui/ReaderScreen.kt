@@ -130,6 +130,10 @@ fun ReaderScreen(
     onClose: () -> Unit,
     onOpenSettings: () -> Unit,
     startAt: PlayerPosition? = null,
+    /** Called right after the one-shot share-target play is dispatched; the host clears
+     *  its navigation target here so no later composition can replay it (owner report
+     *  2026-09-22). */
+    onStartTargetPlayed: () -> Unit,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -201,10 +205,14 @@ fun ReaderScreen(
             viewModel.open(bookId)
         }
     }
-    // A share target (S3 "listen here") starts audio at the passage once.
+    // A share target (S3 "listen here") starts audio at the passage ONCE: the host clears
+    // the target when this fires, so a re-entry (or a recreation that restored it) cannot
+    // replay it — while a rotation *before* the dispatch still plays, because the target
+    // is then still set.
     LaunchedEffect(startAt) {
         if (startAt != null) {
             viewModel.playPosition(bookId, startAt.chapterIndex, startAt.passageIndex)
+            onStartTargetPlayed()
         }
     }
 
