@@ -7,18 +7,19 @@ until they are promoted here.
 
 ## Current state
 
-v0.1.3 is **published** (2026-09-20) —
-<https://github.com/moronigranja/ayvu/releases/tag/v0.1.3> — with v0.1.2 and v0.1.1
-(2026-09-17) before it, all signed with the same key. The signed-APK pipeline, the
-on-device sanity pass on the signed build and `docs/release-notes-0.1.1.md` are all done
-(decisions #126, #128), the release gate (pass 7 — untrusted-input hardening,
-licence/NOTICE completeness) closed 2026-09-17 (decisions #174), and the device smoke on
-the signed release build passed on the S22 (launch, pack download, TTS preview, EPUB
-import, playback, in-app licences, export and a real restore). Later releases ran their
-own smoke rather than repeating that full list (0.1.2 on an Android 14 emulator plus the
-S22 update, #178; 0.1.3 on the uploaded artifact on the S22, #183). The v1 capability
-spine is complete and device-verified: import → index → local TTS playback with
-read-along → share-and-resume, plus settings, OCR, offline pre-generation, storage
+v0.1.4 is **published** (2026-09-23) —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.4> — with v0.1.3 (2026-09-20)
+and v0.1.2/v0.1.1 (2026-09-17) before it, all signed with the same key. The signed-APK
+pipeline, the on-device sanity pass on the signed build and
+`docs/release-notes-0.1.1.md` are all done (decisions #126, #128), the release gate
+(pass 7 — untrusted-input hardening, licence/NOTICE completeness) closed 2026-09-17
+(decisions #174), and the device smoke on the signed release build passed on the S22
+(launch, pack download, TTS preview, EPUB import, playback, in-app licences, export and
+a real restore). Later releases ran their own smoke rather than repeating that full list
+(0.1.2 on an Android 14 emulator plus the S22 update, #178; 0.1.3 on the uploaded
+artifact on the S22, #183; 0.1.4 on the shipped artifact on the S22, #194). The v1
+capability spine is complete and device-verified: import → index → local TTS playback
+with read-along → share-and-resume, plus settings, OCR, offline pre-generation, storage
 controls, backup & restore, and the app-wide player card. The current module and test
 snapshot lives in the [README](../README.md#status).
 
@@ -873,6 +874,20 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
+**v0.1.4 is published (2026-09-23)** —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.4>. Shipped
+`Ayvu-0.1.4.apk`, 52,279,328 B, sha256 `038db8ee…`, cert `a5057984…` (same key as
+0.1.1–0.1.3, so it updates in place). Contents: translation export (#187 — Markdown /
+plain text / EPUB 3 from a library row), the OCR binding swap to Tesseract 5.5.1 with
+the `tessdata_fast` 4.1.0 packs (#186), the share-match threshold 0.6 → 0.3 (#191),
+bookmark jumps keeping their in-passage offset (#185), the skippable first-run import
+step (#184), the three playback-target fixes (#193 — rotation replay, stale long-press
+mapping, out-of-layout play target) and cancellation-is-not-a-failure (#192). The smoke
+ran on the shipped artifact on the S22 (clean install → first-run wizard, Kokoro +
+espeak pack download and staging through the shipped build, SAF import, playback,
+Settings, About → Licences), and the tag fired the `assemble-on-tag` gate; see
+decisions #194.
+
 **v0.1.3 is published (2026-09-20)** —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.3>. Shipped
 `Ayvu-0.1.3.apk`, 51,837,070 B, sha256 `6e664d42…`, cert `a5057984…` (same key as
@@ -935,7 +950,7 @@ artifact record the next releaser diffs against; `tools/release.sh` keeps printi
 digest and the signer certificates for anyone who wants them. The 0.1.1 and 0.1.2 notes
 keep their copies of both sections: those files record what actually shipped.
 
-The next release increments `versionCode` (4 → 5; v0.1.3 shipped with 4). Note from the
+The next release increments `versionCode` (5 → 6; v0.1.4 shipped with 5). Note from the
 0.1.2 run: the draft upload rebuilds `packageRelease`, so the digest that goes into the
 notes must be the one printed by `tools/release.sh --upload` (a local build of the same
 commit had a different digest), and the `assemble-on-tag` gate does fire on the publish

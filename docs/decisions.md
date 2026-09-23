@@ -4,6 +4,53 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 194. v0.1.4 published — export, the OCR binding swap, and the play-target fixes (2026-09-23, owner)
+
+Owner: *"Lets put out a new release."* Published
+<https://github.com/moronigranja/ayvu/releases/tag/v0.1.4> following the roadmap's
+publish-run steps.
+
+- **Artifact**: `Ayvu-0.1.4.apk`, 52,279,328 B, sha256
+  `038db8ee89708c17e6ed25993dbd18723f9aaa91e9aa350c99f4f4a04a42d242`, signer `a5057984…`
+  (CN=Ayvu — the same certificate as 0.1.1–0.1.3, so it updates in place). `versionCode`
+  4 → 5. The digest is the one `tools/release.sh --upload` printed for the artifact it
+  uploaded (#176: release bytes are not reproducible); the published asset was then
+  downloaded again and hashed to that value (size included) before the pin was written.
+  The `v0.1.4` tag points at the pin commit (`800fb33`), which contains the shipped code.
+- **Contents** (since v0.1.3): translation export — Markdown / plain text / EPUB 3, the
+  language chosen in the dialog (#187); the OCR binding swap to Tesseract 5.5.1 with the
+  `tessdata_fast` 4.1.0 LSTM packs, the retired pre-LSTM generation reclaimed on upgrade
+  (#186/#190); the share-match threshold default 0.6 → 0.3 (#191); bookmark jumps keeping
+  their in-passage offset (#185); the skippable first-run import step (#184); the three
+  play-target fixes — rotation replay, stale long-press mapping, out-of-layout play
+  target (#193); and cancellation-no-longer-a-failure (#192).
+- **Notes**: `docs/release-notes-0.1.4.md`, the #179 shape and the #183 length (what
+  changed, install, the first-run pack table — OCR row now the `tessdata_fast` 4.1.0
+  packs, 1.1–4.1 MB each — that build's known limitations, licence). The register row
+  claiming the bookmark-offset bug was still open was corrected in the same cycle (it was
+  fixed by #185 but never marked), so the notes and `open-bugs.md` agree.
+- **Smoke on the shipped artifact** (S22, release build, clean install — the debug build
+  was uninstalled first, owner-approved data loss): first-run gate and the whole wizard
+  (engine choice, **pack download through the shipped build** — Kokoro model 310.4 MB,
+  voices 26.9 MB, espeak 9.7 MB, each download → Ready — voice step, the skippable import
+  step), library import (a real book added), playback (MediaSession PLAYING, the library
+  card's Pause), Settings (Speech shows the packs downloaded; **Match threshold 0.30** —
+  the new default), About → **Ayvu 0.1.4** and Licences rendering the bundled GPL-3.0
+  text. No FATAL in the crash buffer or the main log. The Fold kept its data: `install -r`
+  over its 0.1.3 succeeded (same release cert) and the app launched with all five books,
+  their progress and offline-audio sizes preserved. Not re-run: the export *dialog* could
+  not be opened on this device (the only book was the active `PlayerCard`, whose menu
+  deliberately lacks the row-only export item, and a shell-pushed file never surfaced in
+  the SAF picker); the writers are packaged in the shipped dex (checked) and the flow was
+  device-verified in #187.
+- **Gate**: the `v0.1.4` tag fired the `assemble-on-tag` CI job. Its first two attempts
+  failed on infrastructure while building the toolchain image — `curl: (92) …
+  INTERNAL_ERROR` fetching `commandlinetools-linux-11076708_latest.zip`, then
+  `sdkmanager`'s `Error on ZipFile unknown archive` for Android SDK Platform 36, both
+  dl.google.com download hiccups — while those runs' `android-build` and `jvm-tests` jobs
+  passed; re-running the failed job (third attempt) is green: `assemble-on-tag`,
+  `jvm-tests` and `android-build` all success on the tag (run 35901437681).
+
 ## 193. Three playback-target defects: rotation replay, stale long-press mapping, out-of-layout play target (2026-09-23, owner reports)
 
 Three defects reported/observed 2026-09-22, all on the share/gesture play-target

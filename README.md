@@ -45,21 +45,22 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
 
-Test sources: **883 `@Test` methods** (838 under `src/test`, 45 under `src/androidTest`;
-counted 2026-09-17 with `grep -rn '@Test\b'`), 0 failed. Android unit suites (Docker): green across
+Test sources: **984 `@Test` methods** (934 under `src/test`, 50 under `src/androidTest`;
+counted 2026-09-23), 0 failed. Android unit suites (Docker): green across
 app + all features. Device instrumented set (S22 staging, see docs/build.md):
 PlaybackE2e (full-book completion + pre-generation fast path), VoiceSelectionE2e,
-PlayPositionE2e, SharePipeline (text + image OCR), OCR smoke, RealEpubImportProbe
+PlayPositionE2e, ReaderRotationReplayE2e (a rotation must not replay the share target),
+SharePipeline (text + image OCR), OCR smoke, RealEpubImportProbe
 (a real 24.8 MiB Gutenberg epub), PtVoiceE2e — all passing.
 
 ## Install
 
-**v0.1.3 is published** — [Releases → v0.1.3](https://github.com/moronigranja/ayvu/releases/tag/v0.1.3)
+**v0.1.4 is published** — [Releases → v0.1.4](https://github.com/moronigranja/ayvu/releases/tag/v0.1.4)
 (signed release build, unminified, arm64-v8a; the release notes carry the SHA-256 and the
-signing-certificate fingerprint). The `v0.1.3` tag points at the shipped tree; v0.1.2 and
-v0.1.1 precede it under the same signing key.
+signing-certificate fingerprint). The `v0.1.4` tag points at the shipped tree; v0.1.3,
+v0.1.2 and v0.1.1 precede it under the same signing key.
 
-1. Download `Ayvu-0.1.3.apk` (signed release build, unminified, **≈52 MB** — ONNX Runtime
+1. Download `Ayvu-0.1.4.apk` (signed release build, unminified, **≈50 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
    (API 26)**: the build is arm64-only because the espeak-ng phonemizer it ships is an
    arm64 native library, so 32-bit and x86 installs are not supported.
