@@ -789,6 +789,15 @@ private fun PaginatedChapter(
                     start until end.coerceAtMost(totalLines)
                 }
             }
+        // The gesture block's pointerInput keys (bookId/totalPages/blocks/immersive/
+        // longPressTarget) do not include `page`: a manual or follow page turn leaves the
+        // block holding the page geometry of the page it last (re)started on, so the
+        // y→passage mapping named an earlier passage (owner report 2026-09-22; device-
+        // measured shift −3 after one turn, −5 after two). Read the page-dependent inputs
+        // through rememberUpdatedState — always the current page's, and no block restart
+        // (a restart would cancel an in-flight gesture when follow turns the page).
+        val liveRange = rememberUpdatedState(range)
+        val livePassageStartLines = rememberUpdatedState(passageStartLines)
         val startChar = if (page <= 0 || range.isEmpty()) 0 else bodyLayout.multiParagraph.getLineStart(range.first)
         val endChar = if (range.isEmpty()) startChar else bodyLayout.multiParagraph.getLineEnd(range.last)
         // The passage the current page starts at (item 3): the first passage
@@ -1063,8 +1072,9 @@ private fun PaginatedChapter(
                             val topInset = if (immersive) titleOverlayReservedPx else 0
                             val titleBlock = (if (page <= 0) titleHeightPx + titleGapPx else 0) + topInset
                             val lineInPage = ((y - titleBlock).toInt() / lineHeightPx).coerceAtLeast(0)
-                            val globalLine = range.first + lineInPage
-                            val index = passageStartLines.indexOfLast { it <= globalLine }
+                            val lines = liveRange.value
+                            val globalLine = lines.first + lineInPage
+                            val index = livePassageStartLines.value.indexOfLast { it <= globalLine }
                             return index.takeIf { it >= 0 && (!requirePositioned || state.positioned) }
                         }
                         awaitEachGesture {
