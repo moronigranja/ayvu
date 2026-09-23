@@ -1,6 +1,7 @@
 package io.github.moronigranja.ayvu.player
 
 import io.github.moronigranja.ayvu.model.Book
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -435,9 +436,23 @@ class PlayerStateMachine(
 
     // ------------------------------------------------------------------
 
+    /**
+     * The single write point's error envelope: a persistence failure becomes a
+     * typed [PlayerState.failure]; a CANCELLATION never does. The Android edge
+     * cancels a superseded command — and the play loop itself — the moment a
+     * newer command arrives, and the loop's throttled playhead checkpoint is
+     * suspended in exactly this call, so a superseded write resumes with a
+     * CancellationException. Turning that into `failure` published the raw job
+     * message ("StandaloneCoroutine was cancelled") through the UI state
+     * holder and replaced the reader's book body with the error state
+     * (owner report 2026-09-22). Cancellation must propagate; the store's own
+     * failures stay typed.
+     */
     private inline fun <T> storeOp(block: () -> T): T? =
         try {
             block()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             _state.update { it.copy(failure = e.message ?: "store failure") }
             null

@@ -3,6 +3,10 @@ package io.github.moronigranja.ayvu.player
 import io.github.moronigranja.ayvu.model.Book
 import io.github.moronigranja.ayvu.model.Chapter
 import io.github.moronigranja.ayvu.model.TextPassage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -457,6 +461,24 @@ class PlayerStateMachineTest {
             assertNotNull(broken.state.value.failure)
             assertEquals(PlayerPhase.LOADING, broken.state.value.phase)
         }
+
+    @Test
+    fun `a write cancelled mid-store is not recorded as a failure`() =
+        runTest {
+            // The single-writer edge cancels a command or the play loop the moment a
+            // newer command supersedes it (stopEverything), and the loop checkpoints
+            // the playhead through a Room suspend write — so a superseded write resumes
+            // with a CancellationException. Recording that as `failure` rendered the raw
+            // job message in the reader (owner report 2026-09-22: "StandaloneCoroutine
+            // was canceled") and replaced the book body with the error state.
+            val entered = CompletableDeferred<Unit>()
+            val cancelling = PlayerStateMachine(SuspendingStore(entered), BookLayout(book)) { now }
+            cancelling.present(passage(0, 0))
+            val write = launch { cancelling.notePlaybackOffset(3.0) }
+            entered.await() // the write is in flight (the store call is suspended)
+            write.cancelAndJoin()
+            assertNull(cancelling.state.value.failure, "a superseded write is cancellation, never a failure")
+        }
 }
 
 /** Wraps a store and fails every operation after construction. */
@@ -479,4 +501,31 @@ private class FailingStore(
     override suspend fun removeBookmark(bookmarkId: Long) = throw IllegalStateException("io down")
 
     override suspend fun bookmarks(bookId: String): List<Bookmark> = throw IllegalStateException("io down")
+}
+
+/** A store whose progress write blocks until the caller is cancelled — the
+ *  supersession window in which a cancelled command or play loop is suspended
+ *  inside [PlayerStateMachine]'s store call (the Room DAO suspension). */
+private class SuspendingStore(
+    private val entered: CompletableDeferred<Unit>,
+) : PlayerStore {
+    override suspend fun readProgress(bookId: String): PlayerProgress? = null
+
+    override suspend fun commitProgress(
+        progress: PlayerProgress,
+        ringPush: PlayerPosition?,
+    ) {
+        entered.complete(Unit)
+        awaitCancellation()
+    }
+
+    override suspend fun readRing(bookId: String): List<PlayerPosition> = emptyList()
+
+    override suspend fun popRing(bookId: String): PlayerPosition? = null
+
+    override suspend fun addBookmark(bookmark: Bookmark): Bookmark = bookmark
+
+    override suspend fun removeBookmark(bookmarkId: Long) = Unit
+
+    override suspend fun bookmarks(bookId: String): List<Bookmark> = emptyList()
 }

@@ -7,6 +7,7 @@ import io.github.moronigranja.ayvu.tts.SynthesisOutcome
 import io.github.moronigranja.ayvu.tts.SynthesisRequest
 import io.github.moronigranja.ayvu.tts.TTSEngine
 import io.github.moronigranja.ayvu.tts.TtsPack
+import kotlinx.coroutines.CancellationException
 
 /**
  * C1.5/decisions #102: the zero-download degraded fallback — reads with the
@@ -54,6 +55,13 @@ class SystemTtsEngine(
                 TtsSynthesis.Unavailable ->
                     SynthesisOutcome.Failed("device voice unavailable: ${language ?: "device default"}")
             }
+        } catch (e: CancellationException) {
+            // The seam's withContext resumption throws on a cancelled caller
+            // (every superseding command cancels the play loop / the fill job).
+            // Reporting that as a synthesis failure published the raw job
+            // message as a failure and counted it toward the pre-generation
+            // failure cap (owner report 2026-09-22) — cancellation propagates.
+            throw e
         } catch (t: Throwable) {
             SynthesisOutcome.Failed(t.message ?: "device voice failed")
         }

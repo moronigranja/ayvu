@@ -4,6 +4,48 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 192. A superseded write is cancellation, never a failure (2026-09-22, owner report)
+
+Owner report: *"I pressed play and stopped then opened the book, and got a
+'StandaloneCoroutine was canceled' message."* The reader renders
+`EmptyState(state.failure!!)` ahead of the book body, so the app was showing its own
+cancellation as a user failure — and hiding the book behind it.
+
+Mechanism (traced, then reproduced on the host): the Android edge cancels a superseded
+command — and with it the play loop and the throttled playhead checkpoint — through
+`stopEverything()`, and the loop's checkpoint goes through
+`PlayerStateMachine.notePlaybackOffset`, whose Room write suspends. Cancelling a job
+suspended in that call resumes it with a `JobCancellationException`, and
+`PlayerStateMachine.storeOp` — the single envelope that turns persistence errors into the
+typed `PlayerState.failure` — caught it as one. The text is kotlinx-coroutines'
+`"$name was cancelled"` (`StandaloneCoroutine` for a `launch`ed coroutine). It latches
+(pause publishes the holder but, unlike STOP, never resets it), and a reader re-entry for
+the already-loaded book dispatches no `ACTION_OPEN` — so the string stayed on screen
+until some later command cleared the machine.
+
+Same defect class, second site: `SystemTtsEngine.synthesize`'s catch-all converted a
+cancelled caller (the seam's `withContext` resumption throws) into
+`SynthesisOutcome.Failed`, which the play loop publishes as `"synthesis failed: …"` and
+`OfflinePregen` counts toward its 5-consecutive-failure cap — a cancellation could stop a
+pre-generation run and report a synthesis meltdown. The core-tts engines (Kokoro/Piper)
+already rethrow `CancellationException`; the degraded device-voice path did not.
+
+Fix: both envelopes rethrow `CancellationException` before the generic catch, so
+cancellation propagates and only real failures become typed state. Nothing else changed —
+the reader's failure branch, the holder and the `publish()` merge are untouched.
+
+Evidence: `PlayerStateMachineTest` "a write cancelled mid-store is not recorded as a
+failure" (a store suspended until cancelled; pre-fix the machine recorded
+`StandaloneCoroutine was cancelled`, post-fix `failure == null`) and `SystemTtsEngineTest`
+"a cancelled synthesis propagates instead of reading as Failed" (pre-fix returned
+`Failed`, post-fix the CancellationException propagates). `:core-player:test`,
+`:feature-player:testDebugUnitTest`, `:app:testDebugUnitTest`, `ktlintCheck`,
+`checkFeatureBoundaries` green. Device smoke on the Fold (SM-F971B): play → pause →
+re-open renders the book body with no failure state; the *pre-fix* device reproduction is
+timing-bound (the window is the store suspension, milliseconds inside a 5 s checkpoint
+cadence — 20 hammered cycles on the pre-fix build did not land it), so the deterministic
+pre-fix reproduction is the host test above.
+
 ## 191. Share-match default threshold lowered 0.6 → 0.3 (2026-09-21, owner)
 
 Owner call: *"0.3 is a better default for the OCR threshold."* The dial is the one

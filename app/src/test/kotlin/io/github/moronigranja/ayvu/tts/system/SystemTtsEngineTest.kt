@@ -5,6 +5,7 @@ import io.github.moronigranja.ayvu.tts.EngineTier
 import io.github.moronigranja.ayvu.tts.SynthesisOutcome
 import io.github.moronigranja.ayvu.tts.SynthesisRequest
 import io.github.moronigranja.ayvu.tts.TtsPack
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -70,6 +71,25 @@ class SystemTtsEngineTest {
         }
 
     @Test
+    fun `a cancelled synthesis propagates instead of reading as Failed`() =
+        runTest {
+            // The seam's withContext resumption throws when the caller was
+            // cancelled (a superseding command cancels the play loop / fill).
+            // Converting that into SynthesisOutcome.Failed published the raw job
+            // message as a synthesis failure and counted it toward the
+            // pre-generation failure cap (owner report 2026-09-22).
+            val engine = SystemTtsEngine(CancellingSeam())
+            val thrown =
+                try {
+                    engine.synthesize(SynthesisRequest("x"))
+                    null
+                } catch (e: CancellationException) {
+                    e
+                }
+            assertTrue(thrown != null, "a cancelled synthesis propagates, never a Failed outcome")
+        }
+
+    @Test
     fun `voice hint maps the kokoro family to the device language`() =
         runTest {
             val seam = FakeSeam(TtsSynthesis.Audio(ByteArray(8), 16_000))
@@ -116,5 +136,16 @@ class SystemTtsEngineTest {
             text: String,
             language: String?,
         ): TtsSynthesis = error("boom")
+    }
+
+    /** The cancelled-caller shape: the seam's suspension resumes with a
+     *  CancellationException (what `withContext` throws in production). */
+    private class CancellingSeam : SystemTtsSeam {
+        override fun availableLanguages(): Set<String> = setOf("en")
+
+        override suspend fun synthesizeToPcm(
+            text: String,
+            language: String?,
+        ): TtsSynthesis = throw CancellationException("StandaloneCoroutine was cancelled")
     }
 }
