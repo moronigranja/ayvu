@@ -4,6 +4,64 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 193. Three playback-target defects: rotation replay, stale long-press mapping, out-of-layout play target (2026-09-23, owner reports)
+
+Three defects reported/observed 2026-09-22, all on the share/gesture play-target
+paths. Each fix carries a check that fails before it and passes after.
+
+**1. Rotation (any Activity recreation) restarts playback at the share target.**
+`MainActivity` has no `android:configChanges`, so rotating recreates the
+Activity, and `onCreate` re-consumed the task's OWN intent — whose `OpenTarget`
+extras stay on it for the task's whole life. That re-armed
+`targetChapter`/`targetPassage`, and `ReaderScreen`'s one-shot
+`LaunchedEffect(startAt)` (one-shot per *composition*, not per target) fired
+`ACTION_PLAY_POSITION` again. Two-part fix: `pendingTarget = consumeTarget(intent)`
+only when `savedInstanceState == null` (a fresh launch; a NEW share arrives via
+`onNewIntent`), and `ReaderScreen` gained a required `onStartTargetPlayed`
+callback that the host uses to clear its `rememberSaveable` target right after
+the dispatch. Cleared target ⇒ a recreation restores `-1` (no target) and cannot
+replay; a rotation *before* the dispatch still plays, because the target is then
+still set. Alternative rejected: adding `android:configChanges` (the reader's
+pagination depends on the recreated viewport; suppressing recreation would keep
+stale geometry) and leaving `ReaderScreen` self-contained (the target must be
+cleared at the owner of the state, else a later composition replays it).
+
+**2. Long-press "Play from here" plays a stale passage after page turns.** The
+gesture block's `pointerInput` keys (`bookId`/`totalPages`/`blocks`/`immersive`/
+`longPressTarget`) exclude `page`, so after a manual or follow turn the block held
+the page geometry of the page it last (re)started on and `passageAt` mapped the
+press into that earlier page's passages (device-measured shift −3 after one turn,
+−5 after two). The page-dependent inputs (`range`, `passageStartLines`) are now
+read through `rememberUpdatedState` — always the current page's, with no block
+restart. Adding `page`/`range` to the keys was rejected: a mid-gesture follow turn
+would cancel an open gesture. Post-fix device measurement (paragraph-menu "Play
+from here" → the committed playhead, versus the page indicator): 0 / −1 / −1 over
+0/1/2 turns — within the intended ≤1-passage offset for a page that starts
+mid-passage; the same mapping feeds the press highlight.
+
+**3. An out-of-layout play target FATALled the service.** `ACTION_PLAY_POSITION`
+carrying a (chapter, passage) the bound book's layout no longer holds (a stale
+share/bookmark target after a re-parse) reached `PlayerStateMachine.playFrom`'s
+`require` inside the command coroutine; an uncaught `IllegalArgumentException`
+killed that coroutine (`FATAL EXCEPTION: DefaultDispatcher-worker-7 …
+position outside layout`). `PlaybackService.startPlayback` now validates the
+extras against the bound layout and degrades an invalid explicit target to the
+non-explicit chain — the stored resume row, then the book's first passage — with a
+warning log. Rejected: `openPosition`'s nearest-valid ladder (settled with the
+owner — a stale *play* target resumes where the reader left off, not at the
+nearest passage), and catching the exception generically (it would mask every
+future `require` invariant). Persisted paths (`undoSkip`'s ring) keep their
+machine-level `require`s.
+
+Tests: `PlaybackServicePlayTargetGuardTest` (three host cases; the two
+out-of-layout cases fail pre-fix with the `IllegalArgumentException` and pass
+post-fix) and `ReaderRotationReplayE2eTest` (instrumented: share target plays on
+entry, pause, `recreate()`, assert still PAUSED at the same playhead). Device
+evidence (S22, debug 0.1.3, 2026-09-23): pre-fix build FATALled on
+`passage 3` in a 3-passage chapter and the fixed build logged the guard warning and
+resumed at the stored row; rotation left the card on **Play**; a NEW share after a
+rotation still played at its target.
+
 ## 192. A superseded write is cancellation, never a failure (2026-09-22, owner report)
 
 Owner report: *"I pressed play and stopped then opened the book, and got a
