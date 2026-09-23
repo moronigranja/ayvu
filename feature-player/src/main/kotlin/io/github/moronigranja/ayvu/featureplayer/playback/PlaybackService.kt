@@ -598,12 +598,21 @@ class PlaybackService : Service() {
             if (activeBook == null) return@launchCommand
             bindBook(activeBook)
             refreshBookmarks()
-            val position =
+            val requested =
                 if (explicit) {
                     PlayerPosition(id, intent?.getIntExtra(EXTRA_CHAPTER, 0) ?: 0, intent?.getIntExtra(EXTRA_PASSAGE, 0) ?: 0)
                 } else {
                     null
                 }
+            // A request the book's layout no longer holds (a stale share/bookmark target
+            // after a re-parse) must never reach playFrom's require: an uncaught
+            // IllegalArgumentException there FATALs the command coroutine (owner report
+            // 2026-09-22). Degrade to the non-explicit chain — the stored resume row, then
+            // the book's first passage.
+            val position = requested?.takeIf { layout!!.isValid(it.chapterIndex, it.passageIndex) }
+            if (position == null && requested != null) {
+                android.util.Log.w("PlaybackService", "play target outside the layout: $requested — resuming at the stored row")
+            }
             if (position != null) {
                 machine!!.playFrom(position)
             } else if (machine!!.resume() == null) {
