@@ -38,7 +38,7 @@ ebooks and listen to them narrated on-device. No account, no telemetry, no cloud
   straight over 0.1.1–0.1.3 with your library, progress, bookmarks and settings kept.
 - No in-app update check: watch this repository's Releases page.
 - Shipped `Ayvu-0.1.4.apk`, 52,279,328 B,
-  `sha256 PENDING`;
+  `sha256 038db8ee89708c17e6ed25993dbd18723f9aaa91e9aa350c99f4f4a04a42d242`;
   signer `a5057984…` (CN=Ayvu) — the same certificate as 0.1.1–0.1.3.
 
 ## First run
