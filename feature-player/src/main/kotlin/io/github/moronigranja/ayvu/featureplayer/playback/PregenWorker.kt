@@ -29,7 +29,9 @@ import io.github.moronigranja.ayvu.player.pregen.PregenTerminal
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import io.github.moronigranja.ayvu.tts.SynthesisOutcome
 import io.github.moronigranja.ayvu.tts.SynthesisRequest
+import io.github.moronigranja.ayvu.ui.formatProgressPercent
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
  * Offline pre-generation worker (decisions #42): runs the tested
@@ -79,9 +81,6 @@ class PregenWorker
 
         override suspend fun doWork(): Result {
             settings.reload()
-            val engine =
-                selector.engine()
-                    ?: return Result.failure(workDataOf(KEY_ERROR to (selector.failureReason ?: "engine unavailable")))
 
             // The run takes the library row's chosen listening-time budget
             // (KEY_BUDGET_MINUTES, whole listening minutes); absent → whole book
@@ -136,10 +135,10 @@ class PregenWorker
             progress: PregenProgress,
             clock: () -> Long,
         ) {
-            val percent = progress.percent
+            val fraction = progress.fraction
             setProgress(
                 workDataOf(
-                    KEY_PROGRESS_PERCENT to percent,
+                    KEY_PROGRESS_FRACTION to fraction,
                     KEY_PROGRESS_CHAPTER to progress.chaptersDone,
                     KEY_PROGRESS_TOTAL_CHAPTERS to progress.totalChapters,
                     KEY_PROGRESS_BOOK to bookTitle,
@@ -154,7 +153,7 @@ class PregenWorker
                         bookTitle = bookTitle,
                         chapter = progress.chaptersDone,
                         totalChapters = progress.totalChapters,
-                        percent = percent,
+                        fraction = fraction,
                     ),
                 )
             }
@@ -221,6 +220,13 @@ class PregenWorker
                 while (PlaybackActive.engineInUse) {
                     delay(1000)
                 }
+                // The engine prerequisite is PER BOOK (a per-book engine
+                // override resolves here — decisions supersede #144).
+                if (selector.engine(book.id) == null) {
+                    return Result.failure(
+                        workDataOf(KEY_ERROR to (selector.failureReason(book.id) ?: "engine unavailable")),
+                    )
+                }
                 // Read-in-language (decisions #114): the per-book resolution —
                 // resolve() wraps the engine in the TranslatingEngine when the
                 // book has a target and the pack is ready, and its keys carry the
@@ -229,7 +235,7 @@ class PregenWorker
                 val (engineForBook, _) = selector.resolve(book.id)
                 if (engineForBook == null) {
                     return Result.failure(
-                        workDataOf(KEY_ERROR to (selector.failureReason ?: "engine unavailable")),
+                        workDataOf(KEY_ERROR to (selector.failureReason(book.id) ?: "engine unavailable")),
                     )
                 }
                 val translateLang = selector.translateLangInUse(book.id)
@@ -261,7 +267,7 @@ class PregenWorker
                     setForeground(
                         ForegroundInfo(
                             NOTIFICATION_ID,
-                            pregenNotification(book.title, 0, 0, 0),
+                            pregenNotification(book.title, 0, 0, 0.0),
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
                         ),
                     )
@@ -350,10 +356,10 @@ class PregenWorker
             bookTitle: String,
             chapter: Int,
             totalChapters: Int,
-            percent: Int,
+            fraction: Double,
         ): Notification {
             ensureChannel()
-            return buildPregenNotification(applicationContext, bookTitle, chapter, totalChapters, percent)
+            return buildPregenNotification(applicationContext, bookTitle, chapter, totalChapters, fraction)
         }
 
         private fun ensureChannel() {
@@ -377,7 +383,7 @@ class PregenWorker
             const val KEY_PROGRESS_SYNTHESIZED = "progressSynthesized"
             const val KEY_PROGRESS_CACHED = "progressCached"
             const val KEY_PROGRESS_FAILURES = "progressFailures"
-            const val KEY_PROGRESS_PERCENT = "progressPercent"
+            const val KEY_PROGRESS_FRACTION = "progressFraction"
             const val KEY_PROGRESS_CHAPTER = "progressChapter"
             const val KEY_PROGRESS_TOTAL_CHAPTERS = "progressTotalChapters"
             const val KEY_PROGRESS_BOOK = "progressBook"
@@ -402,13 +408,13 @@ class PregenWorker
                 bookTitle: String,
                 chapter: Int,
                 totalChapters: Int,
-                percent: Int,
+                fraction: Double,
             ): Notification {
                 val body =
                     when {
                         totalChapters == 0 -> "Pre-generating $bookTitle…"
-                        percent >= 100 -> "$bookTitle — offline audio ready"
-                        else -> "$bookTitle — chapter ${chapter + 1}/$totalChapters ($percent%)"
+                        fraction >= 1.0 -> "$bookTitle — offline audio ready"
+                        else -> "$bookTitle — chapter ${chapter + 1}/$totalChapters (${formatProgressPercent(fraction.toFloat())})"
                     }
                 return NotificationCompat
                     .Builder(context, CHANNEL_ID)
@@ -417,7 +423,7 @@ class PregenWorker
                     .setContentText(body)
                     .setOnlyAlertOnce(true)
                     .setOngoing(true)
-                    .setProgress(100, percent, percent <= 0)
+                    .setProgress(100, (fraction * 100).roundToInt(), fraction <= 0.0)
                     .addAction(
                         0,
                         "Stop",

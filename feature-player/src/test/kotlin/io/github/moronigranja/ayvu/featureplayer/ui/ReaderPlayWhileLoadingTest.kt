@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -177,7 +178,11 @@ class ReaderPlayWhileLoadingTest {
             val vm = viewModel()
             vm.open(BOOK) // the reader's entry: the open is in flight, nothing published yet
             advanceUntilIdle()
-            assertEquals(listOf(PlaybackService.ACTION_OPEN), serviceIntents().map { it.action })
+            assertTrue(
+                "only opens dispatch while the chapter loads (the bounded open-retry " +
+                    "re-dispatches ACTION_OPEN, never a row-dependent resume): ${serviceIntents().map { it.action }}",
+                serviceIntents().isNotEmpty() && serviceIntents().all { it.action == PlaybackService.ACTION_OPEN },
+            )
 
             vm.playFromView(chapter = 0, passage = 0)
             advanceUntilIdle()
@@ -244,6 +249,39 @@ class ReaderPlayWhileLoadingTest {
                 "a stopped press must not fire once the chapter lands: ${playIntents().map { it.action }}",
                 emptyList<Intent>(),
                 playIntents(),
+            )
+        }
+
+    @Test
+    fun `a stuck open is retried a bounded number of times`() =
+        runTest(dispatcher) {
+            val vm = viewModel()
+            shadowOf(application).clearStartedServices()
+
+            vm.open(BOOK)
+            advanceUntilIdle() // the initial open + both 4 s retries
+
+            assertEquals(
+                "the bounded self-heal (1 open + 2 retries): ${serviceIntents().map { it.action }}",
+                List(3) { PlaybackService.ACTION_OPEN },
+                serviceIntents().map { it.action },
+            )
+        }
+
+    @Test
+    fun `a published open stops the retry`() =
+        runTest(dispatcher) {
+            val vm = viewModel()
+            shadowOf(application).clearStartedServices()
+
+            vm.open(BOOK)
+            publishContent(chapter = 0, passage = 0) // the open landed
+            advanceUntilIdle()
+
+            assertEquals(
+                "no retry once the book is published: ${serviceIntents().map { it.action }}",
+                listOf(PlaybackService.ACTION_OPEN),
+                serviceIntents().map { it.action },
             )
         }
 

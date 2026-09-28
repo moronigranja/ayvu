@@ -98,7 +98,7 @@ class OfflinePregenTest {
             assertEquals(5, result.passagesSynthesized)
             assertEquals(0, result.passagesCached)
             assertEquals(listOf("p0", "p1", "p2", "p3", "p4"), synthesized)
-            assertTrue(result.percent == 100, "full walk -> 100%")
+            assertEquals(1.0, result.fraction, 1e-9, "full walk -> 1.0")
             assertEquals(PregenTerminal.Completed, result.terminal)
         }
 
@@ -119,7 +119,7 @@ class OfflinePregenTest {
             val result = runner(cache()).run(book, voice, speed, PregenBudget(maxPassages = 2))
             assertEquals(listOf("p0", "p1"), synthesized)
             assertEquals(2, result.processed)
-            assertEquals(40, result.percent)
+            assertEquals(0.4, result.fraction, 1e-9)
             assertEquals(PregenTerminal.BudgetExhausted, result.terminal)
         }
 
@@ -129,7 +129,7 @@ class OfflinePregenTest {
             val result = runner(cache()).run(book, voice, speed, PregenBudget(maxChapters = 1))
             assertEquals(listOf("p0", "p1", "p2"), synthesized)
             assertEquals(1, result.chaptersDone)
-            assertEquals(60, result.percent)
+            assertEquals(0.6, result.fraction, 1e-9)
             assertEquals(PregenTerminal.BudgetExhausted, result.terminal)
         }
 
@@ -165,15 +165,16 @@ class OfflinePregenTest {
             val result = runner(cache()).run(book, voice, speed, PregenBudget(maxSeconds = 0.03)) { events += it }
             assertEquals(PregenTerminal.BudgetExhausted, result.terminal)
             assertEquals(
-                100,
-                result.percent,
+                1.0,
+                result.fraction,
+                1e-9,
                 "the asked-for slice is fully generated -> 100%, never a whole-book fraction",
             )
-            val percents = events.map { it.percent }
-            assertEquals(percents.sorted(), percents, "percent never decreases")
-            // First passage ≈ 20.8 ms of the 30 ms budget → 69%; the second crosses the budget.
-            assertEquals(69, events.first().percent, "the first passage fills ~69% of the slice")
-            assertEquals(100, events.last().percent)
+            val fractions = events.map { it.fraction }
+            assertEquals(fractions.sorted(), fractions, "fraction never decreases")
+            // First passage = 1000 B / 16-bit mono at 24 kHz ≈ 20.83 ms of the 30 ms budget → ~69%.
+            assertEquals(1000.0 / 2 / 24_000 / 0.03, events.first().fraction, 1e-9, "the first passage fills ~69% of the slice")
+            assertEquals(1.0, events.last().fraction, 1e-9)
         }
 
     @Test
@@ -186,9 +187,9 @@ class OfflinePregenTest {
             val events = mutableListOf<PregenProgress>()
             val result = runner(cache).run(book, voice, speed, PregenBudget(maxSeconds = 0.03)) { events += it }
             assertEquals(PregenTerminal.BudgetExhausted, result.terminal)
-            assertEquals(100, result.percent)
-            val percents = events.map { it.percent }
-            assertEquals(percents.sorted(), percents, "percent never decreases")
+            assertEquals(1.0, result.fraction, 1e-9)
+            val fractions = events.map { it.fraction }
+            assertEquals(fractions.sorted(), fractions, "fraction never decreases")
         }
 
     @Test
@@ -202,7 +203,7 @@ class OfflinePregenTest {
             assertEquals(listOf("p2", "p3", "p4"), synthesized, "run 2 re-walks the cached prefix, then finishes")
             assertEquals(2, second.passagesCached)
             assertEquals(3, second.passagesSynthesized)
-            assertEquals(100, second.percent)
+            assertEquals(1.0, second.fraction, 1e-9)
             assertEquals(PregenTerminal.Completed, second.terminal)
         }
 
@@ -326,8 +327,8 @@ class OfflinePregenTest {
             assertTrue(events.isNotEmpty())
             assertEquals(result, events.last())
             assertEquals(PregenTerminal.Completed, events.last().terminal, "the final event carries the terminal")
-            val percents = events.map { it.percent }
-            assertEquals(percents.sorted(), percents, "percent never decreases")
+            val fractions = events.map { it.fraction }
+            assertEquals(fractions.sorted(), fractions, "fraction never decreases")
             assertTrue(events.size >= result.processed, "at least one event per processed passage")
         }
 

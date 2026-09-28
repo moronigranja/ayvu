@@ -104,6 +104,52 @@ class BookVoiceOverrideTest {
         }
 
     @Test
+    fun `reading, engine and pausedAt keys round-trip, reject malformed, and mirror`() =
+        runTest {
+            val store = SettingsStore(database.settingsDao())
+            val settings = AppSettings(store)
+
+            store.setBookReading("b1", 3, 7)
+            store.setBookEngine("b1", "piper-v1")
+            store.setBookPausedAt("b1", 1_700_000_000_000L)
+            assertEquals(3 to 7, store.bookReading("b1"))
+            assertEquals("piper-v1", store.bookEngine("b1"))
+            assertEquals(1_700_000_000_000L, store.bookPausedAt("b1"))
+
+            // Per-book isolation.
+            assertNull(store.bookReading("b2"))
+            assertNull(store.bookEngine("b2"))
+            assertNull(store.bookPausedAt("b2"))
+
+            // Blank / malformed values are treated as absent.
+            database.settingsDao().put(SettingEntity(SettingsStore.bookReadingKey("b3"), "not-a-pair"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookEngineKey("b3"), "  "))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookPausedAtKey("b3"), "soon"))
+            assertNull(store.bookReading("b3"))
+            assertNull(store.bookEngine("b3"))
+            assertNull(store.bookPausedAt("b3"))
+            assertEquals(mapOf("b1" to (3 to 7)), store.bookReadings())
+            assertEquals(mapOf("b1" to "piper-v1"), store.bookEngines())
+            assertEquals(mapOf("b1" to 1_700_000_000_000L), store.bookPausedAts())
+
+            // Mirror + cold reload.
+            settings.reload()
+            assertEquals(3 to 7, settings.bookReading("b1"))
+            assertEquals("piper-v1", settings.bookEngine("b1"))
+            assertEquals(1_700_000_000_000L, settings.bookPausedAt("b1"))
+
+            settings.setBookReading("b1", null, null)
+            settings.setBookEngine("b1", null)
+            settings.setBookPausedAt("b1", null)
+            assertNull(settings.bookReading("b1"))
+            assertNull(settings.bookEngine("b1"))
+            assertNull(settings.bookPausedAt("b1"))
+            assertNull(store.bookReading("b1"))
+            assertNull(store.bookEngine("b1"))
+            assertNull(store.bookPausedAt("b1"))
+        }
+
+    @Test
     fun `the override rides the backup archive and reattaches on restore`() =
         runTest {
             // Source device: a global voice and one book's override.

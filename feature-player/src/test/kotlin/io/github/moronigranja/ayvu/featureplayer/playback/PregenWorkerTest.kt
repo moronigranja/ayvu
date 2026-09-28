@@ -354,7 +354,7 @@ class PregenWorkerTest {
             val w = worker(manualInput(book.id), FakeEngine())
             val manager = context.getSystemService(NotificationManager::class.java) as NotificationManager
 
-            // percent = processed*100/totalPassages — synthesize+cache both count.
+            // fraction = processed/totalPassages — synthesize+cache both count.
             fun progress(pct: Int) =
                 io.github.moronigranja.ayvu.player.pregen.PregenProgress(
                     chaptersDone = 1,
@@ -393,7 +393,7 @@ class PregenWorkerTest {
                     .single()
                     .notification.extras
                     .getString(android.app.Notification.EXTRA_TEXT)!!
-                    .contains("(30%)"),
+                    .contains("(30.00%)"),
             )
         }
 
@@ -422,7 +422,7 @@ class PregenWorkerTest {
                     .single()
                     .notification.extras
                     .getString(android.app.Notification.EXTRA_TEXT)
-            assertTrue("the body reads the slice percent, not the book denominator: $text", text!!.contains("(50%)"))
+            assertTrue("the body reads the slice percent, not the book denominator: $text", text!!.contains("(50.00%)"))
         }
 
     @Test
@@ -465,7 +465,7 @@ class PregenWorkerTest {
                 bookTitle = "Novel",
                 chapter = 1,
                 totalChapters = 12,
-                percent = 8,
+                fraction = 0.08,
             )
 
         val action = notification.actions.single()

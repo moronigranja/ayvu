@@ -54,6 +54,18 @@ class AppSettings
              * bookId → the voice id that book plays instead of [voice]. The
              * mirror of `book.voice.<bookId>` rows; absent = no override. */
             val bookVoices: Map<String, String> = emptyMap(),
+            /** Per-book reading places: bookId → (chapter, chapter-local
+             * passage) last shown by the reader. The mirror of
+             * `book.reading.<bookId>` rows; absent = none stored. */
+            val bookReadings: Map<String, Pair<Int, Int>> = emptyMap(),
+            /** Per-book speech-engine overrides: bookId → engine id that book
+             * plays instead of [ttsEngine]. The mirror of `book.engine.<bookId>`
+             * rows; absent = the global engine. */
+            val bookEngines: Map<String, String> = emptyMap(),
+            /** Per-book pause instants (epoch millis): bookId → when it was
+             * last paused; the resume-rewind input. The mirror of
+             * `book.pausedAt.<bookId>` rows; absent = none recorded. */
+            val bookPausedAt: Map<String, Long> = emptyMap(),
             /** Per-book read-in-language targets (decisions #114): bookId → the
              * target APP language code. The mirror of `book.translate.<bookId>`
              * rows; absent = read in the book's original language. */
@@ -89,6 +101,9 @@ class AppSettings
                     playbackGain = store.playbackGain(),
                     ttsThreads = store.ttsThreads(),
                     bookVoices = store.bookVoices(),
+                    bookReadings = store.bookReadings(),
+                    bookEngines = store.bookEngines(),
+                    bookPausedAt = store.bookPausedAts(),
                     bookTranslate = store.bookTranslates(),
                     bookDisplays = store.bookDisplays(),
                     displayMode = store.displayMode(),
@@ -120,6 +135,64 @@ class AppSettings
                     _state.value.copy(bookVoices = _state.value.bookVoices - bookId)
                 } else {
                     _state.value.copy(bookVoices = _state.value.bookVoices + (bookId to voice))
+                }
+        }
+
+        /** The stored reading place for [bookId] (non-suspend, playback hot
+         * path) — null when none is stored. */
+        fun bookReading(bookId: String): Pair<Int, Int>? = _state.value.bookReadings[bookId]
+
+        /** The pause instant for [bookId] (epoch millis; non-suspend, playback
+         * hot path) — null when none is recorded. */
+        fun bookPausedAt(bookId: String): Long? = _state.value.bookPausedAt[bookId]
+
+        /** Writes or clears [bookId]'s pause instant and mirrors it. */
+        suspend fun setBookPausedAt(
+            bookId: String,
+            epochMillis: Long?,
+        ) {
+            store.setBookPausedAt(bookId, epochMillis)
+            _state.value =
+                if (epochMillis == null) {
+                    _state.value.copy(bookPausedAt = _state.value.bookPausedAt - bookId)
+                } else {
+                    _state.value.copy(bookPausedAt = _state.value.bookPausedAt + (bookId to epochMillis))
+                }
+        }
+
+        /** The per-book engine override for [bookId] (decisions supersede #144)
+         * — a non-suspend read for the playback hot path; resolution lives in
+         * [io.github.moronigranja.ayvu.featureplayer.playback.EngineSelector]. */
+        fun bookEngine(bookId: String): String? = _state.value.bookEngines[bookId]
+
+        /** Writes or clears [bookId]'s engine override (null = the global
+         * engine) and mirrors it. The caller re-dispatches the session rebuild
+         * so the book re-resolves under the new engine. */
+        suspend fun setBookEngine(
+            bookId: String,
+            engineId: String?,
+        ) {
+            store.setBookEngine(bookId, engineId)
+            _state.value =
+                if (engineId == null) {
+                    _state.value.copy(bookEngines = _state.value.bookEngines - bookId)
+                } else {
+                    _state.value.copy(bookEngines = _state.value.bookEngines + (bookId to engineId))
+                }
+        }
+
+        /** Writes or clears [bookId]'s reading place and mirrors it. */
+        suspend fun setBookReading(
+            bookId: String,
+            chapter: Int?,
+            passage: Int?,
+        ) {
+            store.setBookReading(bookId, chapter, passage)
+            _state.value =
+                if (chapter == null || passage == null) {
+                    _state.value.copy(bookReadings = _state.value.bookReadings - bookId)
+                } else {
+                    _state.value.copy(bookReadings = _state.value.bookReadings + (bookId to (chapter to passage)))
                 }
         }
 

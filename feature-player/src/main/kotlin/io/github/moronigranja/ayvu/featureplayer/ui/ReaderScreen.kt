@@ -372,6 +372,7 @@ fun ReaderScreen(
                             bookId = bookId,
                             viewModel = viewModel,
                             pageStartPassage = pageStartPassage,
+                            readingPassage = viewModel.readingPassageFor(bookId, state.chapterIndex),
                             immersive = showOverlays,
                             onToggleImmersive = ::toggleImmersive,
                             modifier = Modifier.weight(1f),
@@ -479,6 +480,7 @@ fun ReaderScreen(
                         voiceLabel = "Voice",
                         onEngineSelect = viewModel::setEngine,
                         onSelect = viewModel::selectVoice,
+                        onUseDefault = viewModel::useDefaultVoice,
                         onToggleFavorite = viewModel::toggleFavorite,
                         onPreview = viewModel::previewVoice,
                         onStopPreview = viewModel::stopPreview,
@@ -533,6 +535,10 @@ private fun PaginatedChapter(
     bookId: String,
     viewModel: ReaderViewModel,
     pageStartPassage: MutableState<Int>,
+    /** The stored reading place's chapter-local passage when it belongs to the
+     * rendered chapter — the reader's own restore target (distinct from the
+     * audio position the service publishes). */
+    readingPassage: Int? = null,
     immersive: Boolean = false,
     onToggleImmersive: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -778,6 +784,46 @@ private fun PaginatedChapter(
             lastGeometry = current
             lastBlocks = blocks
         }
+        // A newly PRESENTED passage (an open that restored the reading place, a
+        // bookmark jump, a chapter turn, or a playback advance) must land on its
+        // own page: the follow effects only track the ACTIVE sentence while
+        // playing, so a READING open would otherwise show the chapter's FIRST
+        // page — and the reading-place write below would then clobber the
+        // restored place with it. Armed per presented position and re-applied
+        // until pagination settles (chapter text lands progressively); a manual
+        // page turn disarms it so the reader keeps their place.
+        var pendingPassage by remember(state.chapterIndex) { mutableStateOf<Int?>(null) }
+        var armedChapter by remember { mutableIntStateOf(-1) }
+        // Read non-reactively: a reading-place write (this screen's own) must not
+        // re-arm the snap and yank the page back to the audio position.
+        val readingPassageRef = rememberUpdatedState(readingPassage)
+        LaunchedEffect(state.chapterIndex, state.passageIndex, state.phase) {
+            // The holder can still carry the PREVIOUS book for a frame (an open
+            // in flight): that position belongs to another book and must never
+            // be armed — or written below — as this book's reading place.
+            if (state.bookId != bookId) {
+                pendingPassage = null
+                return@LaunchedEffect
+            }
+            // Only a READING presentation owns the page: the playback phases
+            // (LOADING/PLAYING/PAUSED) keep the follow effects' page and must
+            // never be yanked here (a pause must not move the view).
+            if (state.phase != PlayerPhase.IDLE) return@LaunchedEffect
+            val fresh = armedChapter != state.chapterIndex
+            armedChapter = state.chapterIndex
+            pendingPassage =
+                if (fresh) readingPassageRef.value ?: state.passageIndex else state.passageIndex
+        }
+        LaunchedEffect(pendingPassage, totalPages, firstPageLines, fullPageLines, blocks) {
+            val pending = pendingPassage ?: return@LaunchedEffect
+            if (totalPages <= 0) return@LaunchedEffect
+            val firstBlock = firstBlockOfPassage.getOrNull(pending) ?: return@LaunchedEffect
+            val offset = passageOffsets.getOrNull(firstBlock) ?: return@LaunchedEffect
+            val line = bodyLayout.getLineForOffset(offset.coerceAtMost(maxOf(0, chapterText.length - 1)))
+            val target = pages.pageOf(line.coerceIn(0, maxOf(0, totalLines - 1))).coerceIn(0, totalPages - 1)
+            if (target != page) page = target
+            anchorPassage = pending
+        }
         val range =
             remember(page, totalLines, pages) {
                 val p = page.coerceIn(0, totalPages - 1)
@@ -814,9 +860,18 @@ private fun PaginatedChapter(
                 ?: passageStartLines.indexOfLast { it <= range.first }.coerceAtLeast(0)
         SideEffect { pageStartPassage.value = firstPassageOnPage }
         // Track the page's first passage across every page change (follow,
-        // manual turns, reflow snaps) — the next reflow's anchor.
-        LaunchedEffect(page, firstPassageOnPage) {
+        // manual turns, reflow snaps) — the next reflow's anchor — and record
+        // the visible page as the book's reading place (the reopen target).
+        // Suppressed while a presented passage is still un-snapped: that frame
+        // still shows the chapter's first page and must not overwrite the
+        // restored place.
+        LaunchedEffect(page, firstPassageOnPage, state.chapterIndex, pendingPassage) {
             anchorPassage = firstPassageOnPage
+            // Stale-frame guard: the holder may still carry the previous book
+            // (an open in flight) — never write its position to this book.
+            if (state.bookId != bookId) return@LaunchedEffect
+            if (pendingPassage != null && firstPassageOnPage != pendingPassage) return@LaunchedEffect
+            viewModel.noteReadingPosition(state.chapterIndex, firstPassageOnPage)
         }
 
         // The page holding the ACTIVE sentence's first char — ONE shared
@@ -1034,6 +1089,9 @@ private fun PaginatedChapter(
         // active sentence) triple — the page never yanks back, and no grace
         // timer is needed.
         fun stopPlaybackOnManualTurn() {
+            // A manual page turn takes over: the presented-passage snap must not
+            // pull the view back (the reader keeps their place).
+            pendingPassage = null
             if (phaseRef.value == PlayerPhase.PLAYING || phaseRef.value == PlayerPhase.LOADING) {
                 viewModel.pause()
             }

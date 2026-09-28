@@ -434,6 +434,20 @@ class PlayerStateMachineTest {
         }
 
     @Test
+    fun `notePosition commits the position without changing phase or ring`() =
+        runTest {
+            machine.playFrom(passage(0, 0))
+            machine.pause()
+            assertEquals(PlayerPhase.PAUSED, machine.state.value.phase)
+            machine.notePosition(PlayerPosition("b1", 0, 2, 1.5))
+            assertEquals(passage(0, 2).copy(offsetSeconds = 1.5), machine.state.value.position)
+            assertEquals(1.5, store.readProgress("b1")?.offsetSeconds, "resume row follows the rewind")
+            assertEquals(2, store.readProgress("b1")?.passageIndex)
+            assertEquals(PlayerPhase.PAUSED, machine.state.value.phase, "phase untouched")
+            assertTrue(store.readRing("b1").isEmpty(), "position writes never push")
+        }
+
+    @Test
     fun `pause at the playhead writes the final offset once`() =
         runTest {
             machine.playFrom(passage(0, 0))

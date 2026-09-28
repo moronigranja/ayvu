@@ -42,35 +42,42 @@ class EngineSelector
         private val settings: AppSettings,
         private val translationService: TranslationService,
     ) {
-        private val selected: String
-            get() = settings.state.value.ttsEngine
+        /** The engine id in force for [bookId] — the book's override
+         * (`book.engine.<bookId>`) when one is stored, else the global
+         * `tts_engine`. */
+        fun engineIdFor(bookId: String?): String = bookId?.let { settings.state.value.bookEngines[it] } ?: settings.state.value.ttsEngine
 
-        /** True when the degraded system voice is selected (drives the
+        private fun isPiper(bookId: String?): Boolean = engineIdFor(bookId) == SettingsStore.PIPER_ENGINE
+
+        /** True when [bookId]'s engine is the degraded system voice (drives the
          * PlayerCard's "Device voice" pill via PlaybackUiState.degraded).
          * Piper is a PRIMARY engine class, not degraded (#154). */
-        val isDegraded: Boolean
-            get() = selected == SettingsStore.SYSTEM_TTS_ENGINE
+        fun isDegraded(bookId: String?): Boolean = engineIdFor(bookId) == SettingsStore.SYSTEM_TTS_ENGINE
 
-        /** The active engine, or null when its prerequisites are missing. */
-        fun engine(): TTSEngine? =
+        /** The active engine for [bookId] (null = the global engine), or null
+         * when its prerequisites are missing. */
+        fun engine(bookId: String? = null): TTSEngine? =
             when {
-                isDegraded -> systemTts.get()
-                selected == SettingsStore.PIPER_ENGINE -> piper.engine()
+                isDegraded(bookId) -> systemTts.get()
+                isPiper(bookId) -> piper.engine()
                 else -> runtime.engine()
             }
 
         /**
-         * The active engine opened to serve the RESOLVED [voice] — the
-         * result of [resolveVoice]/[effectiveVoice], never a raw stored
+         * The active engine for [bookId] opened to serve the RESOLVED [voice] —
+         * the result of [resolveVoice]/[effectiveVoice], never a raw stored
          * id — or null when its prerequisites are missing. Piper's
          * one-voice-per-instance contract re-points the runtime when the
          * resolved voice differs from the global one (a per-book override,
          * decisions #144); Kokoro and the system voice serve any voice.
          */
-        fun engineFor(voice: String): TTSEngine? =
+        fun engineFor(
+            voice: String,
+            bookId: String? = null,
+        ): TTSEngine? =
             when {
-                isDegraded -> systemTts.get()
-                selected == SettingsStore.PIPER_ENGINE -> piper.engineFor(voice)
+                isDegraded(bookId) -> systemTts.get()
+                isPiper(bookId) -> piper.engineFor(voice)
                 else -> runtime.engine()
             }
 
@@ -84,27 +91,31 @@ class EngineSelector
          * unavailable). Changing the global default neither clears nor
          * rewrites overrides, so this reads the mirror per call.
          */
-        fun effectiveVoice(bookId: String): String = resolveVoice(settings.state.value.bookVoices[bookId] ?: settings.state.value.voice)
+        fun effectiveVoice(bookId: String): String =
+            resolveVoice(settings.state.value.bookVoices[bookId] ?: settings.state.value.voice, bookId)
 
         /**
-         * The voice id the ACTIVE engine serves for the stored global voice
+         * The voice id the ACTIVE engine serves for the stored [stored] voice
          * (decisions #144 availability shape): engine-exposed ids pass
          * through, anything else falls back to that engine's default voice —
          * playback and cache keys always name a voice the engine actually
          * serves (a Kokoro name must never reach the one-voice-per-instance
-         * Piper session, which fails typed on unknown voices).
+         * Piper session, which fails typed on unknown voices). [bookId] picks
+         * the book's engine override; null = the global engine.
          */
-        fun resolveVoice(stored: String): String = if (selected == SettingsStore.PIPER_ENGINE) piper.voiceFor(stored) else stored
+        fun resolveVoice(
+            stored: String,
+            bookId: String? = null,
+        ): String = if (isPiper(bookId)) piper.voiceFor(stored) else stored
 
-        /** Missing-prerequisite reason for the non-degraded engine; null in
-         * degraded mode (system synthesis failures surface per passage). */
-        val failureReason: String?
-            get() =
-                when {
-                    isDegraded -> null
-                    selected == SettingsStore.PIPER_ENGINE -> piper.failureReason
-                    else -> runtime.failureReason
-                }
+        /** Missing-prerequisite reason for [bookId]'s non-degraded engine; null
+         * in degraded mode (system synthesis failures surface per passage). */
+        fun failureReason(bookId: String?): String? =
+            when {
+                isDegraded(bookId) -> null
+                isPiper(bookId) -> piper.failureReason
+                else -> runtime.failureReason
+            }
 
         // ---- read-in-language (decisions #114) ----
 
@@ -160,9 +171,9 @@ class EngineSelector
         fun translateDegradeReason(bookId: String?): String? =
             io.github.moronigranja.ayvu.tts.translate.TranslateAvailability.degradeReason(
                 target = bookId?.let { translateTarget(it) },
-                catalog = activeCatalog(),
+                catalog = activeCatalog(bookId),
                 voiceServable = { voice ->
-                    selected != SettingsStore.PIPER_ENGINE || piper.voicePackReady(voice)
+                    !isPiper(bookId) || piper.voicePackReady(voice)
                 },
                 translatorReady = translate.translator() != null,
                 translatorFailure = translate.failureReason,
@@ -176,15 +187,19 @@ class EngineSelector
          * registry-only pseudo-engines, never selectable as TTS engines — this
          * only reads the selectable engines' voice rows.
          */
-        fun bestVoiceFor(target: String): String? = TranslateLanguages.firstVoiceFor(activeCatalog(), target)
+        fun bestVoiceFor(
+            target: String,
+            bookId: String? = null,
+        ): String? = TranslateLanguages.firstVoiceFor(activeCatalog(bookId), target)
 
         /** The ACTIVE engine's voice metadata catalog (empty for the degraded
          * voice). */
-        fun voiceCatalog(): List<io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta> = activeCatalog()
+        fun voiceCatalog(bookId: String? = null): List<io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta> = activeCatalog(bookId)
 
         /** The stored target-language voice, validated against the book's
          * in-force target and the active engine's catalog; null = automatic. */
-        fun translateVoice(bookId: String): String? = storedTranslateVoice(bookId) ?: translateTarget(bookId)?.let { bestVoiceFor(it) }
+        fun translateVoice(bookId: String): String? =
+            storedTranslateVoice(bookId) ?: translateTarget(bookId)?.let { bestVoiceFor(it, bookId) }
 
         /** The voice the book's audio is CONFIGURED under — the cache-key
          * voice. The request voice (the original's, see [resolve]) never
@@ -196,13 +211,13 @@ class EngineSelector
 
         private fun storedTranslateVoice(bookId: String): String? =
             translateTarget(bookId)?.let { lang ->
-                settings.translateVoice()?.takeIf { it in TranslateLanguages.voicesFor(activeCatalog(), lang) }
+                settings.translateVoice()?.takeIf { it in TranslateLanguages.voicesFor(activeCatalog(bookId), lang) }
             }
 
         /** The canonical target app codes the ACTIVE engine can voice (the
          * "Read in" picker rows; catalog order, deduplicated), restricted to
          * languages the translator can be prompted for. */
-        fun availableTranslateLanguages(): List<String> = TranslateLanguages.codes(activeCatalog())
+        fun availableTranslateLanguages(bookId: String? = null): List<String> = TranslateLanguages.codes(activeCatalog(bookId))
 
         /**
          * The single playback resolution point: engine + voice for [bookId].
@@ -216,12 +231,12 @@ class EngineSelector
          */
         fun resolve(bookId: String?): Pair<TTSEngine?, String> {
             val voice = if (bookId == null) resolveVoice(settings.state.value.voice) else effectiveVoice(bookId)
-            val base = engineFor(voice) ?: return null to voice
+            val base = engineFor(voice, bookId) ?: return null to voice
             val target = bookId?.let { translateTarget(it) }
             val modelLang = target?.let { LfmLang.toPromptLanguage(it) }
             val targetVoice =
                 target?.let {
-                    TranslateLanguages.resolvedVoiceFor(activeCatalog(), it, settings.translateVoice())
+                    TranslateLanguages.resolvedVoiceFor(activeCatalog(bookId), it, settings.translateVoice())
                 }
             // The resolved target voice must actually be servable: Piper is
             // one-voice-per-instance over downloaded packs, so a catalog name
@@ -230,7 +245,7 @@ class EngineSelector
             // serves its whole catalog from one model + voices pack.
             val voiceServable =
                 targetVoice != null &&
-                    (selected != SettingsStore.PIPER_ENGINE || piper.voicePackReady(targetVoice))
+                    (!isPiper(bookId) || piper.voicePackReady(targetVoice))
             // The translator session is touched ONLY when a target is in
             // force: `translator()` opens the ~1.6 GB LLM and arms the idle
             // timer, so the original-language path must never call it (the
@@ -259,7 +274,7 @@ class EngineSelector
                     // original audio — cached under the x<lang> key (S22
                     // 2026-09-14). Kokoro serves its whole catalog from one
                     // instance, so engineFor returns the same engine.
-                    val targetEngine = engineFor(targetVoice) ?: return base to voice
+                    val targetEngine = engineFor(targetVoice, bookId) ?: return base to voice
                     TranslatingEngine(
                         delegate = base,
                         targetEngine = targetEngine,
@@ -295,9 +310,9 @@ class EngineSelector
                         if (targetVoice == null) {
                             android.util.Log.w(
                                 "Translate",
-                                "catalog: selected=$selected degraded=$isDegraded size=" +
-                                    "${activeCatalog().size} langs=" +
-                                    activeCatalog()
+                                "catalog: selected=${engineIdFor(bookId)} degraded=${isDegraded(bookId)} size=" +
+                                    "${activeCatalog(bookId).size} langs=" +
+                                    activeCatalog(bookId)
                                         .map { it.language }
                                         .joinToString(",")
                                         .take(200),
@@ -311,12 +326,12 @@ class EngineSelector
             return decorated to voice
         }
 
-        /** The ACTIVE engine's voice metadata catalog (empty for the degraded
+        /** The [bookId] engine's voice metadata catalog (empty for the degraded
          * system voice — no target languages). */
-        private fun activeCatalog(): List<io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta> =
+        private fun activeCatalog(bookId: String?): List<io.github.moronigranja.ayvu.tts.kokoro.KokoroVoiceMeta> =
             when {
-                isDegraded -> emptyList()
-                selected == SettingsStore.PIPER_ENGINE -> PiperVoiceMetadata.all
+                isDegraded(bookId) -> emptyList()
+                isPiper(bookId) -> PiperVoiceMetadata.all
                 else -> KokoroVoiceMetadata.all
             }
     }

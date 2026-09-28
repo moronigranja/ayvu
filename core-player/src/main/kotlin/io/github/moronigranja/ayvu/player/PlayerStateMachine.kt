@@ -183,6 +183,15 @@ class PlayerStateMachine(
         _state.update { it.copy(position = position, canUndo = canUndo, failure = null) }
     }
 
+    /** Moves the machine to [position] and commits it WITHOUT changing the
+     * phase or touching the ring (reading-position writes, resume rewind). */
+    suspend fun notePosition(position: PlayerPosition) {
+        require(position.bookId == bookId) { "position for ${position.bookId}, machine bound to $bookId" }
+        require(layout.isValid(position.chapterIndex, position.passageIndex)) { "position outside layout: $position" }
+        _state.update { it.copy(position = position, failure = null) }
+        storeOp { store.commitProgress(position.toProgress(_state.value.speed), null) }
+    }
+
     /** The book's first playable passage — the fresh-start target when no
      * resume row exists (or the stored one is stale). */
     fun firstPosition(): PlayerPosition? =

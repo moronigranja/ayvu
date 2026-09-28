@@ -1,7 +1,6 @@
 package io.github.moronigranja.ayvu.featureplayer.playback
 
 import io.github.moronigranja.ayvu.model.LibraryStore
-import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.player.OfflineStorage
 import io.github.moronigranja.ayvu.player.pregen.PcmPassageCache
 import io.github.moronigranja.ayvu.player.pregen.PregenSpaceEstimate
@@ -26,7 +25,7 @@ class PregenStorage
         private val pregenCache: PregenCache,
         private val manager: PregenManager,
         private val libraryStore: LibraryStore,
-        private val settings: AppSettings,
+        private val selector: EngineSelector,
     ) : OfflineStorage {
         private val estimator = PregenSpaceEstimator(pregenCache.cache)
 
@@ -37,10 +36,8 @@ class PregenStorage
         override fun usageByBook(): Map<String, Long> = pregenCache.cache.usageByBook()
 
         /** Estimates for every cached book in one pass (one cachedBooks() query). */
-        override suspend fun estimateAll(): Map<String, PregenSpaceEstimate> {
-            val voice = settings.state.value.voice
-            return libraryStore.cachedBooks().associate { it.id to estimator.estimate(it.toBook(), voice, 1.0) }
-        }
+        override suspend fun estimateAll(): Map<String, PregenSpaceEstimate> =
+            libraryStore.cachedBooks().associate { it.id to estimator.estimate(it.toBook(), selector.effectiveVoice(it.id), 1.0) }
 
         /** Reclaims one book's pre-generated audio: cancel queued work, then delete. */
         override fun deleteBook(bookId: String) {

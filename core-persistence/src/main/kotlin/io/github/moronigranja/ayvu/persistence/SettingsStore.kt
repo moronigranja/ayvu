@@ -77,6 +77,112 @@ class SettingsStore(
             .associate { it.key.removePrefix(KEY_BOOK_VOICE_PREFIX) to it.value }
 
     /**
+     * The instant [bookId] was last paused (epoch millis), for the resume
+     * rewind: one generic row `book.pausedAt.<bookId>` — same generic-table
+     * ride-along as `book.voice.` (no migration, dropped with the book).
+     * Absent (or malformed) = no pause recorded (no rewind).
+     */
+    suspend fun bookPausedAt(bookId: String): Long? = settingsDao.get(bookPausedAtKey(bookId))?.toLongOrNull()
+
+    /** Writes or clears [bookId]'s pause instant (null clears the row). */
+    suspend fun setBookPausedAt(
+        bookId: String,
+        epochMillis: Long?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookPausedAtKey(bookId)
+        if (epochMillis == null) {
+            settingsDao.delete(key)
+        } else {
+            settingsDao.put(SettingEntity(key, epochMillis.toString()))
+        }
+    }
+
+    /** Every stored pause instant (bookId → epoch millis) — the mirror's
+     * reload read (one scan, same as [bookVoices]). */
+    suspend fun bookPausedAts(): Map<String, Long> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_PAUSED_AT_PREFIX) }
+            .mapNotNull { row -> row.value.toLongOrNull()?.let { row.key.removePrefix(KEY_BOOK_PAUSED_AT_PREFIX) to it } }
+            .toMap()
+
+    /**
+     * Per-book speech-engine override: one generic row
+     * `book.engine.<bookId>` — same generic-table ride-along as
+     * `book.voice.` (no migration, rides the backup archive raw, dropped with
+     * the book). Absent key = the global [ttsEngine]; resolution lives in
+     * [io.github.moronigranja.ayvu.featureplayer.playback.EngineSelector].
+     */
+    suspend fun bookEngine(bookId: String): String? = settingsDao.get(bookEngineKey(bookId))?.takeIf { it.isNotBlank() }
+
+    /** Writes or clears [bookId]'s engine override (null clears). */
+    suspend fun setBookEngine(
+        bookId: String,
+        engineId: String?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookEngineKey(bookId)
+        if (engineId == null) {
+            settingsDao.delete(key)
+        } else {
+            require(engineId.isNotBlank()) { "engine id must not be blank" }
+            settingsDao.put(SettingEntity(key, engineId))
+        }
+    }
+
+    /** Every stored engine override (bookId → engine id) — the mirror's
+     * reload read (one scan, same as [bookVoices]). */
+    suspend fun bookEngines(): Map<String, String> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_ENGINE_PREFIX) && it.value.isNotBlank() }
+            .associate { it.key.removePrefix(KEY_BOOK_ENGINE_PREFIX) to it.value }
+
+    /**
+     * Per-book reading place: one generic row `book.reading.<bookId>` holding
+     * `chapter:passage` (chapter-local passage index) — the last visible page
+     * the reader showed, distinct from the resume row (read vs listened
+     * position). Same generic-table ride-along as `book.voice.` — no
+     * migration, rides the backup archive raw, dropped with the book. Absent
+     * (or malformed) = no stored reading place.
+     */
+    suspend fun bookReading(bookId: String): Pair<Int, Int>? = parseReading(settingsDao.get(bookReadingKey(bookId)))
+
+    /** Writes or clears [bookId]'s reading place (nulls clear the row). */
+    suspend fun setBookReading(
+        bookId: String,
+        chapter: Int?,
+        passage: Int?,
+    ) {
+        require(bookId.isNotBlank()) { "book id must not be blank" }
+        val key = bookReadingKey(bookId)
+        if (chapter == null || passage == null) {
+            settingsDao.delete(key)
+        } else {
+            settingsDao.put(SettingEntity(key, "$chapter:$passage"))
+        }
+    }
+
+    /** Every stored reading place (bookId → chapter to chapter-local passage)
+     * — the mirror's reload read (one scan, same as [bookVoices]). */
+    suspend fun bookReadings(): Map<String, Pair<Int, Int>> =
+        settingsDao
+            .all()
+            .filter { it.key.startsWith(KEY_BOOK_READING_PREFIX) }
+            .mapNotNull { row -> parseReading(row.value)?.let { row.key.removePrefix(KEY_BOOK_READING_PREFIX) to it } }
+            .toMap()
+
+    private fun parseReading(raw: String?): Pair<Int, Int>? {
+        val parts = raw?.split(':') ?: return null
+        if (parts.size != 2) return null
+        val chapter = parts[0].toIntOrNull() ?: return null
+        val passage = parts[1].toIntOrNull() ?: return null
+        if (chapter < 0 || passage < 0) return null
+        return chapter to passage
+    }
+
+    /**
      * Per-book read-in-language target (decisions #114): one generic row
      * `book.translate.<bookId>` holding the target APP language code (e.g.
      * `pt-BR`), mirroring the `book.voice.` precedent exactly — same table,
@@ -341,6 +447,25 @@ class SettingsStore(
         const val KEY_BOOK_VOICE_PREFIX = "book.voice."
 
         fun bookVoiceKey(bookId: String): String = KEY_BOOK_VOICE_PREFIX + bookId
+
+        /** Per-book reading-place keys: `<prefix><bookId>` → `chapter:passage`
+         * (chapter-local passage index), same generic-table ride-along as
+         * [KEY_BOOK_VOICE_PREFIX]. */
+        const val KEY_BOOK_READING_PREFIX = "book.reading."
+
+        fun bookReadingKey(bookId: String): String = KEY_BOOK_READING_PREFIX + bookId
+
+        /** Per-book speech-engine keys: `<prefix><bookId>` → engine id, same
+         * generic-table ride-along as [KEY_BOOK_VOICE_PREFIX]. */
+        const val KEY_BOOK_ENGINE_PREFIX = "book.engine."
+
+        fun bookEngineKey(bookId: String): String = KEY_BOOK_ENGINE_PREFIX + bookId
+
+        /** Per-book pause-instant keys: `<prefix><bookId>` → epoch millis, same
+         * generic-table ride-along as [KEY_BOOK_VOICE_PREFIX]. */
+        const val KEY_BOOK_PAUSED_AT_PREFIX = "book.pausedAt."
+
+        fun bookPausedAtKey(bookId: String): String = KEY_BOOK_PAUSED_AT_PREFIX + bookId
 
         /** Per-book read-in-language keys (decisions #114): `<prefix><bookId>`
          * → the target app language code, same generic-table ride-along as

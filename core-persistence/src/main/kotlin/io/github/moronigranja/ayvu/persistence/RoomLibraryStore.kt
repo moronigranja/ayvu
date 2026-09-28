@@ -54,7 +54,7 @@ class RoomLibraryStore(
         // them explicitly so the resume surface never points at a removed
         // book (decisions #50), the stats card never counts a deleted book
         // (Phase H, decisions #109), and the per-book voice/translate/display
-        // settings + translated text never orphan behind it (cleanup pass G).
+        // settings rows + translated text never orphan behind it (cleanup pass G).
         database.withTransaction {
             database.progressDao().delete(bookId)
             database.bookmarkDao().deleteByBook(bookId)
@@ -65,6 +65,9 @@ class RoomLibraryStore(
             database.settingsDao().deleteAll(
                 listOf(
                     SettingsStore.bookVoiceKey(bookId),
+                    SettingsStore.bookReadingKey(bookId),
+                    SettingsStore.bookEngineKey(bookId),
+                    SettingsStore.bookPausedAtKey(bookId),
                     SettingsStore.bookTranslateKey(bookId),
                     SettingsStore.bookDisplayKey(bookId),
                 ),

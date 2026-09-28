@@ -81,4 +81,11 @@ class AyvuThemeTest {
     fun formatPercentDropsDecimalAtOrAboveOnePercent() {
         assertEquals("42%", formatPercent(0.42f))
     }
+
+    @Test
+    fun formatProgressPercentAlwaysShowsTwoDecimals() {
+        assertEquals("0.00%", formatProgressPercent(0f))
+        assertEquals("42.37%", formatProgressPercent(0.4237f))
+        assertEquals("100.00%", formatProgressPercent(1f))
+    }
 }

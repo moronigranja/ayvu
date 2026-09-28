@@ -182,7 +182,10 @@ class BookExportOperationsTest {
             assertTrue(markdown.contains("Primeiro."), markdown)
             assertTrue(markdown.contains("Terceiro."), markdown)
             assertEquals("export:book-1", host.specs.single().id)
-            assertEquals(listOf("1/3 passages", "2/3 passages", "3/3 passages"), host.reports.map { it.first })
+            assertEquals(
+                listOf("1/3 passages (33.33%)", "2/3 passages (66.67%)", "3/3 passages (100.00%)"),
+                host.reports.map { it.first },
+            )
             val finished = holder.state.value as ExportUiState.Finished
             assertEquals("Light Years (pt-BR).md", finished.fileName)
             assertEquals(written!!.size.toLong(), finished.bytes)

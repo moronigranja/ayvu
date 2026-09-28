@@ -37,6 +37,7 @@ import io.github.moronigranja.ayvu.player.BookLayout
 import io.github.moronigranja.ayvu.player.BookProgress
 import io.github.moronigranja.ayvu.player.CoverageSpan
 import io.github.moronigranja.ayvu.player.LocalDays
+import io.github.moronigranja.ayvu.player.PauseRewind
 import io.github.moronigranja.ayvu.player.PlaybackStateHolder
 import io.github.moronigranja.ayvu.player.PlaybackUiState
 import io.github.moronigranja.ayvu.player.PlayerEvent
@@ -407,6 +408,7 @@ class PlaybackService : Service() {
         stopEverything()
         launchCommand { generation ->
             settings.reload()
+            clearPauseMarker(id)
             val activeBook =
                 runCatching { libraryStore.cachedBooks() }
                     .getOrNull()
@@ -414,9 +416,27 @@ class PlaybackService : Service() {
                     ?.toBook()
             // CR-5: a superseding command cancelled us — never touch shared state.
             if (!active(generation)) return@launchCommand
-            if (activeBook == null) return@launchCommand
+            if (activeBook == null) {
+                // Terminal failure state instead of a silent return: a reader
+                // left on an endless "Opening book…" must land on the error
+                // branch. publish() is deliberately NOT called (machine == null
+                // would reset the holder and erase the failure).
+                PlaybackStateHolder.update {
+                    it.copy(bookId = null, chapterPassages = emptyList(), failure = "Could not open this book.")
+                }
+                foregroundOps.exit()
+                return@launchCommand
+            }
             bindBook(activeBook)
-            val position = machine!!.openPosition() ?: machine!!.firstPosition()
+            // The stored READING place wins over the audio resume row: a book
+            // listened to at ch5 but read to ch2 reopens at ch2. Only a
+            // layout-valid place is used; otherwise the resume row chain runs.
+            val reading =
+                settings
+                    .bookReading(id)
+                    ?.takeIf { (chapter, passage) -> layout!!.isValid(chapter, passage) }
+                    ?.let { (chapter, passage) -> PlayerPosition(id, chapter, passage) }
+            val position = reading ?: machine!!.openPosition() ?: machine!!.firstPosition()
             if (position != null) machine!!.present(position)
             refreshBookmarks()
             // Front-load the opening (user request): a book opened while idle
@@ -465,6 +485,7 @@ class PlaybackService : Service() {
         stopEverything()
         launchCommand { generation ->
             settings.reload()
+            clearPauseMarker(id)
             val reloaded =
                 runCatching { libraryStore.cachedBooks() }
                     .getOrNull()
@@ -472,7 +493,13 @@ class PlaybackService : Service() {
                     ?.toBook()
             // CR-5: a superseding command cancelled us — never touch shared state.
             if (!active(generation)) return@launchCommand
-            if (reloaded == null) return@launchCommand
+            if (reloaded == null) {
+                PlaybackStateHolder.update {
+                    it.copy(bookId = null, chapterPassages = emptyList(), failure = "Could not open this book.")
+                }
+                foregroundOps.exit()
+                return@launchCommand
+            }
             bindBook(reloaded)
             val passage = if (direction < 0) activeBook.chapters[target].passages.lastIndex else 0
             machine!!.present(PlayerPosition(id, target, passage))
@@ -513,6 +540,7 @@ class PlaybackService : Service() {
         stopEverything()
         launchCommand { generation ->
             settings.reload()
+            clearPauseMarker(id)
             val reloaded =
                 runCatching { libraryStore.cachedBooks() }
                     .getOrNull()
@@ -579,14 +607,15 @@ class PlaybackService : Service() {
         intent: Intent? = null,
     ) {
         val id = bookId ?: return
-        if (selector.engine() == null) {
-            PlaybackStateHolder.update { it.copy(failure = selector.failureReason ?: "engine unavailable") }
+        if (selector.engine(id) == null) {
+            PlaybackStateHolder.update { it.copy(failure = selector.failureReason(id) ?: "engine unavailable") }
             return
         }
         stopEverything()
         requestFocus()
         launchCommand { generation ->
             settings.reload() // V1: settings written by the UI apply at the next play action
+            if (explicit) clearPauseMarker(id)
             applyPlaybackVolume()
             val activeBook =
                 runCatching { libraryStore.cachedBooks() }
@@ -625,6 +654,11 @@ class PlaybackService : Service() {
                         return@launchCommand
                     },
                 )
+                clearPauseMarker(id)
+            } else {
+                // A stored resume row: apply the duration-scaled pause rewind
+                // (refresh from a pause, Workstream 4).
+                consumePauseRewind(machine!!, activeBook)
             }
             if (machine!!.state.value.phase != PlayerPhase.LOADING) {
                 PlaybackStateHolder.update { it.copy(failure = "nothing to play") }
@@ -677,6 +711,7 @@ class PlaybackService : Service() {
         stopEverything()
         launchCommand { generation ->
             settings.reload() // C2: the new voice landed before dispatch
+            clearPauseMarker(active.bookId)
             if (!active(generation)) return@launchCommand
             applyPlaybackVolume()
             if (position == null || machine == null) return@launchCommand
@@ -707,7 +742,7 @@ class PlaybackService : Service() {
         }
     }
 
-    private fun resumePlayer(bookId: String? = null) {
+    internal fun resumePlayer(bookId: String? = null) {
         val active = machine
         if (active == null) {
             // The service restarted with no machine (STOP's post-stop fill
@@ -721,7 +756,7 @@ class PlaybackService : Service() {
         }
         val phase = active.state.value.phase
         if (phase == PlayerPhase.PLAYING || phase == PlayerPhase.LOADING) return
-        if (selector.engine() == null) return
+        if (selector.engine(active.bookId) == null) return
         stopEverything()
         requestFocus()
         launchCommand { generation ->
@@ -733,6 +768,10 @@ class PlaybackService : Service() {
                 // A fresh book (or one opened without playing yet): start
                 // from the first passage instead of doing nothing.
                 active.playFrom(active.firstPosition() ?: return@launchCommand)
+            } else {
+                // Resuming a paused session: apply the duration-scaled rewind
+                // for how long it was paused (Workstream 4).
+                book?.let { consumePauseRewind(active, it) }
             }
             if (!active(generation)) return@launchCommand
             queue = buildQueue()
@@ -761,9 +800,36 @@ class PlaybackService : Service() {
         val live = liveOffsetSeconds()
         stopEverything()
         launchCommand { generation ->
+            // Record the pause instant for the resume rewind (Workstream 4):
+            // resuming after a long pause rewinds further (never past the
+            // chapter's first passage).
+            settings.setBookPausedAt(active.bookId, System.currentTimeMillis())
             active.pause(live)
             if (active(generation)) publish()
         }
+    }
+
+    /** Clears [bookId]'s pause marker: a user-directed move (open, navigate,
+     * seek, voice change, stop) supersedes the pause, so a later resume must
+     * not fire a stale rewind. */
+    private suspend fun clearPauseMarker(bookId: String?) {
+        if (bookId != null) settings.setBookPausedAt(bookId, null)
+    }
+
+    /** Applies the duration-scaled resume rewind for [book]'s recorded pause,
+     * if any: moves the machine back by [PauseRewind]'s amount for the pause
+     * length (never before the current chapter's first passage) and clears the
+     * marker. No-op when no pause is recorded. */
+    private suspend fun consumePauseRewind(
+        machine: PlayerStateMachine,
+        book: Book,
+    ) {
+        val pausedAt = settings.bookPausedAt(book.id) ?: return
+        settings.setBookPausedAt(book.id, null)
+        val current = machine.state.value.position ?: return
+        val seconds = PauseRewind.rewindSeconds(System.currentTimeMillis() - pausedAt)
+        if (seconds <= 0.0) return
+        machine.notePosition(PauseRewind.rewind(book, current, seconds))
     }
 
     internal fun navigate(move: suspend (PlayerStateMachine) -> List<PlayerEvent>) {
@@ -776,6 +842,7 @@ class PlaybackService : Service() {
             try {
                 if (!active(generation)) return@launchCommand
                 active.notePlaybackOffset(live)
+                clearPauseMarker(active.bookId)
                 move(active)
                 if (wasPaused) active.pause() // A7: navigation never resumes a paused playhead
                 if (active(generation)) publish()
@@ -815,6 +882,7 @@ class PlaybackService : Service() {
             try {
                 if (!active(generation)) return@launchCommand
                 active.notePlaybackOffset(live)
+                clearPauseMarker(active.bookId)
                 val activeBook = book ?: return@launchCommand
                 val position = active.state.value.position ?: return@launchCommand
                 val target =
@@ -854,6 +922,7 @@ class PlaybackService : Service() {
             try {
                 if (!active(generation)) return@launchCommand
                 active.undoSkip()
+                clearPauseMarker(active.bookId)
                 if (wasPaused) active.pause() // A7: undo never resumes a paused playhead
                 if (active(generation)) publish()
             } finally {
@@ -953,6 +1022,8 @@ class PlaybackService : Service() {
         finalStopJob =
             scope.launch(playerDispatcher) {
                 target?.stop(finalOffset)
+                // A STOP supersedes any pause: no rewind on the next resume.
+                target?.let { clearPauseMarker(it.bookId) }
                 // CR-2 + CR-5: the teardown clear belongs to THIS session. A newer
                 // command bumps the generation and owns the published state —
                 // resetting here would blank the UI of a session already loading.
@@ -1343,7 +1414,7 @@ class PlaybackService : Service() {
             generatedAheadSeconds = position?.let { queue?.aheadSeconds(it) } ?: 0.0,
             speed = state.speed,
             phase = state.phase,
-            degraded = selector.isDegraded,
+            degraded = selector.isDegraded(book?.id),
             sleepTimer = state.sleepTimer,
             canUndo = state.canUndo,
             failure = state.failure ?: PlaybackStateHolder.state.value.failure,
@@ -1858,7 +1929,7 @@ class PlaybackService : Service() {
         text: String,
     ): SynthesisOutcome {
         val q = queue
-        val realtime = !selector.isDegraded && settings.state.value.realtimeCapable == true
+        val realtime = !selector.isDegraded(book?.id) && settings.state.value.realtimeCapable == true
         if (q != null && !stopSignal.isCompleted && !realtime) {
             val startedAt = System.currentTimeMillis()
             android.util.Log.d("PlaybackService", "buffer: waiting for $PREFILL_LOOKAHEAD_SECONDS s ahead")

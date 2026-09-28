@@ -14,6 +14,7 @@ import io.github.moronigranja.ayvu.persistence.AppSettings
 import io.github.moronigranja.ayvu.player.pregen.TranslationService
 import io.github.moronigranja.ayvu.player.pregen.TranslationTarget
 import io.github.moronigranja.ayvu.tts.translate.TranslatePacks
+import io.github.moronigranja.ayvu.ui.formatProgressPercent
 import io.github.moronigranja.ayvu.ui.languageLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -187,7 +188,15 @@ class BookExportOperations
                         nowEpochMillis = System::currentTimeMillis,
                         onProgress = { done, total ->
                             holder.set(ExportUiState.Running(done, total))
-                            reporter.report("$done/$total passages", if (total > 0) done * 100 / total else null)
+                            val fraction = if (total > 0) done.toDouble() / total else null
+                            reporter.report(
+                                if (fraction != null) {
+                                    "$done/$total passages (${formatProgressPercent(fraction.toFloat())})"
+                                } else {
+                                    "$done/$total passages"
+                                },
+                                if (total > 0) done * 100 / total else null,
+                            )
                         },
                     ).build(book, language, languageLabel(language), translator, shape)
                 val bytes = ExportWriters.of(format).write(document)

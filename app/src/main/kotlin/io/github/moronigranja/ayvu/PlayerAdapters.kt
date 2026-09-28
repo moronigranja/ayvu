@@ -99,7 +99,7 @@ class WorkManagerPregenScheduler
                             }
                         trySend(
                             PregenJobState(
-                                percent = infos.maxOfOrNull { it.progress.getInt(PregenWorker.KEY_PROGRESS_PERCENT, 0) } ?: 0,
+                                fraction = infos.maxOfOrNull { it.progress.getDouble(PregenWorker.KEY_PROGRESS_FRACTION, 0.0) } ?: 0.0,
                                 running = infos.any { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING },
                                 failed = settled?.state == WorkInfo.State.FAILED,
                                 error =

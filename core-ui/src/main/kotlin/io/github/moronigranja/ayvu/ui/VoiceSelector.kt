@@ -86,6 +86,9 @@ data class EngineVoiceUiState(
  */
 private const val SYSTEM_ENGINE_ID = "system-tts"
 
+/** Dropdown item id for the reader sheet's "Use book default" voice option. */
+private const val USE_DEFAULT_ID = "__default__"
+
 /**
  * Fixed engine order: Kokoro (default), Piper, Device voice (system). Labels
  * and subs mirror the Settings SpeechPane's engine rows verbatim.
@@ -201,6 +204,10 @@ fun EngineVoicePicker(
     onStopPreview: () -> Unit,
     onDownload: (String) -> Unit,
     onOpenSettings: (() -> Unit)?,
+    /** A per-book surface (the reader sheet) offers "Use book default" as the
+     * first voice option — selecting it clears the book override. Global
+     * surfaces (Settings, Setup) pass null. */
+    onUseDefault: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -231,20 +238,21 @@ fun EngineVoicePicker(
                     ?: state.unavailableSavedVoice?.let { "$it (unavailable)" }
                     ?: "—",
             options =
-                state.rows.map { row ->
-                    DropdownOption(
-                        id = row.name,
-                        label = row.displayName.ifEmpty { row.name },
-                        description = "${row.language} · ${row.gender}",
-                        trailing =
-                            if (row.ready) {
-                                "downloaded"
-                            } else {
-                                "needs download · ${formatBytes(row.bytes)}"
-                            },
-                    )
-                },
-            onSelect = onSelect,
+                (if (onUseDefault != null) listOf(DropdownOption(id = USE_DEFAULT_ID, label = "Use book default")) else emptyList()) +
+                    state.rows.map { row ->
+                        DropdownOption(
+                            id = row.name,
+                            label = row.displayName.ifEmpty { row.name },
+                            description = "${row.language} · ${row.gender}",
+                            trailing =
+                                if (row.ready) {
+                                    "downloaded"
+                                } else {
+                                    "needs download · ${formatBytes(row.bytes)}"
+                                },
+                        )
+                    },
+            onSelect = { id -> if (id == USE_DEFAULT_ID) onUseDefault?.invoke() else onSelect(id) },
             modifier = Modifier.padding(bottom = AyvuSpacing.SM),
         )
         val unavailable = state.unavailableSavedVoice

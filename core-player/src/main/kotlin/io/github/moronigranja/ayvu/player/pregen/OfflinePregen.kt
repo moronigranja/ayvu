@@ -37,7 +37,7 @@ data class PregenProgress(
     /** Listening seconds of NEW audio synthesized this run; cache hits skip. */
     val synthesizedSeconds: Double = 0.0,
     /** The run's listening-time budget ([PregenBudget.maxSeconds]); null →
-     * unbounded, so [percent] falls back to the whole-book denominator. */
+     * unbounded, so [fraction] falls back to the whole-book denominator. */
     val budgetSeconds: Double? = null,
     /**
      * Why the run ended, set by [OfflinePregen.run] before it returns; null
@@ -49,17 +49,18 @@ data class PregenProgress(
 ) {
     val processed: Int get() = passagesSynthesized + passagesCached + failures
 
-    /** 0→100 over the requested slice for bounded runs (the 30-min ask fills
-     * as those 30 min generate — never a whole-book fraction); whole-book
-     * runs keep the processed/totalPassages walk. */
-    val percent: Int
+    /** The [0..1] progress over the requested slice for bounded runs (the
+     * 30-min ask fills as those 30 min generate — never a whole-book
+     * fraction); whole-book runs keep the processed/totalPassages walk.
+     * Double so the UI can show two decimals (Phase L). */
+    val fraction: Double
         get() =
             if (budgetSeconds != null && budgetSeconds > 0) {
-                (synthesizedSeconds * 100 / budgetSeconds).toInt().coerceIn(0, 100)
+                (synthesizedSeconds / budgetSeconds).coerceIn(0.0, 1.0)
             } else if (totalPassages == 0) {
-                100
+                1.0
             } else {
-                (processed * 100 / totalPassages).coerceIn(0, 100)
+                (processed.toDouble() / totalPassages).coerceIn(0.0, 1.0)
             }
 }
 

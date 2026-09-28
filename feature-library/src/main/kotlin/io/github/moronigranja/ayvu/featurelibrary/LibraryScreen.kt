@@ -85,6 +85,7 @@ import io.github.moronigranja.ayvu.ui.PlayerCard
 import io.github.moronigranja.ayvu.ui.ReadInLanguagePicker
 import io.github.moronigranja.ayvu.ui.SectionHeader
 import io.github.moronigranja.ayvu.ui.formatPercent
+import io.github.moronigranja.ayvu.ui.formatProgressPercent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -525,14 +526,14 @@ private fun BookRow(
     // (the app's WorkManager adapter maps WorkInfo under the hood).
     val job by viewModel.pregenWork(bookId).collectAsState(PregenJobState())
     val running = job.running
-    val percent = job.percent
+    val fraction = job.fraction
     val usage = offline?.usageBytes ?: 0L
     val estimate = offline?.estimateBytes ?: 0L
 
     // A settled run changed the tier: re-read usage + estimate (the job state
-    // only carries the percent/error surface).
+    // only carries the fraction/error surface).
     LaunchedEffect(job.running, job.failed, job.error) {
-        if (!job.running && (job.failed || percent > 0)) viewModel.refreshOffline()
+        if (!job.running && (job.failed || fraction > 0.0)) viewModel.refreshOffline()
     }
     // CR-1: a failed run exposes its typed reason (packs missing, synthesis
     // meltdown) instead of collapsing into a silent no-op success.
@@ -598,8 +599,8 @@ private fun BookRow(
                 when {
                     running -> {
                         LabeledProgress(
-                            progress = percent / 100f,
-                            label = "$percent%",
+                            progress = fraction.toFloat(),
+                            label = formatProgressPercent(fraction.toFloat()),
                             modifier = Modifier.padding(top = AyvuSpacing.SM),
                         )
                     }

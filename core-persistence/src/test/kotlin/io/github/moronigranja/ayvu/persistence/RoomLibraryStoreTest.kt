@@ -151,6 +151,9 @@ class RoomLibraryStoreTest {
             database.settingsDao().put(SettingEntity(SettingsStore.bookVoiceKey("b1"), "pf_dora"))
             database.settingsDao().put(SettingEntity(SettingsStore.bookTranslateKey("b1"), "pt-BR"))
             database.settingsDao().put(SettingEntity(SettingsStore.bookDisplayKey("b1"), "pt-BR"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookReadingKey("b1"), "3:7"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookEngineKey("b1"), "piper-v1"))
+            database.settingsDao().put(SettingEntity(SettingsStore.bookPausedAtKey("b1"), "1700000000000"))
             // Another book's rows must survive (per-book keying).
             database.settingsDao().put(SettingEntity(SettingsStore.bookVoiceKey("b2"), "af_heart"))
 

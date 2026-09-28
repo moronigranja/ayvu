@@ -41,7 +41,7 @@ interface PlayerCommands {
 /** One manual pre-generation job's observable state (the library row's
  * progress surface — A6 contract over WorkManager's WorkInfo). */
 data class PregenJobState(
-    val percent: Int = 0,
+    val fraction: Double = 0.0,
     val running: Boolean = false,
     val failed: Boolean = false,
     val error: String? = null,

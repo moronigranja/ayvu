@@ -18,6 +18,7 @@ import io.github.moronigranja.ayvu.player.DisplayMode
 import io.github.moronigranja.ayvu.player.PlaybackStateHolder
 import io.github.moronigranja.ayvu.player.PlaybackUiState
 import io.github.moronigranja.ayvu.player.PlayerCommands
+import io.github.moronigranja.ayvu.player.PlayerPhase
 import io.github.moronigranja.ayvu.player.TranslationState
 import io.github.moronigranja.ayvu.player.VoiceAudition
 import io.github.moronigranja.ayvu.player.VoicePackDownloader
@@ -76,6 +77,25 @@ class ReaderViewModel
         PlayerCommands {
         val state: StateFlow<PlaybackUiState> = PlaybackStateHolder.state
 
+        /** The book this reader shows — [resume] carries it so a machine-less
+         * service (STOP's post-stop fill self-stopped it) can rebuild and
+         * resume from the persisted playhead instead of dead-ending the
+         * play button. */
+        private var openedBookId: String? = null
+
+        /** A play press made before the chapter landed (the loading/empty
+         *  state) — completed by the state collector once the open presents the
+         *  chapter (see [playFromView]). */
+        private var deferredPlay = false
+
+        /** The last reading place written for [openedBookId], so a re-paginate
+         * that lands on the same page does not re-write the row. Reset on a
+         * fresh [open]. */
+        private var lastReadingWrite: Pair<Int, Int>? = null
+
+        /** Bounded open-retry bookkeeping (see [scheduleOpenRetry]). */
+        private var openRetryJob: kotlinx.coroutines.Job? = null
+
         /** The shared engine+voice picker state for the reader's voice sheet
          * (decisions #166 follow-up): the catalog follows the selected engine
          * (piper rows with the resolved voice's pack readiness under
@@ -85,7 +105,7 @@ class ReaderViewModel
          * availability shape). */
         val engineVoice: StateFlow<EngineVoiceUiState> =
             combine(settings.state, audition.state, registry.packs) { prefs, aud, packs ->
-                engineVoice(packs, prefs, aud)
+                engineVoice(packs, prefs, aud, PlaybackStateHolder.state.value.bookId ?: openedBookId)
             }.stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
@@ -93,6 +113,7 @@ class ReaderViewModel
                     registry.packs.value,
                     settings.state.value,
                     audition.state.value,
+                    PlaybackStateHolder.state.value.bookId ?: openedBookId,
                 ),
             )
 
@@ -100,8 +121,9 @@ class ReaderViewModel
             packs: List<PackState>,
             prefs: AppSettings.Snapshot,
             audition: AuditionUiState,
+            bookId: String?,
         ): EngineVoiceUiState {
-            val engineId = prefs.ttsEngine
+            val engineId = bookId?.let { prefs.bookEngines[it] } ?: prefs.ttsEngine
             val voices =
                 if (engineId == SettingsStore.PIPER_ENGINE) {
                     PiperVoiceMetadata.all
@@ -113,24 +135,13 @@ class ReaderViewModel
                 engineId = engineId,
                 engines = engineOptions(engineId, readyFor),
                 voices = voices,
-                selectedVoice = prefs.voice,
+                selectedVoice = bookId?.let { prefs.bookVoices[it] } ?: prefs.voice,
                 favorites = prefs.favorites.toSet(),
                 readyFor = readyFor,
                 bytesFor = { SetupEnginePacks.bytesFor(engineId, it, packs) },
                 audition = audition,
             )
         }
-
-        /** The book this reader shows — [resume] carries it so a machine-less
-         * service (STOP's post-stop fill self-stopped it) can rebuild and
-         * resume from the persisted playhead instead of dead-ending the
-         * play button. */
-        private var openedBookId: String? = null
-
-        /** A play press made before the chapter landed (the loading/empty
-         *  state) — completed by the state collector once the open presents the
-         *  chapter (see [playFromView]). */
-        private var deferredPlay = false
 
         // ---- read-in-language (decisions #114) ----
 
@@ -161,7 +172,7 @@ class ReaderViewModel
                 ReadInLanguageUiState(
                     bookId = bookId,
                     target = speech,
-                    languages = selector.availableTranslateLanguages(),
+                    languages = selector.availableTranslateLanguages(bookId),
                     // The reader's display surface: the book's display language
                     // + the global display mode.
                     displayTarget = display,
@@ -177,7 +188,7 @@ class ReaderViewModel
                     translateVoice = storedTargetVoice,
                     translateVoices =
                         speech?.let { lang ->
-                            val catalog = selector.voiceCatalog()
+                            val catalog = selector.voiceCatalog(bookId)
                             TranslateLanguages.voicesFor(catalog, lang).map { name ->
                                 val meta = catalog.first { it.name == name }
                                 VoiceRowUi(
@@ -477,11 +488,14 @@ class ReaderViewModel
 
         /** C2: select a voice AND rebuild the active book under it at the same
          * playhead (persist via [settings], supersede stale synthesis via
-         * [changeVoice]). */
+         * [changeVoice]). The write is PER BOOK (`book.voice.<bookId>`): the
+         * reader's sheet never rewrites the global default. */
         fun selectVoice(voice: String) {
-            val current = settings.state.value.voice
-            if (voice != current) {
-                viewModelScope.launch { settings.setVoice(voice) }
+            val bookId = openedBookId ?: return
+            val current = settings.bookVoice(bookId) ?: settings.state.value.voice
+            if (voice == current) return
+            viewModelScope.launch {
+                settings.setBookVoice(bookId, voice)
                 changeVoice(voice)
             }
         }
@@ -491,12 +505,26 @@ class ReaderViewModel
             viewModelScope.launch { settings.toggleFavorite(voice) }
         }
 
-        /** The speech engine (global): persists it AND rebuilds the active
-         * book at the playhead (the catalog switch re-resolves the voice). */
+        /** Clears the book's voice override — "use book default" (the effective
+         * voice reverts to the global default). */
+        fun useDefaultVoice() {
+            val bookId = openedBookId ?: return
+            viewModelScope.launch {
+                settings.setBookVoice(bookId, null)
+                changeVoice(settings.state.value.voice)
+            }
+        }
+
+        /** The speech engine: PER BOOK (`book.engine.<bookId>`) — persists it
+         * AND rebuilds the active book at the playhead (the catalog switch
+         * re-resolves the voice). */
         fun setEngine(engineId: String) {
-            if (engineId == settings.state.value.ttsEngine) return
-            viewModelScope.launch { settings.setTtsEngine(engineId) }
-            changeVoice(settings.state.value.voice)
+            val bookId = openedBookId ?: return
+            if (engineId == (settings.bookEngine(bookId) ?: settings.state.value.ttsEngine)) return
+            viewModelScope.launch {
+                settings.setBookEngine(bookId, engineId)
+                changeVoice(settings.bookVoice(bookId) ?: settings.state.value.voice)
+            }
         }
 
         fun previewVoice(voice: String) = audition.preview(voice)
@@ -511,7 +539,48 @@ class ReaderViewModel
         fun open(bookId: String) {
             openedBookId = bookId
             deferredPlay = false // a fresh open supersedes an unfulfilled press
+            lastReadingWrite = null
             command(PlaybackService.ACTION_OPEN, bookId)
+            scheduleOpenRetry(bookId)
+        }
+
+        /** The stored reading place's chapter-local passage when it belongs to
+         * [chapterIndex] — the reader's own restore target, distinct from the
+         * audio position the service publishes. */
+        fun readingPassageFor(
+            bookId: String,
+            chapterIndex: Int,
+        ): Int? = settings.bookReading(bookId)?.takeIf { it.first == chapterIndex }?.second
+
+        /** Records the visible page's reading place (book-wide) — the reopen
+         * target. Called from the rendered-content branch on every visible-page
+         * change; a no-op when the page is unchanged. */
+        fun noteReadingPosition(
+            chapter: Int,
+            passage: Int,
+        ) {
+            val id = openedBookId ?: return
+            if (chapter < 0 || passage < 0) return
+            val next = chapter to passage
+            if (next == lastReadingWrite) return
+            lastReadingWrite = next
+            viewModelScope.launch { settings.setBookReading(id, chapter, passage) }
+        }
+
+        /** Bounded self-heal for a stuck open: if nothing publishes for
+         * [bookId] within 4 s (neither a state nor a failure), re-dispatch
+         * `ACTION_OPEN` — at most twice. Cancelled by any newer open. */
+        private fun scheduleOpenRetry(bookId: String) {
+            openRetryJob?.cancel()
+            openRetryJob =
+                viewModelScope.launch {
+                    repeat(2) {
+                        kotlinx.coroutines.delay(4_000)
+                        val s = state.value
+                        if (s.bookId == bookId || s.failure != null || openedBookId != bookId) return@launch
+                        command(PlaybackService.ACTION_OPEN, bookId)
+                    }
+                }
         }
 
         /** The reader's play control — the docked card's center button and the
@@ -533,6 +602,13 @@ class ReaderViewModel
         ) {
             val current = state.value
             val id = openedBookId
+            // A paused session resumes through ACTION_RESUME (duration-scaled
+            // rewind, Workstream 4) instead of restarting at the visible page's
+            // first passage.
+            if (id != null && current.bookId == id && current.phase == PlayerPhase.PAUSED) {
+                resume()
+                return
+            }
             if (id != null && current.bookId == id && current.chapterPassages.isNotEmpty()) {
                 playPosition(id, chapter, passage)
                 return

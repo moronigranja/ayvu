@@ -121,8 +121,8 @@ class EngineSelectorPiperTest {
         assertTrue(engine is RecordingEngine)
         assertEquals("kokoro is never realized under piper-v1", 0, kokoro.touched.get())
         assertEquals(1, piper.touched.get())
-        assertFalse("piper is a PRIMARY engine class, not degraded (#154)", selector.isDegraded)
-        assertEquals("piper's typed prerequisite reason surfaces", "Piper voice model not ready", selector.failureReason)
+        assertFalse("piper is a PRIMARY engine class, not degraded (#154)", selector.isDegraded(null))
+        assertEquals("piper's typed prerequisite reason surfaces", "Piper voice model not ready", selector.failureReason(null))
     }
 
     @Test
@@ -145,6 +145,38 @@ class EngineSelectorPiperTest {
         // system-tts: passthrough (the device voice ignores the id today).
         runBlocking { settings.setTtsEngine(SettingsStore.SYSTEM_TTS_ENGINE) }
         assertEquals("af_heart", selector.resolveVoice("af_heart"))
-        assertTrue(selector.isDegraded)
+        assertTrue(selector.isDegraded(null))
+    }
+
+    @Test
+    fun `per-book engine override beats the global and clears back to it`() {
+        runBlocking {
+            settings.setTtsEngine(SettingsStore.DEFAULT_TTS_ENGINE)
+            settings.setBookEngine("b1", SettingsStore.PIPER_ENGINE)
+            settings.setBookEngine("b3", SettingsStore.SYSTEM_TTS_ENGINE)
+        }
+        val piper = FakePiperRuntime(context, settings)
+        val selector = selector(FakeKokoroRuntime(context, settings), piper)
+
+        assertEquals("b1 resolves the per-book engine", SettingsStore.PIPER_ENGINE, selector.engineIdFor("b1"))
+        assertFalse("piper is a PRIMARY engine class, not degraded (#154)", selector.isDegraded("b1"))
+        assertTrue("b1's engine opens through Piper", selector.engine("b1") is RecordingEngine)
+        assertEquals("the resolved voice follows b1's engine", "en_US-lessac-medium", selector.resolveVoice("af_heart", "b1"))
+        assertEquals("en_US-lessac-medium", selector.effectiveVoice("b1"))
+        assertEquals("resolve() names the book's engine voice", "en_US-lessac-medium", selector.resolve("b1").second)
+
+        // The global engine still governs every other book.
+        assertEquals(SettingsStore.DEFAULT_TTS_ENGINE, selector.engineIdFor("b2"))
+        assertFalse(selector.isDegraded("b2"))
+        assertEquals("af_heart", selector.resolveVoice("af_heart", "b2"))
+        assertEquals("af_heart", selector.resolve("b2").second)
+
+        // A per-book system voice is degraded for that book only.
+        assertTrue(selector.isDegraded("b3"))
+        assertFalse(selector.isDegraded("b2"))
+
+        runBlocking { settings.setBookEngine("b1", null) }
+        assertEquals("clearing restores the global engine", SettingsStore.DEFAULT_TTS_ENGINE, selector.engineIdFor("b1"))
+        assertEquals("af_heart", selector.resolveVoice("af_heart", "b1"))
     }
 }
