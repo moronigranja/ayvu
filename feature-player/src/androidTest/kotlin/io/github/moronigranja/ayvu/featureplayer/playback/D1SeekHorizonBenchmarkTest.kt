@@ -79,8 +79,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  *     -e seeks 10 -e delta 30.0 -e strict 1 \
  *     io.github.moronigranja.ayvu.featureplayer.test/androidx.test.runner.AndroidJUnitRunner
  *   adb logcat -d -s AyvuD1
- *   adb exec-out run-as io.github.moronigranja.ayvu.featureplayer cat \
- *     /sdcard/Android/data/io.github.moronigranja.ayvu.featureplayer/files/d1_seek_results.json
+ *   adb exec-out run-as io.github.moronigranja.ayvu.featureplayer.test cat \
+ *     /sdcard/Android/data/io.github.moronigranja.ayvu.featureplayer.test/files/d1_seek_results.json
  *
  * Args: `seeks` 1-20 (default 10), `delta` seconds (default 30.0, alternating
  * ±), `strict` 1 (default) fails the run on any synchronous-synthesis seek /

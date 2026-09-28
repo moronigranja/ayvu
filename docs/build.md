@@ -1,5 +1,124 @@
 # Build, run, test
 
+## Fresh host (first clone)
+
+Ordered: run each step and stop at the first verification that fails — every later
+step assumes the earlier ones passed, and a bare command failure here is an
+environment problem, not a code problem. The Docker path (Option A) is the
+supported one: the image carries the JDK, the Android SDK and the NDK, so a fresh
+host needs none of them. Everything below assumes this section is green.
+
+**0 — Host prerequisites.** git, Docker, `adb`/platform-tools for on-device work,
+~15 GB free disk (the toolchain image is ~8 GB on its own), and a **64-bit ARM**
+device on Android 8.0+ (API 26) for anything on-device — the app ships an arm64
+native TTS library. A host JDK (17 or 21) is optional, for Option B only.
+
+```bash
+git --version && docker --version
+# expected: git 2.x; Docker 2x.x
+```
+
+**1 — Vendored llama.cpp** (gitignored, so a fresh clone lacks it; `core-llm`'s
+CMake fails **every Android build** without this tree, Docker included):
+
+```bash
+tools/fetch-llama-cpp.sh
+git -C build/llama.cpp-src rev-parse HEAD
+# expected: b75ecd1971bf2d3f29d5d334520868a01942cbc6   (~200 MB shallow fetch)
+```
+
+**2 — Toolchain image** (one-time; downloads several GB):
+
+```bash
+docker build -t ayvu-android .
+docker image inspect ayvu-android >/dev/null && echo ok
+# expected: ok
+```
+
+**3 — JVM-only smoke, no device and no host SDK needed.** Eight modules build and
+test on the plain JVM — this is the set CI's `jvm-tests` lane runs, inside the image:
+
+```bash
+tools/docker-build.sh :core-model:test :core-ebook:test :core-locate:test :core-tts:test \
+  :core-translate:test :core-player:test :core-ocr:test :core-backup:test
+# expected: BUILD SUCCESSFUL
+```
+Gradle configures **every** included module, and `core-llm` pins the NDK — so each
+invocation needs a valid SDK location, these JVM-only modules included. The image
+supplies one; a bare `./gradlew <task>` on a host with no SDK fails at configuration
+(`SDK location not found`, or a licence error) before any task runs.
+
+**4 — Build the app.**
+
+```bash
+tools/docker-build.sh :app:assembleDebug
+test -s app/build/outputs/apk/debug/app-debug.apk && echo ok
+# expected: ok   (the first cold build compiles nine llama.cpp kernel variants: a few minutes)
+```
+
+**5 — Device (on-device work only).** The APK is arm64-v8a + API 26+, so a 32-bit or
+x86 device will not install it:
+
+```bash
+adb devices -l
+# expected: exactly one entry for your phone, e.g.
+#   <serial>  device product:<model> model:<model> device:<codename>
+# wireless debugging: adb connect <phone-ip>:<port>; the wi-fi transport then shows
+# up next to the USB one (both are `<serial>` values)
+adb shell getprop ro.product.cpu.abi
+# expected: arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+# expected: Success
+```
+
+**6 — Release signing (only to build a *signed* release).** `assembleRelease` /
+`tools/release.sh` need a keystore + `keystore.properties` that are **not** in the
+repo (see §"Release APK" for the recipe):
+
+```bash
+test -f ~/.android/ayvu-release.jks && echo keystore-ok
+test -f keystore.properties && echo properties-ok
+# expected: keystore-ok + properties-ok
+```
+
+**7 — Spike extras (optional; none are needed for a normal app build).** Model packs
+are never committed (decision #7) — the commands in the spike sections below fetch
+them into your own scratch dirs (a host cache such as `~/.cache/ayvu-spike/`, outside
+the repo, and the gitignored `build/`):
+
+- host `espeak-ng` **1.52.0** (must match the pinned tag) + `tools/build-espeak-android.sh`
+  → `build/espeak-ng-152/…` (needs the step-2 image and host espeak-ng-data);
+- `python3` (3.11 here) with `numpy`/`onnxruntime` for the host-prep scripts in `tools/`;
+- the pinned spike model URLs, sizes and SHA-256s are in §"Host artifacts" below —
+  an `adb push` that fails with "No such file" means you have not downloaded them.
+
+```bash
+which espeak-ng && espeak-ng --version   # expected: 1.52.0
+test -f build/espeak-ng-152/lib/arm64-v8a/libespeak-ng.so && echo espeak-bundle-ok
+# expected: only after tools/build-espeak-android.sh has run
+```
+
+### Option B — a host Android SDK instead of Docker
+
+Only if you prefer Gradle on the host: install the JDK, the Android command-line
+tools and the exact pins the Dockerfile bakes (licences accepted), then point Gradle
+at the SDK. From here every `tools/docker-build.sh <tasks>` below becomes
+`./gradlew <tasks>`.
+
+```bash
+java -version      # expected: 17 or 21
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" \
+  && yes | sdkmanager --licenses
+printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties   # with ANDROID_HOME set; gitignored, or edit by hand
+./gradlew :core-model:test
+# expected: BUILD SUCCESSFUL
+```
+The NDK is required by `core-llm` (native translate runtime) and `core-ocr`
+(tess-two); without it — or with licences unaccepted — configuration fails before any
+task runs.
+
+## Everyday commands
+
 ```bash
 ./gradlew testDebugUnitTest             # unit tests (logic, parsers, state, Room DAOs via Robolectric)
 ./gradlew assembleDebugAndroidTest      # instrumented tests (compile; run on a device)
@@ -13,14 +132,16 @@ sources with no baseline — any violation fails, in CI and locally — and
 violations, so no baseline ever comes back; `.editorconfig` holds the two rule
 adjustments).
 
-Four pure-JVM modules (`core-model`, `core-ebook`, `core-locate`, `core-tts`)
-build and test without the Android SDK — `./gradlew :core-locate:test
-:core-ebook:test :core-model:test :core-tts:test` runs their unit tests. The
-Android modules (`app`, `feature-library`, `core-persistence`) are wired into the
-same build; their unit tests need the SDK — `core-persistence` additionally runs
-the Room DAO/store tests under Robolectric. The aggregate `./gradlew test` needs
-the SDK once Android tasks run; use the containerized toolchain for the full
-suite (`tools/docker-build.sh test`).
+Eight pure-JVM modules (`core-model`, `core-ebook`, `core-locate`, `core-tts`,
+`core-translate`, `core-player`, `core-ocr`, `core-backup`) compile and test without
+the Android SDK's tooling — step 3 of §"Fresh host" runs their unit tests in the
+container. Gradle still needs a valid SDK *location* to configure the build at all
+(`core-llm` pins the NDK), so use the containerized toolchain unless you have a host
+SDK (Option B). The Android modules (`app`, `feature-library`, `core-persistence`)
+are wired into the same build; their unit tests need the real SDK — `core-persistence`
+additionally runs the Room DAO/store tests under Robolectric. The aggregate
+`./gradlew test` needs the SDK once Android tasks run; use the containerized
+toolchain for the full suite (`tools/docker-build.sh test`).
 
 ## T3 CosyVoice3 spike (`spike-tts`)
 
@@ -60,8 +181,13 @@ adb uninstall io.github.moronigranja.ayvu.spiketts 2>/dev/null; adb uninstall io
 adb install spike-tts/build/outputs/apk/debug/spike-tts-debug.apk
 adb install -r -t spike-tts/build/outputs/apk/androidTest/debug/spike-tts-debug-androidTest.apk
 # stage packs + corpus (Android 11+ FUSE hides adb-pushed files under Android/data):
+#   <dir> = YOUR host download dir — the pinned artifacts are NOT committed; URLs,
+#   sizes and SHA-256s are in §"Host artifacts (verify before staging)" below, and
+#   a "No such file" here means the model was never downloaded.
 #   corpus: tracked at docs/corpus/corpus.tsv (regenerated by
 #   ./gradlew :core-tts:kokoroGrainSpike -PkokoroCache=<dir>, identical bytes)
+#   adb: these plain commands target the single attached device; with more than one
+#   add `-s <serial>` (example serials live in §"Device staging").
 adb push <dir>/kokoro-v1.0.onnx /data/local/tmp/kokoro-model
 adb push <dir>/voices-v1.0.bin /data/local/tmp/kokoro-voices
 adb push docs/corpus/corpus.tsv /data/local/tmp/corpus.tsv
@@ -213,7 +339,7 @@ The HiBreak sits with Wi-Fi **off** between passes; enable and let it rejoin the
 saved network before the tcpip switch, or the connect has no route:
 
 ```bash
-adb -s B6CLR0B2FHFA006000712 shell cmd wifi set-wifi-enabled enabled
+adb -s <serial> shell cmd wifi set-wifi-enabled enabled    # e.g. B6CLR0B2FHFA006000712 (USB)
 # it auto-joins the saved "Granjas 5ghz"; confirm with cmd wifi status, then tcpip 5555
 ```
 
@@ -265,7 +391,8 @@ with every number inlined is `docs/kokoro-on-device-perf.md`.
 ### Host artifacts (verify before staging)
 
 ```bash
-MODELS=~/.cache/ayvu-spike/models
+MODELS=~/.cache/ayvu-spike/models   # example path — any writable dir; nothing here is committed
+# download each artifact below to $MODELS (URLs + sizes + SHA-256s are the pins):
 # kokoro-v1.0.onnx        325505369 B  beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a
 #   https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx
 # voices-v1.0.bin          28214398 B  bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
@@ -302,7 +429,8 @@ python3 tools/reshape_conv_1d_to_2d.py --in $MODELS/kokoro-v1.0.onnx \
 ### Device staging (per device serial)
 
 ```bash
-S=<serial>                     # wireless: Fold 8 192.168.0.112:5555 · S22 192.168.0.120:5555 ·
+S=<serial>                     # YOUR device: read it from `adb devices -l`. Example values:
+                               # wireless: Fold 8 192.168.0.112:5555 · S22 192.168.0.120:5555 ·
                                #           HiBreak 192.168.0.135:5555 (all on "Granjas 5ghz", host .125);
                                #           or the USB serial. DHCP moves them — re-read before a pass.
                                # Keep BOTH paths live on a long pass: `adb tcpip 5555` once (survives
@@ -311,7 +439,7 @@ S=<serial>                     # wireless: Fold 8 192.168.0.112:5555 · S22 192.
                                # cable then costs nothing (the 2.5 GB translategemma push ran over wifi
                                # at 47 MB/s while the cable stayed attached). Addresses are read with
                                # `adb -s <usb-serial> shell ip -4 addr show wlan0`.
-MODELS=~/.cache/ayvu-spike/models
+MODELS=~/.cache/ayvu-spike/models   # same host download dir as §"Host artifacts" (example path)
 adb -s $S install -r spike-tts/build/outputs/apk/debug/spike-tts-debug.apk
 adb -s $S install -r spike-tts/build/outputs/apk/androidTest/debug/spike-tts-debug-androidTest.apk
 adb -s $S push $MODELS/kokoro-v1.0.onnx            /data/local/tmp/kokoro-model
@@ -494,7 +622,6 @@ in ~326 s on the HiBreak; audio8's fabricated slow-AR step ~5.8 s and the fp16
 codec ~RTF 10 (realtime thesis unsupported on B6). Full loop legs belong to
 roadmap D4 (Audio8) / D5 (chatterbox-vs-CosyVoice3).
 
-## espeak-ng Android bundle (decision #32)
 ## D4 small-tier staging (2026-08-31, `spike-tts`)
 
 Stages the two D4 candidates for `D4ProbeBenchmarkTest` (roadmap D4, decisions
@@ -671,12 +798,14 @@ benchmarks (`files/models/` under `spike-tts`) and the espeak bundle from
 §"espeak-ng Android bundle" below.
 
 ```bash
-S=<serial>                       # S22 192.168.0.116:5555 · B6: usb B6CLR0B2FHFA006000712
+S=<serial>                       # YOUR device (adb devices -l); e.g. 192.168.0.116:5555 or usb B6CLR0B2FHFA006000712
+T=io.github.moronigranja.ayvu.featureplayer.test   # the feature-player androidTest package
+PK=$HOME/.cache/ayvu-spike/models                  # example host pack dir (see §"Host artifacts")
 ./gradlew :feature-player:assembleDebugAndroidTest   # feature-player/build/outputs/apk/androidTest/debug/
 adb -s $S install -r feature-player/build/outputs/apk/androidTest/debug/feature-player-debug-androidTest.apk
-adb -s $S push ~/.cache/ayvu-spike/models/kokoro/kokoro-model /data/local/tmp/ayvu-d1/kokoro-model
-adb -s $S push ~/.cache/ayvu-spike/models/kokoro/kokoro-voices /data/local/tmp/ayvu-d1/kokoro-voices
-adb -s $S push build/espeak-ng-152/lib/libespeak-ng.so /data/local/tmp/ayvu-d1/libespeak-ng.so
+adb -s $S push $PK/kokoro/kokoro-model  /data/local/tmp/ayvu-d1/kokoro-model   # app pack names, not the spike ones
+adb -s $S push $PK/kokoro/kokoro-voices /data/local/tmp/ayvu-d1/kokoro-voices
+adb -s $S push build/espeak-ng-152/lib/arm64-v8a/libespeak-ng.so /data/local/tmp/ayvu-d1/libespeak-ng.so
 adb -s $S push build/espeak-ng-152/espeak-ng-data /data/local/tmp/ayvu-d1/espeak-ng-data
 adb -s $S shell chmod -R a+rX /data/local/tmp/ayvu-d1     # the test app must read them
 adb -s $S shell pm grant $T android.permission.READ_LOGS   # in-test Choreographer count
@@ -685,7 +814,7 @@ adb -s $S logcat -c
 adb -s $S shell am instrument -w \
   -e class io.github.moronigranja.ayvu.featureplayer.playback.D1SeekHorizonBenchmarkTest \
   -e seeks 10 -e delta 30.0 -e strict 1 -e stage /data/local/tmp/ayvu-d1 \
-  $T.test/androidx.test.runner.AndroidJUnitRunner
+  $T/androidx.test.runner.AndroidJUnitRunner
 adb -s $S logcat -d -s AyvuD1
 adb -s $S exec-out run-as $T cat /sdcard/Android/data/$T/files/d1_seek_results.json
 ```
@@ -703,7 +832,7 @@ and pairs it with the matching `espeak-ng-data` (arch-independent, from the
 host installation) — the flat pack for the phonemizer adapter.
 
 ```bash
-tools/build-espeak-android.sh   # outputs build/espeak-ng-152/{lib,espeak-ng-data}
+tools/build-espeak-android.sh   # outputs build/espeak-ng-152/lib/arm64-v8a/libespeak-ng.so + espeak-ng-data/
 ```
 
 ## llama.cpp source for :core-llm (decisions #162)
@@ -808,6 +937,10 @@ tools/docker-build.sh :app:assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
 # stage the kokoro model/voices into the app (espeak-ng is a downloadable pack
 # since #50 — settings downloads + auto-stages it; the manual path is gone):
+# <cache> = YOUR host dir holding the two pinned KokoroPacks artifacts (urls in
+# core-tts/.../KokoroPacks.kt, §"Host artifacts" has the SHA-256s). This whole
+# block is optional — with a network the app downloads the packs itself on first
+# run (Settings → Speech), which is the normal path.
 adb push <cache>/packs/kokoro-82m/kokoro-model /data/local/tmp/kokoro-model
 adb push <cache>/packs/kokoro-82m/kokoro-voices /data/local/tmp/kokoro-voices
 adb shell "run-as io.github.moronigranja.ayvu sh -c \\
@@ -825,10 +958,11 @@ Stage the OCR/import test data alongside the packs (S1/S-debug):
 curl -L -o /tmp/eng.traineddata \
   https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata
 adb push /tmp/eng.traineddata /data/local/tmp/eng.traineddata
-# a real epub (e.g. Gutenberg pg1342-images.epub) for the import probe:
-adb push pp.epub /data/local/tmp/pp.epub
-# an entity-laden real epub (decisions #53: XML-valid &amp; in OPF metadata) for the second probe case:
-adb push nmmng.epub /data/local/tmp/nmmng.epub
+# a real epub YOU have for the import probe (path/name are yours), e.g. Gutenberg's
+# pg1342-images.epub — the probes assert on the file's own content, not a fixed text:
+adb push <your>.epub /data/local/tmp/pp.epub
+# an entity-laden real epub (decisions #53: XML-valid &amp; in OPF metadata) for the second case:
+adb push <your-entity>.epub /data/local/tmp/nmmng.epub
 # the staged dir is the versioned engine data path (TessDataStager.tesseractDataPath)
 adb shell "run-as io.github.moronigranja.ayvu sh -c \
   'mkdir -p files/tesseract/fast-4.1.0/tessdata files/import-probe && \
