@@ -830,6 +830,7 @@ docs (open-bugs.md, decisions #156) now record it.
 | Auto-delete listened audio | Eviction design first: must preserve the current playhead and every position reachable by undo — a design that does not yet exist (A4's LRU repair is not the eviction policy). |
 | Habit-driven pre-generation | Stats/session evidence first; prediction may rank work but never override storage, charging or playback-yield limits. |
 | Profiles, collections and book-map navigation | Valuable reader/library expansion after search, folder import and basic controls are complete. |
+| Public listing beyond GitHub Releases + one community announcement | **Owner intent 2026-09-27: pick up later.** Plan and the pre-filed policy fit: [distribution.md](distribution.md) — Track A = one r/fossdroid post (r/androidapps bans self-promo; every Reddit rules page needs a manual check, the automated fetch is walled), Track B = an IzzyOnDroid inclusion request on the Codeberg tracker. Two gates: the APK is 52,279,328 B against their 30 MB rule of thumb (exception needed; per-ABI is already done) and the first-run model-pack download must be strictly, one-tap declinable with consent copy (skippable today via the pack-free "Device voice" engine). No code has started. |
 
 ## Idea pool — not scheduled
 
