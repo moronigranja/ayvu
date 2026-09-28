@@ -200,6 +200,7 @@ tools/docker-build.sh :app:assembleDebug :app:assembleDebugAndroidTest
 - [docs/decisions.md](docs/decisions.md) — the decision ledger (#1–#163)
 - [docs/roadmap.md](docs/roadmap.md) — forward sequencing; shipped work reference-only, open work active
 - [docs/build.md](docs/build.md) — build/run/test, Docker toolchain, device staging
+- [docs/distribution.md](docs/distribution.md) — launch plan: one community post + the IzzyOnDroid inclusion brief (not started)
 - [docs/features/share-and-identify.md](docs/features/share-and-identify.md) — the share-and-identify feature plan
 
 ## License
