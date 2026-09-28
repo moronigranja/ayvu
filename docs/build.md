@@ -910,8 +910,10 @@ keytool -genkeypair -v -keystore ~/.android/ayvu-release.jks -alias ayvu \
 #    keyPassword=<your-key-password>
 # 3. Build + verify the signed APK (and optionally draft/publish the release):
 tools/release.sh                 # signed build/release/Ayvu-<version>.apk + signature check
-tools/release.sh --upload        # + draft GitHub release v0.1.1
-tools/release.sh --upload --publish --notes docs/release-notes-0.1.2.md
+tools/release.sh --upload        # + draft GitHub release v<versionName>
+tools/release.sh --upload --notes docs/release-notes-0.2.0.md
+                                 # (from 0.2.0 the notes are the short body: highlights +
+                                 # a link to CHANGELOG.md — decisions #197)
 ```
 
 Back the release keystore + `keystore.properties` up off-machine immediately

@@ -4,6 +4,196 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 197. v0.2.0 prepared, and release notes get short (2026-09-28, owner)
+
+Owner: *"Prepare a new release version. I would like to make the text for the release
+version short, just the highlights from the changelog, and a link to a longer changelog
+document. No need to keep putting the install instructions, those should be at the readme
+anyway."*
+
+- **Version**: `versionCode` 5 → 6, `versionName` `0.1.4` → `0.2.0` (`app/build.gradle.kts`).
+  Contents are decision #196. **Prepared, not published**: the signed build, the draft
+  upload and the digest pin are the owner's `tools/release.sh` run (the release keystore is
+  present on this host, so `--upload` is available). The `v0.2.0` tag is cut by the publish,
+  so the source offer the notes make must point at the pushed commit.
+- **Notes shape changes, superseding #179's clause.** #179 fixed: intro, what changed,
+  install requirements, first-run pack table, that build's known limitations, licences.
+  From 0.2.0 the release body is the **intro (two lines), the highlights, and a link to the
+  changelog**; the install/update steps, the requirements and the current limitations live
+  in the [README](../README.md#install) — they were maintained in two places and the README
+  is where a downloader looks. `docs/release-notes-0.2.0.md` is that body.
+- **The changelog document is [`CHANGELOG.md`](../CHANGELOG.md)** at the repo root: newest
+  first, the current version in full (itemized, with the reasoning and the device
+  evidence) and older versions summarized with links to their `docs/release-notes-<v>.md`
+  files, which stay exactly as they shipped (a shipped body is a historical artifact, #179).
+  The release body links to the **tag** URL of that version's section
+  (`blob/v0.2.0/CHANGELOG.md#…`) — the shipped body then points at the shipped tree, the
+  same source offer the rest of the body makes, instead of at whatever `main` has grown into.
+- **Unchanged**: #179's other clause — the uploaded digest stays pinned in the notes' own
+  text, from the value `tools/release.sh --upload` printed for the artifact it uploaded
+  (#176: release bytes are not reproducible). The 0.2.0 body states that rule instead of a
+  placeholder digest; the publish writes the value.
+- **Consequence**: a new release now touches three places instead of two — `CHANGELOG.md`
+  (the long form), `docs/release-notes-<v>.md` (the short body), and the README only when
+  the version or the requirements actually change.
+
+## 196. The reopen/per-book/resume/progress batch: reading place, per-book engine, pause rewind, two-decimal progress (2026-09-27 owner reports, shipped in 0.2.0)
+
+Four owner reports on 2026-09-27, five days after v0.1.4, shipped together because three of
+them touch the same reader/service position path. Full detail in
+[CHANGELOG.md](../CHANGELOG.md#020--2026-09-28).
+
+1. **Reading place, and a reopen that lands on it.** *"When opening the app back, it
+   sometimes hangs on the loading, then pressing back goes back to the library and opening
+   the book again restarts the chapter."* A new per-book `book.reading.<bookId>` row
+   (`chapter:passage`, the generic-table ride-along of `book.voice.`, dropped with the
+   book) records the visible page from the reader on every page change — while merely
+   reading, so a never-played book reopens where it was left, and the audio resume row
+   keeps its own meaning. An open presents the reading place when the layout still holds
+   it, else the resume row, else the start. Two defects the **device pass** found and the
+   plan had missed: the reader restored the *chapter* but never paged to the presented
+   *passage* (the follow effects only track the active sentence during playback), and the
+   pre-snap first frame therefore overwrote the stored place; and the reader wrote the
+   *previous* book's position as the new book's place during the frame an open is in
+   flight. The reader now snaps to the presented passage (re-applied while pagination
+   settles, disarmed by a manual turn, skipped in `PLAYING`/`PAUSED` so a pause still never
+   moves the view) and refuses to record a position that belongs to another book.
+   `ACTION_OPEN`/`ACTION_OPEN_CHAPTER` publish a terminal *"Could not open this book."* for
+   a book that cannot be loaded instead of returning silently (the endless `Opening book…`),
+   and the reader re-dispatches a stuck open at most twice, 4 s apart, cancelled by a
+   landing/failing open.
+2. **Per-book voice and engine.** *"engine/voice does not seem to be saving per book."*
+   Decisions #144/#156 built `book.voice.<bookId>` at the persistence and resolution layers
+   but **no production caller ever wrote it** — the reader's sheet wrote the global default,
+   so picking a voice for one book re-voiced the library. The sheet now writes the per-book
+   key (with a **Use book default** entry in the sheet's voice dropdown to clear it), and a
+   new `book.engine.<bookId>` joins it: `EngineSelector` resolves the engine per book
+   (`engineIdFor`, `isDegraded`, `engine`, `engineFor`, `failureReason`, `resolveVoice`,
+   `activeCatalog`), and the play/resume gates, the pre-generation worker (a per-book gate
+   instead of one pre-loop engine check) and the offline size estimate follow the book,
+   defaulting to the global. **This supersedes #144's "no per-book engine override"**;
+   Settings and first-run setup keep writing the globals.
+3. **Pause → resume rewind.** Owner request: resuming after a pause should rewind by a
+   duration scaled to how long the audio was paused, never past the start of the current
+   chapter. The pause instant is persisted per book (`book.pausedAt.<bookId>`); the pure
+   `PauseRewind` policy maps the pause length to seconds (under 1 min → 3 s, under 1 h →
+   10 s, under 6 h → 20 s, else 30 s) and clamps to the chapter's first passage;
+   `PlayerStateMachine.notePosition` commits the rewound position without changing the
+   phase or touching the undo ring. The resume consumes the marker and every user-directed
+   move (open, navigate, seek, undo, voice/engine change, stop, an explicit play target)
+   clears it, so a stale rewind cannot fire. The curve lives in one object, so a different
+   curve is a constants change.
+4. **Two-decimal progress (roadmap Phase L).** Promoted from ideas.md the same day: the
+   pre-generation row, the pre-generation notification and the export notification text
+   show `%.2f%%` through one shared `formatProgressPercent`, and the producers carry a
+   0..1 fraction (`PregenProgress.fraction`, the `progressFraction` transport key,
+   `PregenJobState`) instead of an integer percent. Notification bars stay integer.
+
+**Verification.** Host: the five module suites plus `ktlintCheck`/`checkFeatureBoundaries`
+green (new `PauseRewindTest`, `notePosition`, the open-failure and pause-rewind service
+tests, per-book `EngineSelector` cases, the bounded open-retry cases,
+`formatProgressPercent`). Device (S22, staged packs): reopen landed on the page last read —
+also after a force-stop — with the place preserved; a cross-book visit left both books'
+places intact; the sheet wrote `book.voice.<id>` / `book.engine.<id>` with the globals
+untouched and a second book showing the globals; a ~10 s pause resumed the committed offset
+from 11.16 s to 8.18 s and cleared the marker. All four instrumented E2E classes pass.
+
+## 195. D2 reopen priors: the fsr4-hexagon Hexagon-W8A8 study — the model-side recipe exists, the economics are still unmeasured (owner question: "could the finding in there help us improve performance on any part of Ayvu", 2026-09-25)
+
+Read-only review of <https://github.com/puzzled-pancake/fsr4-hexagon/> (MIT; whitepaper +
+`model/README.md` + `docs/KNOBS.md` + `daemon/qnn_service.c`): AMD FSR4 quantized to W8A8,
+running on the Hexagon NPU of a retail Android handheld by intercepting a game's DLSS
+calls. The interception layer is irrelevant here. What transfers is that it is the only
+public end-to-end W8A8-on-Hexagon measurement for a network of Kokoro's *shape* — 113.6k
+params, conv-heavy, feature-map-bandwidth-bound, i.e. the vocoder situation exactly
+("the int8 tensor cores are the entire game, and the working set is bandwidth, not
+compute"). Nothing was run or measured in this repo for this entry; review only.
+
+**It amends four things about the D2 reopen (roadmap §D2).**
+
+1. **Precision: W8A8 int8, not fp16.** On the paper's v73 HTP the int8 graph runs an
+   inference in 8.6 ms; an fp16-everything variant of the same model measured ~96 ms
+   (~11×) because fp16 matrix throughput on that block is a fraction of int8. That
+   falsifies the precision half of the ANE blueprint D2 cites (`laishere/kokoro-coreml`
+   is fp16-mainline + fp32-tail): a Hexagon re-export that copies that choice is an order
+   of magnitude slow. Caveat: the paper's class is v73, our target devices are SM8450
+   (older) and SM8850 (v81 — Qualcomm adds FP16/INT4/MXFP4 there, so the int8-only law
+   may soften), and neither has a measured Kokoro-on-HTP number. Prior, not our result.
+2. **Shape: fixed shape and VTCM fit is the lever, and the window cap is the shape.**
+   The paper's 720p arm is its own build that beats linear scaling (2.8 ms/inference)
+   because the working set fits VTCM. Ayvu's window cap (150/300/510, #150 leg B) is the
+   only shape knob; a cap-150 context binary could therefore invert leg B's "large caps
+   buy nothing" verdict. Needs an explicit `vtcm_mb`.
+3. **Session creation: AOT context binary — and verify the optimization took effect.**
+   The paper serializes the HTP context offline (`qairt-dlc-prepare`, wrapper
+   `O:3, vtcm_mb: 8`) and documents that a `graph_names` mismatch skips O:3 with **zero
+   errors and ~3× slower NPU**. ORT QNN EP analog: `ep.context_enable` /
+   `ep.context_file_path` / `ep.context_embed_mode` (+ `enable_htp_prepare_only` for
+   compile-once/run-later), `htp_graph_finalization_optimization_mode=3`, `vtcm_mb`. This
+   attacks the cold-open cost (325 MB pack, 25–58 s first audio) **only if** the graph
+   actually lands on HTP — the context cache is a QNN-EP feature, not a CPU-EP one.
+4. **Post-offload knobs for the same design.** The paper holds a DCVS vote so the Hexagon
+   does not nap between inferences (our duty cycling deliberately idles the device, #150
+   leg E), and it measured a memory direction law — the NPU output read is free (gralloc
+   AHardwareBuffer → dma-buf → ION registration → EGLImage, replacing a 16.6 MB/frame
+   copy) while the *write* direction cost 10× (input bridge byte-perfect, still ~2.4 ms
+   net slower). Ayvu's big tensor would be the output waveform — the read direction —
+   so `[INFERENCE]` the bridge is not the risk here.
+
+**Two independent corroborations of shipped policy** (same law, different silicon domain):
+
+- **Duration beats voltage.** The paper's NPU voltage ladder: the floor corner drew
+  *more* total system power than the nominal one (12.2 W / 28.4 fps / 2.33 fr-J vs
+  11.5 W / 36.1 fps / 3.14 fr-J) because each inference stretched 6.5 ms. That is #150
+  leg E's finding — duty cycling is thermal, not energy (power 6.66→2.68 W while Wh per
+  audio-hour *rose* 2.42→2.72) — reached from NPU DVFS instead of duty cycle. Buy wall
+  time; do not shave instantaneous watts. It also pre-empts a future "low-power NPU
+  corner" battery setting: the floor lost on energy in a measured three-point ladder.
+- **Pin off the app's core set and off the prime core.** The paper moved its shader
+  thread off the X3 (beside the game's main thread) onto an idle mid core: fence wait
+  21.6 → 8.0 ms. Same shape as #147's accidental background-cpuset stall (RTF 1.214 →
+  6.575) and #150 leg D's placement heuristic. Explicit pinning wins; cgroups lose.
+
+**What does not transfer:** the NPU unlock (dtbo overlay + EDL flash on one handheld —
+Ayvu is a store app), DLSS/NGX interception and the TCP loopback, the per-frame GPU↔NPU
+bridge, the +22 % fps headline metric, and the heterogeneous-overlap trick (precondition:
+two *different* compute blocks — our translate ∥ synth are both CPU, which is exactly
+#116's measured loss). The paper parks LLM-on-Hexagon in an unlinked side repo with no
+numbers, so `core-llm`/llama.cpp gains nothing; `core-ocr`/`core-locate` have no NN path.
+
+**Worth reopening? Yes, but as one bounded leg with an explicit kill condition — and it is
+not the cheapest next move for the stated payoff.** For: #115's blocker was *model-side*,
+and the paper shows that model class running W8A8 on HTP end-to-end with a published AOT
+chain, so the re-export stopped being speculative; no peer has Kokoro on an NPU (#148) and
+the battery/thermal payoff #115 named is still unmeasured by anyone; and the one real
+*speed* pain left in the product is the S22-class RTF > 1, which is the axis an offload
+fixes. Against: the paper's own energy result is parity at best and a 4–9 % premium at
+heavy presets, with the pipeline drawing *more* watts than native (11.5 W vs 9.4 W) — "a
+whole second computer running next to your game"; our payoff is energy/thermal and the
+thermal half already has a cheaper measured lever (leg E's duty-cycling tool is
+unimplemented in the product); and the cost is genuine model surgery (the ANE analogue
+needed seven stage models plus fp32-tail precision surgery).
+
+- **Shape of the reopen (agent recommendation; the go/no-go is the owner's):** one
+  `spike-tts` leg, measurement-only, deployment stays CPU, run per device class — the S22
+  class (where RTF > 1 is the pain) and the Fold 8 / v81 as the modern control —
+  reporting RTF, Wh per audio-hour, PSS and first audio.
+- **Prerequisite:** re-cut the parity gate first (per-conv onset — #150 leg F2's
+  reopening condition); the shipped `ORACLE_REJECT_THRESHOLD = 0.001` sits below the
+  model's own kernel-order noise floor (#150 leg A: unmodified-graph fusion delta
+  0.012–0.030) and rejects any computation-path change by construction.
+- **Kill condition:** if a static-shape W8A8 Kokoro cannot beat fp32-CPU on Wh per
+  audio-hour on either class, the accelerator question closes for good and the thermal
+  half is carried by thermal-aware pacing (the peer-survey lever, still unimplemented)
+  rather than by an NPU.
+- **Sequencing:** the reopen competes with that pacing work for the *thermal* half, which
+  the pacing wins on cost; fund the reopen only for the energy/speed half.
+
+Evidence: read-only review of the cited sources at `8c7a972` (whitepaper, `model/README.md`,
+`docs/KNOBS.md`, `daemon/qnn_service.c`) plus the ONNX Runtime QNN-EP option reference for
+the ORT-side knobs. **No measurement was run for this entry** — every paper figure above is
+quoted, not reproduced, and the decision it records is a reopen *shape*, not a result.
+
 ## 194. v0.1.4 published — export, the OCR binding swap, and the play-target fixes (2026-09-23, owner)
 
 Owner: *"Lets put out a new release."* Published
@@ -800,6 +990,9 @@ Consequences, recorded rather than implied:
 - The notes' shape is now: intro, what changed, install requirements, first-run pack
   table, that build's known limitations, licences/source line (roadmap §Release
   readiness holds the rule, next to the publish-run steps).
+  **Superseded 2026-09-28 (decisions #197):** from v0.2.0 the release body is the intro,
+  the highlights and a link to [`CHANGELOG.md`](../CHANGELOG.md); the install/update
+  steps, requirements and limitations live in the [README](../README.md#install).
 - The uploaded digest stays pinned in the notes' own text — roadmap step 2 still requires
   the value `tools/release.sh --upload` printed for the artifact it uploaded, and it is
   the record the next releaser diffs against. `tools/release.sh` keeps printing the digest
@@ -2197,7 +2390,8 @@ each evidence line below.
   also fixes the pre-existing D4 gap where previewing the non-global Piper voice failed
   typed on the global instance. Kokoro/system stay voice-agnostic (D1 passthrough
   unchanged). No per-book engine override (decisions #144): the engine is a device
-  decision.
+  decision — **superseded 2026-09-28 by decisions #196**, which adds
+  `book.engine.<bookId>` and makes the selector's resolution book-scoped.
 - **Mirror.** `AppSettings.Snapshot.bookVoices` (bookId → voice) loads on `reload()`,
   `setBookVoice` writes through and mirrors, `AppSettings.bookVoice(bookId)` is the
   non-suspend hot-path read. Changing the global default neither clears nor rewrites
@@ -3056,6 +3250,12 @@ The kept contract, so it need not be re-litigated:
   global, so `SetupGate`'s `voiceSelected` derivation is unchanged.
 - **No per-book engine override.** The engine is a device-capability decision
   (`realtimeCapable` tri-state, system-TTS degradation), not a book preference.
+  **Superseded 2026-09-28 (decisions #196):** a per-book engine override
+  (`book.engine.<bookId>`) now exists and resolution is book-scoped; the owner reported
+  that a book's engine/voice selection did not stick per book, and a German Piper voice on
+  one book is a book preference, not a device-capability decision. `realtimeCapable`
+  stays a global tri-state (samples are mixed-engine), consulted per book through
+  `isDegraded(bookId)`; Settings/Setup still write the global engine.
 
 Caches need no change: `PcmPassageCache`/`PregenKey` are already engine+voice+speed
 keyed, so a per-book voice cannot collide with global-voice audio on disk.
@@ -4146,6 +4346,11 @@ the from-app QNN path only became installable this year (plugin EP, Aug 2026)
 and the vendor skel/version coupling is fragile (fastrpc#379), and Android
 flagship CPUs already run Kokoro realtime — the NPU's only remaining payoff is
 battery/thermal on long sessions, which no public project has measured.
+
+**Addendum (2026-09-25):** the re-export's model-side recipe and the reopen's amended
+priors (W8A8 not fp16; fixed shape/VTCM; AOT context binary; gate re-cut) are recorded in
+decisions #195 after reviewing `puzzled-pancake/fsr4-hexagon`, with the kill condition for
+the reopen.
 
 ## 114. Phase J — offline NMT spike measured; small100 int8 adopted for translate-then-read (2026-09-02)
 

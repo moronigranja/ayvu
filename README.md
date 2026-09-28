@@ -45,8 +45,8 @@ playback (with read-along sentence highlighting) → share-and-resume, plus sett
 | `spike-tts` | Measurement-only Android harness (benchmark, grain spike, device spikes; the QNN AAR forces minSdk 27) |
 | `app` | Hilt composition root: Library / Reader / Settings routes, S3 open-target intent handling |
 
-Test sources: **984 `@Test` methods** (934 under `src/test`, 50 under `src/androidTest`;
-counted 2026-09-23), 0 failed. Android unit suites (Docker): green across
+Test sources: **994 `@Test` methods** (945 under `src/test`, 49 under `src/androidTest`;
+counted 2026-09-28), 0 failed. Android unit suites (Docker): green across
 app + all features. Device instrumented set (S22 staging, see docs/build.md):
 PlaybackE2e (full-book completion + pre-generation fast path), VoiceSelectionE2e,
 PlayPositionE2e, ReaderRotationReplayE2e (a rotation must not replay the share target),
@@ -82,6 +82,10 @@ a DEBUG build of the same id needs an uninstall first (different signing key).
 **Verifying a download:** compare the APK against the SHA-256 and the signing-certificate
 fingerprint published with the release, and see
 [`NOTICE.md`](NOTICE.md) for the packs' upstream hosts and licenses.
+
+**What's new in each release:** [`CHANGELOG.md`](CHANGELOG.md) is the full history — what
+changed, why, and the device evidence. A release's own page carries the short version
+(highlights plus a link back to the changelog).
 
 ## Limitations (current)
 

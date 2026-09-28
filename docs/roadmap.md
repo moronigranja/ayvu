@@ -7,7 +7,10 @@ until they are promoted here.
 
 ## Current state
 
-v0.1.4 is **published** (2026-09-23) —
+**v0.2.0 is prepared** (2026-09-28, decisions #196/#197) — `versionCode` 6, the reading
+place + reopen fix, per-book voice *and* engine, pause → resume rewind and two-decimal
+progress; the signed build and the publish are the owner's `tools/release.sh` run. v0.1.4
+is **published** (2026-09-23) —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.4> — with v0.1.3 (2026-09-20)
 and v0.1.2/v0.1.1 (2026-09-17) before it, all signed with the same key. The signed-APK
 pipeline, the on-device sanity pass on the signed build and
@@ -202,6 +205,25 @@ numbers live in the cited decisions.
 - **Hexagon NPU (QNN EP) does not offload the fp32 Kokoro graph** (StridedSlice fails
   HTP op validation → 100% CPU, oracle diff 0). Re-open only as a battery/thermal play
   with a static-shape re-export; ANE prior art `laishere/kokoro-coreml` (17× realtime).
+  **Reopen priors updated 2026-09-25 (decisions #195)** from the fsr4-hexagon W8A8-on-
+  Hexagon study — a Kokoro-shaped net (113.6k params, conv-heavy, feature-map-bound) does
+  run W8A8 on HTP end-to-end with a published chain, so the re-export is no longer
+  speculative; the energy economics stay unmeasured and unfavourable on prior:
+  - **W8A8 int8, not fp16** — the paper's v73 HTP runs int8 at 8.6 ms/inference vs ~96 ms
+    for the same net in fp16 (~11×). Do not port the ANE blueprint's fp16-mainline choice.
+  - **Fixed shape + VTCM fit is a real lever** — the paper's per-resolution builds beat
+    linear scaling because the working set fits VTCM; here the window cap (150/300/510)
+    *is* the shape, so a cap-150 context could invert leg B's "large caps buy nothing".
+  - **AOT context binary, then verify the knob took effect** — ORT `ep.context_enable` +
+    `htp_graph_finalization_optimization_mode=3` / `vtcm_mb`; the paper documents a
+    graph-name mismatch that *silently* skips that optimization (~3× slower NPU, zero
+    errors). Attacks cold open (25–58 s first audio) **only if** the graph lands on HTP.
+  - **The parity gate must be re-cut first** — `ORACLE_REJECT_THRESHOLD = 0.001` sits
+    below the model's own kernel-order noise floor (#150 leg A: unmodified-graph fusion
+    delta 0.012–0.030) and rejects any computation-path change by construction; reuse leg
+    F2's per-conv onset gate. **Kill condition (#195):** no Wh-per-audio-hour win over
+    fp32-CPU on either device class closes the accelerator question for good, and the
+    thermal half is carried by thermal-aware pacing instead.
 - **2-engine parallel pregen is slower**: serial 1.43 audio-s/s vs parallel 1.21
   (1.18×) at +76% VmHWM / +84% PSS. Window-parallel re-ask at candela granularity:
   serial wins at every config.
@@ -814,6 +836,40 @@ hooks per the agreed sequence. Item 6 closed: the stale usage-row defect had alr
 fixed in the 0.1.1 release pass (ON_RESUME refresh, `SettingsOfflineUsageTest`); the
 docs (open-bugs.md, decisions #156) now record it.
 
+### Phase L — progress display polish — SHIPPED in v0.2.0 (owner, 2026-09-27)
+
+Single owner-reported item, promoted from [ideas.md](ideas.md); scope agreed with the
+owner 2026-09-27 and shipped in v0.2.0 (decisions #196).
+
+**Finer progress percentages — always two decimals.** The long-operation progress
+percentages show two decimal places, so book-scale runs do not read as stalled at integer
+granularity. No graduated fallback: `%.2f%%` in every case.
+
+**Surfaces (as landed).**
+1. The library pregen row (in-app) — `LibraryScreen`'s running `LabeledProgress` now reads
+   `job.fraction` and labels it through `core-ui`'s `formatProgressPercent`.
+2. The pregen foreground notification — `buildPregenNotification` takes a `fraction` and
+   renders `"$bookTitle — chapter ${chapter + 1}/$totalChapters (42.37%)"`.
+3. The export notification text (plain **and** the translated "Export translation…" run) —
+   `"$done/$total passages (42.37%)"` (the owner's 2026-09-27 decision: append the percent
+   to the existing text rather than add an in-app progress row; `ExportUiState.Running`
+   stays snackbar-only).
+
+**Transport (as landed).** The producers carry a 0..1 fraction to display:
+`core-player`'s `PregenProgress.fraction` (from `synthesizedSeconds / budgetSeconds` for a
+bounded run, else `processed / totalPassages`) rides `PregenWorker.KEY_PROGRESS_FRACTION`
+→ `PlayerAdapters` (`getDouble`) → `PregenJobState.fraction`; the export path computes it
+from `done`/`total` at the reporter call. `formatProgressPercent` in `core-ui` is the one
+formatter for all three surfaces (`AyvuThemeTest` pins `0.00% / 42.37% / 100.00%`), while
+the graduated `formatPercent` stays for the reading fraction it was written for.
+Notification **bars** stay integer (`setProgress(100, …)`) — the system draws a bar, not a
+number.
+
+Acceptance met: host tests pin the two-decimal strings on all three surfaces; the device
+pass could not observe a running pregen row on this host (every reachable run completed or
+yielded immediately), so the row is host-verified plus code-path inspection rather than
+device-captured.
+
 ## Later — strategic and dependency-gated work
 
 | Item | Gate / reason for position |
@@ -874,6 +930,15 @@ manual local signing** — CI stays a gate (tag assemble only). The local signin
 ships: release keystore outside the repo, gitignored `keystore.properties`, unminified
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
+
+**v0.2.0 is prepared (2026-09-28, decisions #197)** — `versionCode` 5 → 6, `versionName`
+`0.2.0`; contents are decisions #196 (reading place + reopen, per-book voice *and* engine,
+pause → resume rewind, two-decimal progress). The short release body is
+`docs/release-notes-0.2.0.md` and the long form is the repo-root
+[`CHANGELOG.md`](../CHANGELOG.md). Not published: the signed build, the draft upload and
+the digest pin are the owner's `tools/release.sh --upload --notes
+docs/release-notes-0.2.0.md` run (the keystore is present on this host), then the pin
+commit, then the flip live — the `v0.2.0` tag is created by the publish, so push first.
 
 **v0.1.4 is published (2026-09-23)** —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.4>. Shipped
@@ -941,17 +1006,22 @@ What the publish run did, for the next one:
    `startsWith(github.ref, 'refs/tags/')` condition was unreachable (fixed 2026-09-17,
    `open-bugs.md`). For 0.1.1 the gate was exercised by a dispatch on the tag.
 
-**Release-notes shape (owner decision, 2026-09-17 — decisions #179).** A release's notes
-carry the intro, what changed since the previous release, the install requirements, the
-first-run pack table, that build's known limitations, and the licences/source line. They do
-**not** carry a *Verify the download* section (the sha256 + certificate instructions block)
-or an *Upgrading from a pre-release build* section (the legacy-id / debug-key guidance).
-The uploaded digest still gets pinned in the notes' own text — step 2's rule, and the
-artifact record the next releaser diffs against; `tools/release.sh` keeps printing the
-digest and the signer certificates for anyone who wants them. The 0.1.1 and 0.1.2 notes
-keep their copies of both sections: those files record what actually shipped.
+**Release-notes shape (owner decision, 2026-09-17 — decisions #179; shortened 2026-09-28 —
+decisions #197).** From v0.2.0 a release's notes are **the intro, the highlights, and a
+link to the [changelog](../CHANGELOG.md)**; the install/update steps, the requirements and
+that build's limitations live in the [README](../README.md#install), where a downloader
+looks for them, rather than in every release body. #179's other rules still apply: the
+notes do **not** carry a *Verify the download* section (the sha256 + certificate
+instructions block) or an *Upgrading from a pre-release build* section, and the uploaded
+digest is still pinned in the notes' own text — roadmap step 2's rule, and the artifact
+record the next releaser diffs against; `tools/release.sh` keeps printing the digest and
+the signer certificates for anyone who wants them. The long form — what changed, why, and
+the device evidence — is `CHANGELOG.md`, one section per version, with the older versions
+summarized and linked to their `docs/release-notes-<v>.md` files (which stay exactly as
+they shipped). The 0.1.1–0.1.4 notes keep their copies of the dropped sections: those
+files record what actually shipped.
 
-The next release increments `versionCode` (5 → 6; v0.1.4 shipped with 5). Note from the
+The next release increments `versionCode` (6 → 7; v0.2.0 ships with 6). Note from the
 0.1.2 run: the draft upload rebuilds `packageRelease`, so the digest that goes into the
 notes must be the one printed by `tools/release.sh --upload` (a local build of the same
 commit had a different digest), and the `assemble-on-tag` gate does fire on the publish
