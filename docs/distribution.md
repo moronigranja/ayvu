@@ -20,7 +20,7 @@ Owner intent (2026-09-27): save this, pick it up later.
 ## Track A — one subreddit to start
 
 **Start with r/fossdroid, and only that one.** Rationale: the install path is a signed
-`Ayvu-0.1.4.apk`, 52,279,328 B, arm64-v8a only, from GitHub Releases, GPL-3.0, no
+`Ayvu-0.2.0.apk`, 52,294,976 B, arm64-v8a only, from GitHub Releases, GPL-3.0, no
 account, no telemetry, offline after the one-time pack download — i.e. exactly the
 r/fossdroid user (sideloading FOSS Android apps, reads release notes, files bug
 reports instead of asking for iOS). One sub also avoids the sitewide "same promo across
@@ -86,13 +86,13 @@ description, screenshots) is maintained on their side, or synchronized from a
 |---|---|
 | Libre license, OSI/FSF (SPDX) | ✅ GPL-3.0; deps MIT / Apache-2.0 / GPL-3.0 (espeak-ng); tessdata + Kokoro weights Apache-2.0; Piper MIT |
 | End-user app; code openly accessible | ✅ GitHub repo with README, NOTICE, decisions |
-| Signed release key, no `android:debuggable` / `testOnly` | ✅ same key across 0.1.1–0.1.4; cert fingerprint published in the release notes (decisions #126/#174) |
-| APK attached to a tagged GitHub release | ✅ `releases/tag/v0.1.4` |
+| Signed release key, no `android:debuggable` / `testOnly` | ✅ same key across 0.1.1–0.2.0; cert fingerprint published in the release notes (decisions #126/#174) |
+| APK attached to a tagged GitHub release | ✅ `releases/tag/v0.2.0` |
 | Unique packageName / displayName; fork rules | ✅ `io.github.moronigranja.ayvu` (#128) — state explicitly in the issue that the retired `com.moronigranja.localttsreader` is a predecessor of the same app, not a fork |
 | No ATS elements at all (privacy-targeted app) | ✅ no telemetry, no analytics, no account; `INTERNET` is the only network permission |
 | `usesCleartextTraffic` avoided | ✅ flag not set, so cleartext is off by default (targetSdk ≥ 33); no `networkSecurityConfig` needed |
 | Not a game / not a big-AI-platform client | ✅ reader with on-device models |
-| **≤ 30 MB per APK** (rule of thumb, exceptions "well reasoned") | ❌ **52,279,328 B** — needs the exception. The usual remediation (per-ABI builds) is already done: arm64-v8a only. Argument: models are *not* bundled (the 50 MB is ONNX Runtime + JNA + espeak-ng) |
+| **≤ 30 MB per APK** (rule of thumb, exceptions "well reasoned") | ❌ **52,294,976 B** — needs the exception. The usual remediation (per-ABI builds) is already done: arm64-v8a only. Argument: models are *not* bundled (the 50 MB is ONNX Runtime + JNA + espeak-ng) |
 | **Runtime download of non-repo binaries needs explicit, informed, opt-in consent** | ⚠️ **the real gate** — see below |
 
 ### The consent gate is load-bearing beyond admission

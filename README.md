@@ -55,12 +55,13 @@ SharePipeline (text + image OCR), OCR smoke, RealEpubImportProbe
 
 ## Install
 
-**v0.1.4 is published** — [Releases → v0.1.4](https://github.com/moronigranja/ayvu/releases/tag/v0.1.4)
+**v0.2.0 is published** — [Releases → v0.2.0](https://github.com/moronigranja/ayvu/releases/tag/v0.2.0)
 (signed release build, unminified, arm64-v8a; the release notes carry the SHA-256 and the
-signing-certificate fingerprint). The `v0.1.4` tag points at the shipped tree; v0.1.3,
-v0.1.2 and v0.1.1 precede it under the same signing key.
+signing-certificate fingerprint, and link to [`CHANGELOG.md`](CHANGELOG.md) for what
+changed). The `v0.2.0` tag points at the shipped tree; v0.1.4, v0.1.3, v0.1.2 and v0.1.1
+precede it under the same signing key.
 
-1. Download `Ayvu-0.1.4.apk` (signed release build, unminified, **≈50 MB** — ONNX Runtime
+1. Download `Ayvu-0.2.0.apk` (signed release build, unminified, **≈50 MB** — ONNX Runtime
    and JNA are inside). Requires **a 64-bit ARM device (arm64-v8a) on Android 8.0+
    (API 26)**: the build is arm64-only because the espeak-ng phonemizer it ships is an
    arm64 native library, so 32-bit and x86 installs are not supported.

@@ -12,9 +12,11 @@ over the previous one with the library, progress, bookmarks and settings kept.
 
 ## 0.2.0 — 2026-09-28
 
-Prepared 2026-09-28. Ships as `Ayvu-0.2.0.apk` on the `v0.2.0` release; the size and
-SHA-256 are pinned in that release's notes from the `tools/release.sh --upload` output.
-Decisions #196 (the batch) and #197 (this release and the notes shape).
+**Published 2026-09-28** — <https://github.com/moronigranja/ayvu/releases/tag/v0.2.0>.
+Shipped `Ayvu-0.2.0.apk`, 52,294,976 B, sha256
+`e17b83fdd587dd7b9d5e059c4ef85b69d035fe4cc4db4a4ae1ae8f28cf296df7`, signer `a5057984…`
+(CN=Ayvu — the same certificate as every release, so it updates in place). Decisions #196
+(the batch), #197 (this release and the notes shape) and #198 (the publish run).
 
 Owner batch reported 2026-09-27: *"when opening the app back, it sometimes hangs on the
 loading, then pressing back goes back to the library and opening the book again restarts

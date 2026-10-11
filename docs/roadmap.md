@@ -7,9 +7,10 @@ until they are promoted here.
 
 ## Current state
 
-**v0.2.0 is prepared** (2026-09-28, decisions #196/#197) — `versionCode` 6, the reading
+**v0.2.0 is published** (2026-09-28) —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.2.0> — `versionCode` 6, the reading
 place + reopen fix, per-book voice *and* engine, pause → resume rewind and two-decimal
-progress; the signed build and the publish are the owner's `tools/release.sh` run. v0.1.4
+progress (decisions #196/#197/#198). v0.1.4
 is **published** (2026-09-23) —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.4> — with v0.1.3 (2026-09-20)
 and v0.1.2/v0.1.1 (2026-09-17) before it, all signed with the same key. The signed-APK
@@ -931,14 +932,15 @@ ships: release keystore outside the repo, gitignored `keystore.properties`, unmi
 `release` buildType, `tools/release.sh` (build + apksigner verify + draft/publish
 release), `NOTICE.md` attribution.
 
-**v0.2.0 is prepared (2026-09-28, decisions #197)** — `versionCode` 5 → 6, `versionName`
-`0.2.0`; contents are decisions #196 (reading place + reopen, per-book voice *and* engine,
-pause → resume rewind, two-decimal progress). The short release body is
-`docs/release-notes-0.2.0.md` and the long form is the repo-root
-[`CHANGELOG.md`](../CHANGELOG.md). Not published: the signed build, the draft upload and
-the digest pin are the owner's `tools/release.sh --upload --notes
-docs/release-notes-0.2.0.md` run (the keystore is present on this host), then the pin
-commit, then the flip live — the `v0.2.0` tag is created by the publish, so push first.
+**v0.2.0 is published (2026-09-28, decisions #197/#198)** —
+<https://github.com/moronigranja/ayvu/releases/tag/v0.2.0>. Shipped `Ayvu-0.2.0.apk`,
+52,294,976 B, sha256 `e17b83fd…`, cert `a5057984…` (the same key as every release, so it
+updates in place); `versionCode` 5 → 6, contents decisions #196 (reading place + reopen,
+per-book voice *and* engine, pause → resume rewind, two-decimal progress). The body is the
+**short shape** of decisions #197 — intro, highlights, the tag-pinned changelog link — and
+`CHANGELOG.md` is the long form. Pin sequence: draft via `tools/release.sh --upload
+--notes docs/release-notes-0.2.0.md`, the stored asset re-downloaded and hashed, the pin
+commit pushed, then the flip live (which creates the tag on the pin commit).
 
 **v0.1.4 is published (2026-09-23)** —
 <https://github.com/moronigranja/ayvu/releases/tag/v0.1.4>. Shipped

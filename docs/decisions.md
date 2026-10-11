@@ -4,6 +4,45 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 198. v0.2.0 published — the reopen/per-book/resume/progress batch (2026-09-28, owner)
+
+Owner: *"Fix that link, then publish."* Live at
+<https://github.com/moronigranja/ayvu/releases/tag/v0.2.0> following the roadmap's
+publish-run steps.
+
+- **Artifact**: `Ayvu-0.2.0.apk`, 52,294,976 B, sha256
+  `e17b83fdd587dd7b9d5e059c4ef85b69d035fe4cc4db4a4ae1ae8f28cf296df7`, signer `a5057984…`
+  (CN=Ayvu — the same certificate as every release, so it updates in place). `versionCode`
+  5 → 6. The digest is the one `tools/release.sh --upload` printed (#176: release bytes are
+  not reproducible — the local build of the same tree hashed `520dc93e…`), and the draft's
+  stored asset was re-downloaded and hashed to it (52,294,976 B, `versionCode 6` /
+  `versionName 0.2.0`, release cert re-checked) before the pin was written. The `v0.2.0`
+  tag points at the pin commit (`49c8979`), which contains the shipped code.
+- **Contents**: decisions #196 — the reading place + reopen (a Back + reopen and a cold
+  start land on the page last read; a failed open publishes a terminal error and the reader
+  retries a stuck open twice), per-book voice *and* engine (superseding #144's engine
+  clause), pause → resume rewind scaled by the pause and clamped to the chapter's first
+  passage, and two-decimal progress on the pregen row/notification and the export
+  notification text.
+- **Notes**: the **short shape** of decisions #197 — `docs/release-notes-0.2.0.md` is the
+  intro, the four highlight bullets, the tag-pinned `CHANGELOG.md#020--2026-09-28` link and
+  the artifact/licence line; the install/update steps and the limitations stay in the
+  README. The user asked for this shortening and for the changelog as the long form; the
+  link was pinned to the **tag** (not `main`) before the flip, and the fragment was checked
+  against the rendered heading (`user-content-020--2026-09-28`).
+- **Verification recorded for this release**: host suites (five modules) green, plus
+  `ktlintCheck`/`checkFeatureBoundaries`; the four instrumented E2E classes
+  (`ReaderRotationReplayE2eTest`, `OpenChapterE2eTest`, `PlayPositionE2eTest`,
+  `PlaybackE2eTest`) green on the S22 against the same code; and the S22 debug-build pass
+  behind #196 (reopen lands on the page last read — also after a force-stop — per-book keys
+  written with the globals untouched, pause → resume 11.16 s → 8.18 s with the marker
+  cleared). **Not re-run**: the clean-install smoke of the *signed* artifact itself — the
+  S22 carries the debug build (a different key, so installing the release APK would wipe
+  its staged packs and library), so that pass is owed and is the owner's call.
+- **Gate**: the `v0.2.0` tag fired the `assemble-on-tag` CI job (run 36415589424); the
+  `main` pushes fired the `jvm-tests`, `android-unit-tests` and `assemble-on-tag`-adjacent
+  lanes the same minute.
+
 ## 197. v0.2.0 prepared, and release notes get short (2026-09-28, owner)
 
 Owner: *"Prepare a new release version. I would like to make the text for the release
@@ -12,10 +51,10 @@ document. No need to keep putting the install instructions, those should be at t
 anyway."*
 
 - **Version**: `versionCode` 5 → 6, `versionName` `0.1.4` → `0.2.0` (`app/build.gradle.kts`).
-  Contents are decision #196. **Prepared, not published**: the signed build, the draft
-  upload and the digest pin are the owner's `tools/release.sh` run (the release keystore is
-  present on this host, so `--upload` is available). The `v0.2.0` tag is cut by the publish,
-  so the source offer the notes make must point at the pushed commit.
+  Contents are decision #196. Prepared as described here and **published the same day**
+  (decisions #198): draft via `tools/release.sh --upload`, the stored asset re-downloaded
+  and hashed, the pin pushed, then the flip live — which cuts the `v0.2.0` tag on the pin
+  commit, so the source offer the notes make points at the shipped tree.
 - **Notes shape changes, superseding #179's clause.** #179 fixed: intro, what changed,
   install requirements, first-run pack table, that build's known limitations, licences.
   From 0.2.0 the release body is the **intro (two lines), the highlights, and a link to the
