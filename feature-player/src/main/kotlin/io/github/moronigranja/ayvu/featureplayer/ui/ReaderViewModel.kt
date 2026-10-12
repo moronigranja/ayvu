@@ -40,8 +40,10 @@ import io.github.moronigranja.ayvu.ui.ReadInLanguageUiState
 import io.github.moronigranja.ayvu.ui.VoiceRowUi
 import io.github.moronigranja.ayvu.ui.buildEngineVoiceState
 import io.github.moronigranja.ayvu.ui.engineOptions
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -285,6 +287,7 @@ class ReaderViewModel
                     blocks = ChapterDisplay.project(playback.chapterPassages, normalized, prefs.displayMode),
                     translations = normalized,
                     displayTarget = displayTarget,
+                    displayMode = prefs.displayMode,
                     speechTarget = bookId?.let { selector.translateTarget(it) },
                 )
             }.stateIn(
@@ -292,6 +295,34 @@ class ReaderViewModel
                 SharingStarted.WhileSubscribed(5_000),
                 ChapterDisplayState(),
             )
+
+        /** The reader's word/phrase lookup result (selection → translation). */
+        private val _wordLookup = MutableStateFlow<WordLookup>(WordLookup.None)
+        val wordLookup: StateFlow<WordLookup> = _wordLookup.asStateFlow()
+        private var lookupJob: kotlinx.coroutines.Job? = null
+
+        /** Translate the reader's selected snippet into the book's display
+         *  language. No-op when no display language is set (the action card is
+         *  offered only then). */
+        fun translateSelection(text: String) {
+            val bookId = PlaybackStateHolder.state.value.bookId ?: openedBookId ?: return
+            val display = settings.bookDisplay(bookId) ?: return
+            lookupJob?.cancel()
+            _wordLookup.value = WordLookup.Loading
+            lookupJob =
+                viewModelScope.launch {
+                    val target = TranslationTarget(display, selector.translateEngineId)
+                    val result = translationService.translateSnippet(text, target)
+                    _wordLookup.value =
+                        if (result.isNullOrBlank()) WordLookup.Unavailable else WordLookup.Done(result)
+                }
+        }
+
+        fun clearWordLookup() {
+            lookupJob?.cancel()
+            lookupJob = null
+            _wordLookup.value = WordLookup.None
+        }
 
         init {
             // Seed on every book/chapter change, every display-target change
@@ -734,8 +765,24 @@ data class ChapterDisplayState(
     val translations: Map<Int, TranslationState> = emptyMap(),
     /** The in-force display language (null = original-only layout). */
     val displayTarget: String? = null,
+    /** The reader's layout in force (interleaved / translated-only). */
+    val displayMode: DisplayMode = DisplayMode.INTERLEAVED,
     /** The in-force SPEECH target through the constraint (null = original
      * audio). When it equals the display language, the utterance is the
      * displayed translation — the highlight moves to the translation block. */
     val speechTarget: String? = null,
 )
+
+/** The reader's word/phrase lookup result (a selection → its translation in
+ * the book's display language). */
+sealed interface WordLookup {
+    data object None : WordLookup
+
+    data object Loading : WordLookup
+
+    data class Done(
+        val translation: String,
+    ) : WordLookup
+
+    data object Unavailable : WordLookup
+}

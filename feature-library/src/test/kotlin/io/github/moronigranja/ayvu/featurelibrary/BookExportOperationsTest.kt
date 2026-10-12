@@ -94,6 +94,11 @@ class BookExportOperationsTest {
             target: TranslationTarget,
         ) = Unit
 
+        override suspend fun translateSnippet(
+            text: String,
+            target: TranslationTarget,
+        ): String? = null
+
         override val ready: Flow<TranslationReady> = flowOf()
 
         override val translatePossible: Boolean = true

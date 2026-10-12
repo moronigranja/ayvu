@@ -32,6 +32,17 @@ interface TranslationService {
         target: TranslationTarget,
     ): String?
 
+    /**
+     * Translate an arbitrary text snippet into [target]'s language — the
+     * reader's word/phrase lookup. A snippet has no passage key, so it is
+     * never persisted: each call is a fresh decode. Null = the translator is
+     * unavailable, the target language is unmapped, or the result is blank.
+     */
+    suspend fun translateSnippet(
+        text: String,
+        target: TranslationTarget,
+    ): String?
+
     /** Fire-and-forget background fill at display priority. */
     fun prefetch(
         bookId: String,

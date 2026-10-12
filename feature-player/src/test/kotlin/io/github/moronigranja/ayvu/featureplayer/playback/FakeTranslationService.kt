@@ -61,6 +61,11 @@ class FakeTranslationService : TranslationService {
         target: TranslationTarget,
     ) = Unit
 
+    override suspend fun translateSnippet(
+        text: String,
+        target: TranslationTarget,
+    ): String? = "snippet-${target.lang}-${text.trim()}".takeIf { text.isNotBlank() }
+
     private fun key(
         bookId: String,
         chapter: Int,

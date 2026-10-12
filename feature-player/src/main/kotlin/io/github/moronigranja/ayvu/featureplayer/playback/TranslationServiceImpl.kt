@@ -111,6 +111,31 @@ class TranslationServiceImpl
             }
         }
 
+        override suspend fun translateSnippet(
+            text: String,
+            target: TranslationTarget,
+        ): String? {
+            val snippet = text.trim()
+            if (snippet.isEmpty()) return null
+            val modelLang =
+                LfmLang.toPromptLanguage(target.lang)
+                    ?: run {
+                        android.util.Log.w("Translate", "snippet: no prompt language for '${target.lang}'")
+                        return null
+                    }
+            return try {
+                // User-initiated: runs even while playback pregen holds the
+                // engine — the alternative is a lookup that never answers
+                // during a listen session. `runtime.translate` opens the
+                // session on demand and re-arms the idle close; there is no
+                // yield-to-playback gate here (unlike `prefetch`).
+                runtime.translate(snippet, modelLang)
+            } catch (t: Throwable) {
+                android.util.Log.w("Translate", "snippet decode failed", t)
+                null
+            }
+        }
+
         override fun prefetch(
             bookId: String,
             chapter: Int,

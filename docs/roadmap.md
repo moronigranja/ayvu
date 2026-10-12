@@ -186,7 +186,8 @@ Post-v1 phases, one line each:
 | I1–I2 | Book start detection (skip cover/TOC/index) + smart chapter detection in monolithic books | decisions #69, #70 |
 | G2 | Paragraph context menu: long-press **Play from here** / **Copy text** | decisions #127 |
 | G4 | Speed selector removed; playback pinned 1.0× | decisions #71, #109 |
-| Immersive reader | Full-screen reader: overlay title + minimal player, book-wide passage indicator, follow-active-sentence, middle double-tap chrome toggle, play-from-view, stop-on-turn, keep-page | decisions #120–#122, #125 |
+| Immersive reader | Full-screen reader: overlay title + minimal player, book-wide passage indicator, follow-active-sentence, chrome shown briefly on entry then immersive by default, **single** middle-tap chrome toggle, page turn dismisses chrome, play-from-view, stop-on-turn, keep-page | decisions #120–#122, #125, #200 |
+| Word/phrase lookup | Select a word/phrase in the reader and translate it into the book's display language (one direction): long-press + drag to select, an anchored action card with Translate / Copy, offered only when a display language is set and the layout is interleaved | decisions #200 |
 | TTS/player polish | Playback volume gain; manual pregen budget anchors at the reading position and is listening-time; player-card coverage-bar redo + generation notification; slice-relative pregen progress + library Stop control; configurable synthesis thread count; emit-early per-window streaming | decisions #129, #132–#138 |
 | Translated-book export | Library-row **"Export translation…"**: dialog-chosen language (the configured display/read-aloud targets plus every language stored under the active engine, each row showing its ready count), Markdown / plain text / EPUB 3, translated-only or original + translation, one SAF write only after the artifact is complete, progress + Stop | decisions #187 |
 

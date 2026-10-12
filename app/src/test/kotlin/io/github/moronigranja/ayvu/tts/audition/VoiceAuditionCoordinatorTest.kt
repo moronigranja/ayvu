@@ -126,6 +126,11 @@ class VoiceAuditionCoordinatorTest {
                 target: io.github.moronigranja.ayvu.player.pregen.TranslationTarget,
             ): String? = null
 
+            override suspend fun translateSnippet(
+                text: String,
+                target: io.github.moronigranja.ayvu.player.pregen.TranslationTarget,
+            ): String? = null
+
             override fun prefetch(
                 bookId: String,
                 chapter: Int,

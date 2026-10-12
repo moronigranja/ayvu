@@ -232,6 +232,28 @@ class TranslationServiceImplTest {
         }
 
     @Test
+    fun `translateSnippet decodes the snippet and maps the display language`() =
+        runBlocking {
+            val runtime = fakeRuntime()
+            val service = service(runtime)
+            assertEquals(
+                "traduzido: hello",
+                service.translateSnippet("hello", TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)),
+            )
+            assertEquals(1, runtime.calls.get())
+        }
+
+    @Test
+    fun `translateSnippet is null for a blank snippet or an unmapped language`() =
+        runBlocking {
+            val runtime = fakeRuntime()
+            val service = service(runtime)
+            assertNull(service.translateSnippet("   ", TranslationTarget("pt-BR", PregenKey.LFM_TRANSLATOR)))
+            assertNull(service.translateSnippet("hello", TranslationTarget("xx", PregenKey.LFM_TRANSLATOR)))
+            assertEquals(0, runtime.calls.get())
+        }
+
+    @Test
     fun `prefetch does not start a decode while the engine is in use`() =
         runBlocking {
             val runtime = fakeRuntime()

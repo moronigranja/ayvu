@@ -4,6 +4,69 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 200. Reader immersive-by-default, single-tap chrome, and word/phrase lookup (2026-10-11, owner)
+
+Three reader changes, all in `feature-player/.../ui/ReaderScreen.kt` (+ a small
+service method).
+
+- **Chrome shown briefly on entry, then immersive.** `immersive` stays `false`
+  on entry; a new `LaunchedEffect(Unit)` shows the chrome for
+  `CHROME_INTRO_MS = 3_000`, then hides it — unless the user already toggled or
+  turned a page. `introDone`/`chromeTouched` are `rememberSaveable`, so a
+  rotation neither re-runs the intro (once per reader entry) nor lets the timer
+  fight a user action. `setImmersive` keeps the existing synchronous
+  `barsSettled` hold (the top-cut fix); `toggleImmersive` delegates to it.
+- **Single middle tap toggles; page turns hide.** The middle-zone **double**
+  tap is gone (`lastMiddleTapAt`, `doubleTapMin/MaxMs` deleted). A middle tap
+  toggles the chrome; a page turn (swipe, side-zone tap, chapter jump — all the
+  in-chapter and `openChapter` paths) calls the new `onHideChrome`, so turning
+  the page dismisses the chrome in every case.
+- **Word/phrase lookup.** Select a word/phrase and translate it into the book's
+  display language. Offered **only** when a display language is set **and** the
+  layout is `DisplayMode.INTERLEAVED` (`selectionMode`). Long-press selects the
+  word under the finger; drag extends it; an anchored action card shows the
+  words + `Translate`/`Copy` and morphs spinner → result (or "Translation
+  unavailable"). One direction only: the snippet must lie wholly inside ONE
+  `DisplayKind.Original` block — a range spanning the original/translation
+  separator, or in a translation/placeholder block, offers a **Copy-only**
+  card (no Translate; the platform selection toolbar is not used, so the card
+  is the only action surface).
+  `TranslationService.translateSnippet(text, target)` decodes a snippet with no
+  passage key (never persisted; `runtime.translate` opens the session on demand;
+  no `prefetch` yield gate — user-initiated).
+
+  **Deviation from the plan (API constraint).** The plan used Compose's
+  controlled `SelectionContainer(selection =, onSelectionChange =)` and the
+  `Selection` type. In the pinned `compose-foundation 1.11.4` (BOM 2026.06.01)
+  both are `internal` (compiler: "Cannot access 'data class Selection': it is
+  internal in file"; same for the selection overload) even though the JVM
+  signatures are public. So the selection is **our own**: a page-local
+  `TextRange`, a background span for the highlight, `detectDragGesturesAfterLongPress`
+  on the body `Text` (word-select + drag-extend), and two draggable handle dots.
+  The page gesture loop arbitrates: any consumed event aborts it, a plain tap
+  dismisses an EXISTING selection (`selectionRef.value == selectionAtDown`), and
+  in `selectionMode` the loop never long-presses (the paragraph menu is
+  selectionMode-excluded — long-press selects). The `Text`'s `pointerInput` is
+  keyed on `page`/`selectionMode`, NOT `pageText`: the press highlight
+  (`pressedPassage`) rebuilds `pageText` on the first down of every middle-zone
+  touch, and keying on it restarted the block and cancelled the in-flight
+  long-press before it could select (found on-device); the gesture reads the
+  current text through a `rememberUpdatedState` ref.
+- **`ChapterDisplayState.displayMode`** now carries `prefs.displayMode` so the
+  reader can gate `selectionMode` on it.
+- **Verification (host)**: `ktlintCheck`, `:core-player:test
+  :feature-player:test :feature-library:test`, `:app:assembleDebug` all green.
+  New `TranslationServiceImplTest` cases cover `translateSnippet` (decode +
+  language mapping; blank/unmapped → null, no decode).
+- **Verification (device, SM-S908U1)**: chrome shown at entry then immersive
+  (~5 s); single middle tap toggles either way; page turn (side-zone tap and
+  slow swipe) hides the chrome; long-press selects a word (handles + card),
+  drag extends the phrase, tap elsewhere dismisses with no page turn; with no
+  translate pack staged, Translate shows "Translation unavailable" (no stuck
+  spinner); a placeholder/translation-block selection shows the Copy-only card;
+  with layout "Translation only" long-press falls back to the paragraph menu
+  (no selection) and page turns/chrome still work.
+
 ## 199. Reader reopen/immersive and the book-scoped voice preview — four 2026-10-11 owner reports (2026-10-11, owner)
 
 Four reports against the v0.2.0 reader plus one against the shared voice picker;
