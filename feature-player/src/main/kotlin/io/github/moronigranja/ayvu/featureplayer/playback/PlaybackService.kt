@@ -292,6 +292,11 @@ class PlaybackService : Service() {
      * is updated only when this changes, not at every passage boundary. */
     private var lastSessionKey: String? = null
 
+    /** The last (book, chapter, passage) mirrored into the per-book reading
+     *  place — publish() runs on every structural transition, so the write is
+     *  deduped to a real position change (passage granularity). */
+    private var mirroredReading: Triple<String, Int, Int>? = null
+
     // Media-notification cover art, cached per book (files/covers/<bookId>).
     private var coverArtBookId: String? = null
     private var coverArt: Bitmap? = null
@@ -1295,6 +1300,26 @@ class PlaybackService : Service() {
         }
     }
 
+    /**
+     * The reopen target is the last LOCATION — the page the reader shows, or the
+     * position listening stopped at (decisions #196's `book.reading.<id>` row).
+     * The reader writes the page while it is composed; this mirrors the LISTENED
+     * position so a reopen after listening with the reader off-screen (library
+     * visible, screen off) or after a process death still lands where listening
+     * stopped. IDLE (a reading open with no playback) is excluded by the caller so
+     * the reader's own page writes are never overwritten.
+     */
+    private fun mirrorReadingPlace(position: PlayerPosition?) {
+        val id = book?.id ?: return
+        if (position == null) return
+        val key = Triple(id, position.chapterIndex, position.passageIndex)
+        if (key == mirroredReading) return
+        mirroredReading = key
+        scope.launch {
+            runCatching { settings.setBookReading(id, position.chapterIndex, position.passageIndex) }
+        }
+    }
+
     private fun publish() {
         val active =
             machine ?: run {
@@ -1305,6 +1330,8 @@ class PlaybackService : Service() {
         // The reader's per-second progress/read-along surface (StateFlow
         // only) is always kept current — cheap, no IPC.
         PlaybackStateHolder.update { stateCopy(it, active) }
+        // The listened position is a reading place too (see mirrorReadingPlace).
+        if (state.phase != PlayerPhase.IDLE) mirrorReadingPlace(state.position)
         // MediaSession-boundary gate (decisions #85): the session carries only
         // the book title + play/pause state, NEITHER of which changes at a
         // passage boundary — so per-boundary setMetadata/setPlaybackState is

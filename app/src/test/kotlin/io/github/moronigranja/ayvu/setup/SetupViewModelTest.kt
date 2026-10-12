@@ -136,7 +136,10 @@ class SetupViewModelTest {
                 object : VoiceAudition {
                     override val state: StateFlow<AuditionUiState> = MutableStateFlow(AuditionUiState())
 
-                    override fun preview(voice: String) = Unit
+                    override fun preview(
+                        voice: String,
+                        bookId: String?,
+                    ) = Unit
 
                     override fun stop() = Unit
                 },

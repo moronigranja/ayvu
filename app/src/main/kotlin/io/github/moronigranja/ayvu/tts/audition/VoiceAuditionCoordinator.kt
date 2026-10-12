@@ -67,7 +67,10 @@ class VoiceAuditionCoordinator
         private var finishing = false
 
         @Synchronized
-        override fun preview(voice: String) {
+        override fun preview(
+            voice: String,
+            bookId: String?,
+        ) {
             val current = _state.value
             if (current.voice == voice &&
                 (current.stage == AuditionStage.Generating || current.stage == AuditionStage.Playing)
@@ -100,9 +103,9 @@ class VoiceAuditionCoordinator
                         // exactly one voice per instance, so previewing a
                         // second Piper voice opens its instance instead of
                         // failing typed on the global one (decisions #144).
-                        val resolved = selector.resolveVoice(voice)
-                        val phrase = VoicePreview.phraseFor(voice) ?: PiperVoicePreview.phraseFor(voice)
-                        val engine = withContext(ioDispatcher) { selector.engineFor(resolved) }
+                        val resolved = selector.resolveVoice(voice, bookId)
+                        val phrase = VoicePreview.phraseFor(resolved) ?: PiperVoicePreview.phraseFor(resolved)
+                        val engine = withContext(ioDispatcher) { selector.engineFor(resolved, bookId) }
                         if (phrase == null || engine == null) {
                             finishAudition()
                             _state.value =

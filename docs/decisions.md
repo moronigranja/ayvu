@@ -4,6 +4,87 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 199. Reader reopen/immersive and the book-scoped voice preview — four 2026-10-11 owner reports (2026-10-11, owner)
+
+Four reports against the v0.2.0 reader plus one against the shared voice picker;
+three shared one root cause in `ReaderScreen`'s effect chain.
+
+- **Stuck on "Opening book…" after screen off/on** (mostly the immersive
+  reader). The reader's only open trigger `LaunchedEffect(bookId, state.bookId)`
+  re-fires only when the service-published `state.bookId` CHANGES; an open
+  dispatched while the app was stopped (`startForegroundService` refused) or a
+  service-side publish that dropped left the holder unchanged, and
+  `ReaderViewModel.scheduleOpenRetry`'s bounded 2×4 s window gives up — so
+  nothing re-dispatched on the foreground return. Fix: a
+  `LifecycleEventEffect(ON_START)` re-dispatches `open(bookId)` whenever the
+  holder does not carry this book (failure states excluded); the first ON_START
+  of a composition is skipped (the drift effect already dispatched that open).
+  `scheduleOpenRetry` unchanged — `open()` re-arms it. (The drift effect already
+  covers the case where the holder DID change while stopped; this fix's reach is
+  the "publish dropped, state never changed" case.)
+- **Reopen landed somewhere other than the last read/listened position.**
+  `pendingPassage` was armed at every fresh presentation and NEVER disarmed once
+  the snap landed (only a manual turn cleared it), so the reading-place write
+  stayed suppressed for a whole playback session and `book.reading.<id>` froze
+  at the open-time page — and `PlaybackService.openBook` prefers that row over
+  the audio resume row. Fix (1): the write effect now tests "the asserted
+  passage is on this page" by LINE-SPAN overlap (a page break can land
+  mid-paragraph, so the asserted passage is often on the page without being
+  `firstPassageOnPage`) and DROPS the assertion once it lands; later page changes
+  (playback follow, reflow, manual turn) record the place again. Fix (2): the
+  service mirrors the LISTENED position into the same row (`publish()`, non-IDLE
+  phases only, deduped to a passage change), so listening with the reader
+  off-screen (library visible, screen off) or a process death still reopens
+  where listening stopped.
+- **Immersive toggle moved the page.** Same un-disarmed assertion:
+  `firstPageLines`/`fullPageLines` change on the toggle (viewport grows, the
+  measured title-overlay reserve appears) and the snap effect re-fired on every
+  reflow, yanking the page back to the open-time passage. The write-effect
+  disarm fixes the snap; the write effect also gained a `totalLines` key so it
+  re-evaluates once the chapter text lands and pagination settles (its first
+  frames run with an empty page range, where the line-span test cannot land the
+  assertion — without a geometry key it would never run again and the assertion
+  would stay armed). A ±1 passage shift of the indicator is the fixed-line-grid
+  semantics of #166 — no exact-preservation mechanism is added (impossible while
+  pages break at arbitrary lines).
+- **Voice preview played the wrong voice.** `VoiceAuditionCoordinator.preview`
+  resolved the row name with `resolveVoice(voice)`/`engineFor(resolved)` — no
+  `bookId`, i.e. the GLOBAL engine. With a Piper global engine and a Kokoro
+  per-book voice, `piper.voiceFor(kokoroName)` fell back to
+  `PiperEngine.DEFAULT_VOICE`, so the sample was the Piper default. Fix:
+  `VoiceAudition.preview(voice, bookId = null)`; the reader passes its book, the
+  global Settings/Setup surfaces keep the default. The announced
+  `AuditionUiState.voice` stays the RAW selected id, so the picker's row marker
+  still matches.
+- **Verification (host)**: suites (`:app`, `:feature-player`, `:feature-settings`,
+  `:core-player`) green, plus `ktlintCheck`/`checkFeatureBoundaries`/`assembleDebug`.
+  New host regressions each FAIL against the un-fixed code:
+  `VoiceAuditionCoordinatorTest` (book-scoped vs global preview resolution) and
+  `PlaybackServicePlayTargetGuardTest` (listened-position mirror + IDLE must not
+  clobber); the pre-existing `ReaderPlayWhileLoadingTest`/`VoiceAudition…` stay
+  green.
+- **Verification (device, S22 · `192.168.0.120:5555`)**: `ReaderForegroundReopenE2eTest`
+  reproduces the stranded state by disabling the playback-service component
+  in-process (the mount open + both retries publish nothing and set no failure,
+  so the holder never changes and the drift effect cannot fire), then re-enables
+  and resumes: it **FAILS with the ON_START effect neutered and PASSES with it**
+  — the step-2 regression is proven on hardware. The mirror/preview logic is
+  covered by the host regressions above.
+- **Open item (issue 3 estimate)**: an automated on-device pass (open the fixture
+  book, play to ~3/8, pause, double-tap immersive) shows the indicator shifting
+  3/8 → 1/8 on ENTERING immersive. Instrumented `Log` tracing of the reader
+  effects shows the mover is the PRE-EXISTING keep-place reflow effect
+  (`anchorPassage=2` maps to the immersive page whose first passage is 0), not
+  the snap — the write effect reports `pendingPassage = null` throughout and the
+  snap returns early, i.e. step 1's disarm works, and the identical shift occurs
+  with step 1 reverted. The fixture's auto-tap sequence could not arm
+  `pendingPassage` (`readingPassage` key-change timing), so the manual pass for
+  the read/listen place (issues 2/3) and the Piper-global/Kokoro-book preview
+  (issue 4) remain owed to the owner. The residual 2-passage shift exceeds the
+  plan's ±1 tolerance and points at the keep-place effect (#166), not this fix —
+  flag if it must be exact (the paginator itself would have to break at passage
+  boundaries).
+
 ## 198. v0.2.0 published — the reopen/per-book/resume/progress batch (2026-09-28, owner)
 
 Owner: *"Fix that link, then publish."* Live at

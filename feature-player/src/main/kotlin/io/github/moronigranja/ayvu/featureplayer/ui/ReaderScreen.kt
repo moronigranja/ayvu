@@ -87,6 +87,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import io.github.moronigranja.ayvu.player.ChapterDisplay
 import io.github.moronigranja.ayvu.player.DisplayBlock
 import io.github.moronigranja.ayvu.player.DisplayKind
@@ -204,6 +206,21 @@ fun ReaderScreen(
         if (state.bookId != bookId) {
             viewModel.open(bookId)
         }
+    }
+    // A return to the foreground must never strand the reader on
+    // "Opening book…". The drift effect above re-fires only when the service
+    // state CHANGES, and an open dispatched while the app was stopped was
+    // refused by startForegroundService (and its bounded retry gave up).
+    // Re-dispatch here. The first ON_START of this composition is skipped: the
+    // drift effect already dispatched that open, and two ACTION_OPENs at mount
+    // would be one wasted command (the second would supersede the first).
+    val currentPlayback by rememberUpdatedState(state)
+    var sawFirstStart by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        if (sawFirstStart && currentPlayback.bookId != bookId && currentPlayback.failure == null) {
+            viewModel.open(bookId)
+        }
+        sawFirstStart = true
     }
     // A share target (S3 "listen here") starts audio at the passage ONCE: the host clears
     // the target when this fires, so a re-entry (or a recreation that restored it) cannot
@@ -862,15 +879,35 @@ private fun PaginatedChapter(
         // Track the page's first passage across every page change (follow,
         // manual turns, reflow snaps) — the next reflow's anchor — and record
         // the visible page as the book's reading place (the reopen target).
-        // Suppressed while a presented passage is still un-snapped: that frame
-        // still shows the chapter's first page and must not overwrite the
-        // restored place.
-        LaunchedEffect(page, firstPassageOnPage, state.chapterIndex, pendingPassage) {
-            anchorPassage = firstPassageOnPage
+        // The asserted passage (an open's reading place / a bookmark jump) must
+        // not be overwritten before the page shows it. "Shows it" is line-span
+        // overlap, not equality: a page break can land mid-paragraph, so the
+        // asserted passage is often on the page without being
+        // `firstPassageOnPage`. Once it is on the page the assertion is
+        // DROPPED — every later page change (playback follow, a reflow, a
+        // manual turn) records the place again. Leaving it armed was the
+        // freeze: the write stayed suppressed for a whole listen session, and
+        // the snap effect re-snapped on every reflow (the immersive toggle).
+        LaunchedEffect(page, firstPassageOnPage, state.chapterIndex, pendingPassage, totalLines) {
             // Stale-frame guard: the holder may still carry the previous book
             // (an open in flight) — never write its position to this book.
             if (state.bookId != bookId) return@LaunchedEffect
-            if (pendingPassage != null && firstPassageOnPage != pendingPassage) return@LaunchedEffect
+            val asserted = pendingPassage
+            if (asserted != null) {
+                // `totalLines` is a key so this re-evaluates once the chapter
+                // text lands and pagination settles: the first frames of an
+                // open run with an empty `range` (and page 0), so the line-span
+                // test below can MISS the assertion — without a geometry key
+                // the effect would never run again and the assertion would stay
+                // armed for the whole session (the freeze it fixes).
+                val firstLine = passageStartLines.getOrNull(asserted) ?: return@LaunchedEffect
+                val endLine = passageStartLines.getOrNull(asserted + 1) ?: totalLines
+                if (firstLine > range.last || endLine <= range.first) return@LaunchedEffect
+                pendingPassage = null
+            }
+            // Anchor AFTER the guard: a not-yet-landed frame must not reset the
+            // reflow anchor (the snap below still owns the page).
+            anchorPassage = firstPassageOnPage
             viewModel.noteReadingPosition(state.chapterIndex, firstPassageOnPage)
         }
 

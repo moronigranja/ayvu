@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -261,5 +262,44 @@ class VoiceAuditionCoordinatorTest {
             assertEquals("af_heart", c.state.value.voice)
             assertTrue(c.state.value.stage is AuditionStage.Failed)
             assertTrue(!output.played)
+        }
+
+    /**
+     * The reader's sheet is book-scoped: with a Piper GLOBAL engine and a
+     * Kokoro PER-BOOK voice, the preview must resolve under the book's engine,
+     * not the global one. Pre-fix the audition called `resolveVoice(voice)`
+     * against the global Piper engine, whose `voiceFor()` falls back from a
+     * Kokoro name to the Piper default — the sample was the WRONG voice.
+     */
+    @Test
+    fun `preview resolves the voice under the book's engine, not the global one`() =
+        runTest {
+            val book = "audition-book"
+            settings.setTtsEngine(SettingsStore.PIPER_ENGINE)
+            settings.setBookEngine(book, SettingsStore.DEFAULT_TTS_ENGINE)
+            settings.setBookVoice(book, "af_heart")
+
+            val c = coordinator()
+            c.preview("af_heart", book)
+            advanceUntilIdle()
+
+            assertEquals("the book's Kokoro voice must reach the engine", "af_heart", engine.requested?.voice)
+            assertTrue(output.played)
+        }
+
+    /** The same voice with no book (a global-scoped surface) still resolves
+     * under the GLOBAL engine — here Piper, whose assets are absent under
+     * test, so the Kokoro fake is never asked to synthesize. */
+    @Test
+    fun `preview without a book resolves under the global engine`() =
+        runTest {
+            settings.setTtsEngine(SettingsStore.PIPER_ENGINE)
+
+            val c = coordinator()
+            c.preview("af_heart")
+            advanceUntilIdle()
+
+            assertNull("the global Piper engine must own the resolution", engine.requested)
+            assertTrue(c.state.value.stage is AuditionStage.Failed)
         }
 }

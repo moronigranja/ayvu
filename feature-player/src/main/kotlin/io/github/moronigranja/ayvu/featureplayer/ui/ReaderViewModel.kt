@@ -527,7 +527,7 @@ class ReaderViewModel
             }
         }
 
-        fun previewVoice(voice: String) = audition.preview(voice)
+        fun previewVoice(voice: String) = audition.preview(voice, PlaybackStateHolder.state.value.bookId ?: openedBookId)
 
         fun stopPreview() = audition.stop()
 

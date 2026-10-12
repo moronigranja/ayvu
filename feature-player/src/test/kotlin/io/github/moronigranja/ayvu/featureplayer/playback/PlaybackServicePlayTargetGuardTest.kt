@@ -293,4 +293,51 @@ class PlaybackServicePlayTargetGuardTest {
         service.stopEverything()
         PlaybackStateHolder.reset()
     }
+
+    // ------------------------------------------------------------------
+    // Listening mirrors into the per-book reading place (reopen target)
+    // ------------------------------------------------------------------
+
+    /** A play command publishes the LISTENED passage into `book.reading.<id>`
+     * (the reopen target the reader would otherwise only write while composed),
+     * so a reopen after listening with the reader off-screen lands where
+     * listening stopped instead of at the open-time page. */
+    @Test
+    fun `a play command mirrors the listened position into the reading place`() {
+        val store = InMemoryPlayerStore()
+        val engine = FakeEngine()
+        val service = createdService(store, engine)
+        PlaybackStateHolder.reset()
+
+        service.onStartCommand(playPositionIntent(chapter = 0, passage = 1), 0, 4)
+
+        await("the listened position to mirror into the reading place") {
+            runBlocking { service.settings.bookReading(book.id) } == (0 to 1)
+        }
+        assertEquals("the listened passage is the reading place", 0 to 1, runBlocking { service.settings.bookReading(book.id) })
+        service.stopEverything()
+        PlaybackActive.markStopped()
+        PlaybackStateHolder.reset()
+    }
+
+    /** A reading-only open (phase IDLE) must NOT touch the reading place — else
+     * merely opening a book would clobber a place another surface set. */
+    @Test
+    fun `a reading-only open leaves the reading place untouched`() {
+        val store = InMemoryPlayerStore()
+        val engine = FakeEngine()
+        val service = createdService(store, engine)
+        PlaybackStateHolder.reset()
+        runBlocking { service.settings.setBookReading(book.id, 0, 1) }
+
+        service.openPosition(book.id, chapter = 0, passage = 2)
+
+        await("the reading-only open to present the jump") {
+            runBlocking { store.readProgress(book.id) }?.passageIndex == 2
+        }
+        assertEquals("IDLE publish must not rewrite the reading place", 0 to 1, runBlocking { service.settings.bookReading(book.id) })
+        service.stopEverything()
+        PlaybackActive.markStopped()
+        PlaybackStateHolder.reset()
+    }
 }

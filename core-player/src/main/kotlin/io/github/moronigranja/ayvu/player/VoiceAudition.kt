@@ -41,9 +41,15 @@ data class AuditionUiState(
 interface VoiceAudition {
     val state: StateFlow<AuditionUiState>
 
-    /** Audits [voice]: cancels any current audition and pauses narration only
-     * if it was playing. Missing engine assets fail typed, never silently. */
-    fun preview(voice: String)
+    /** Audits [voice] under [bookId]'s engine (null = the global engine), so the
+     *  book-scoped picker previews the voice the book would actually be served
+     *  (decisions #196 per-book engine/voice). Cancels any current audition and
+     *  pauses narration only if it was playing. Missing engine assets fail typed,
+     *  never silently. */
+    fun preview(
+        voice: String,
+        bookId: String? = null,
+    )
 
     /** Stops the current audition; resumes narration if a captured audition
      * had paused it. */
