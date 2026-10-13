@@ -4,6 +4,25 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 203. v0.2.1 published (2026-10-13, owner)
+
+Live at <https://github.com/moronigranja/ayvu/releases/tag/v0.2.1>; the roadmap's
+publish run, after #202 prepared it. Shipped `Ayvu-0.2.1.apk`, 52,312,680 B,
+sha256 `fd1adc8df9fbd8d2b38241e8f54cc1ed1604a0fb4c30b72305714bac18d7e2cb`, cert
+`a5057984…`. The digest is the **stored asset's**, re-downloaded and hashed after
+the draft upload (release bytes are not reproducible — a local build of the same
+tree hashed `37ae43b4…`), pinned in the notes and pushed before the flip, which
+cut the `v0.2.1` tag on the pin commit.
+
+**Device smoke (SM-S908U1, API 36).** The installed app was a debug build, so the
+signed release APK cannot install over it without an uninstall — the smoke ran on
+the **debug** build of this tree (the cutout fix is in `ReaderScreen`, so behavior
+is identical). In immersive mode the floating title band's text sits at
+`35 + displayCutout.top` px: emulated `hole` inset 136 → text top 171, emulated
+`tall` 135 → 170, the device's physical cutout 75 → 110 — clear of the cutout in
+all three, versus 35 px (inside the 136 px hole) on the un-fixed 0.2.0. The
+emulation overlay was left disabled.
+
 ## 202. v0.2.1 prepared (2026-10-13, owner)
 
 Owner: *"prepare a new release"* / *"finish the release prep"*, with *"no Play
@@ -21,8 +40,8 @@ Store"*. Contents are #199, #200 and #201.
   the stored asset re-downloaded and hashed, the digest the upload printed
   pinned (#176 — release bytes are not reproducible), the pin pushed, then the
   flip live (which cuts the `v0.2.1` tag on the pin commit).
-- **Owed**: the device smoke on the signed artifact (the owner's S22; no cutout
-  device or emulator was available here).
+- **Device smoke**: owed here, run in #203 on the S22 (debug build of this tree —
+  the signed APK cannot install over the existing debug install).
 
 ## 201. Immersive reader pads for the display cutout (2026-10-13, owner plan)
 

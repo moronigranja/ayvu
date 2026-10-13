@@ -12,12 +12,12 @@ over the previous one with the library, progress, bookmarks and settings kept.
 
 ## 0.2.1 — 2026-10-13
 
-**Prepared 2026-10-13.** Shipped `Ayvu-0.2.1.apk`; the digest is pinned at publish
-(release bytes are not reproducible — the value is the artifact `tools/release.sh
---upload` uploaded), signer `a5057984…` (CN=Ayvu, the same certificate as every release,
-so it updates in place). Decisions #199 (the reader reopen/immersive/preview reports),
-#200 (immersive by default, single-tap chrome, word/phrase lookup), #201 (the
-display-cutout padding) and #202 (this release).
+**Published 2026-10-13** — <https://github.com/moronigranja/ayvu/releases/tag/v0.2.1>.
+Shipped `Ayvu-0.2.1.apk`, 52,312,680 B, sha256
+`fd1adc8df9fbd8d2b38241e8f54cc1ed1604a0fb4c30b72305714bac18d7e2cb`, signer `a5057984…`
+(CN=Ayvu — the same certificate as every release, so it updates in place). Decisions #199
+(the reader reopen/immersive/preview reports), #200 (immersive by default, single-tap
+chrome, word/phrase lookup), #201 (the display-cutout padding) and #202 (this release).
 
 Four 2026-10-11 owner reports against the 0.2.0 reader and voice picker, then a batch of
 reader changes, then the cutout fix.

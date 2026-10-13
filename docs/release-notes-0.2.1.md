@@ -26,9 +26,9 @@ Install and update steps, requirements and current limitations live in the
 
 ## Artifact
 
-`Ayvu-0.2.1.apk` — arm64-v8a, Android 8.0+ (API 26), GPL-3.0. It is signed with the same
+`Ayvu-0.2.1.apk` — arm64-v8a, Android 8.0+ (API 26), GPL-3.0. **52,312,680 B**,
+`sha256 fd1adc8df9fbd8d2b38241e8f54cc1ed1604a0fb4c30b72305714bac18d7e2cb` (the stored asset, re-downloaded and hashed). It is signed with the same
 certificate as every release since 0.1.1 (`a5057984…`, CN=Ayvu), so it installs straight
-over them. The digest is pinned at publish — release bytes are not reproducible across
-builds, so the value is the artifact uploaded by `tools/release.sh --upload`. The source
-for this build is this repository at the `v0.2.1` tag — <https://github.com/moronigranja/ayvu>
-(the full licence and third-party notices ship inside the app under About → Licences).
+over them. The source for this build is this repository at the `v0.2.1` tag —
+<https://github.com/moronigranja/ayvu> (the full licence and third-party notices ship
+inside the app under About → Licences).
