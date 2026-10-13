@@ -10,96 +10,85 @@ over the previous one with the library, progress, bookmarks and settings kept.
 
 ---
 
-## 0.2.0 — 2026-09-28
+## 0.2.1 — 2026-10-13
 
-**Published 2026-09-28** — <https://github.com/moronigranja/ayvu/releases/tag/v0.2.0>.
-Shipped `Ayvu-0.2.0.apk`, 52,294,976 B, sha256
-`e17b83fdd587dd7b9d5e059c4ef85b69d035fe4cc4db4a4ae1ae8f28cf296df7`, signer `a5057984…`
-(CN=Ayvu — the same certificate as every release, so it updates in place). Decisions #196
-(the batch), #197 (this release and the notes shape) and #198 (the publish run).
+**Prepared 2026-10-13.** Shipped `Ayvu-0.2.1.apk`; the digest is pinned at publish
+(release bytes are not reproducible — the value is the artifact `tools/release.sh
+--upload` uploaded), signer `a5057984…` (CN=Ayvu, the same certificate as every release,
+so it updates in place). Decisions #199 (the reader reopen/immersive/preview reports),
+#200 (immersive by default, single-tap chrome, word/phrase lookup), #201 (the
+display-cutout padding) and #202 (this release).
 
-Owner batch reported 2026-09-27: *"when opening the app back, it sometimes hangs on the
-loading, then pressing back goes back to the library and opening the book again restarts
-the chapter"*, *"engine/voice does not seem to be saving per book"*, the two-decimal
-progress request, and the pause-resume rewind request.
+Four 2026-10-11 owner reports against the 0.2.0 reader and voice picker, then a batch of
+reader changes, then the cutout fix.
 
-### Reading place — reopening a book lands where you were
+### Reopening, foreground recovery, the immersive toggle, the voice preview (#199)
 
-- **A per-book reading place, separate from the playback position.** The reader records
-  the visible page (chapter + chapter-local passage) in `book.reading.<bookId>` on every
-  page change — manual turns, follow turns, chapter changes and reflow snaps. It is
-  written while merely *reading*, so a book that was never played still reopens where it
-  was left; the audio resume row stays what pressing play uses. The key rides the existing
-  generic settings table (no migration) and is dropped with the book.
-- **An open presents the reading place**, when it is still valid for the current layout,
-  and only falls back to the audio row and then the book's start.
-- **The reader pages to the presented passage.** The chapter was restored before, but the
-  page was not: the follow effects only track the active sentence *during playback*, so a
-  reading open always showed the chapter's first page — and that first frame then
-  overwrote the stored place. The reader now snaps to the presented passage's page
-  (re-applied until pagination settles), disarms the snap on a manual turn, and skips it
-  while playing or paused, so a pause still never moves the view.
-- **A reopen can no longer clobber another book's place.** For a frame while an open is in
-  flight the state holder still carries the previous book; the reader now refuses to
-  record a position that belongs to a different book.
-- **A failed open says so.** `ACTION_OPEN`/`ACTION_OPEN_CHAPTER` publish a terminal
-  *"Could not open this book."* instead of returning silently, so the reader lands on its
-  error branch rather than an endless `Opening book…`; the reader also re-dispatches a
-  stuck open at most twice, 4 s apart, and cancels that when the open lands or fails.
-- **Playing from the reader after a pause resumes** (through `ACTION_RESUME`) instead of
-  restarting the visible page, so the rewind below applies to the on-screen play button.
+Three of the four reports shared one root cause in the reader's effect chain.
 
-### Per-book voice *and* engine
+- **A listen session no longer freezes the reading place.** The reading-place write armed
+  the presented-passage assertion at every fresh presentation and only disarmed it on a
+  manual turn, so `book.reading.<id>` stayed at the open-time page for a whole playback
+  session — and the open prefers that row over the audio resume row. It now tests "the
+  asserted passage is on this page" by line-span overlap (a page break can land
+  mid-paragraph) and drops the assertion once it lands, and gained a `totalLines` key so
+  it re-evaluates after pagination settles.
+- **The player mirrors the listened position** into the same row (`publish()`, non-IDLE,
+  deduped to a passage change), so listening with the reader off-screen or a process
+  death still reopens where listening stopped.
+- **A dropped open recovers on the foreground return.** `LifecycleEventEffect(ON_START)`
+  re-dispatches `open(bookId)` when the holder does not carry the book (the first
+  `ON_START` is skipped), fixing the reader stuck on *Opening book…* after screen off/on
+  when the service-side publish dropped and the bounded retry had given up.
+- **The immersive toggle keeps the page.** The same un-disarmed assertion re-fired the
+  snap on the toggle's reflow; the write-effect disarm fixes it. A ±1 passage shift
+  remains the fixed-line-grid semantics of #166.
+- **The voice preview plays the book's voice.** `VoiceAudition.preview(voice, bookId)`
+  resolves under the book's engine, so a Piper global engine with a per-book Kokoro voice
+  no longer previews the Piper default; the reader passes its book, Settings/Setup keep
+  the global default.
 
-- **The reader's voice sheet no longer rewrites your global default.** Selecting a voice
-  there writes `book.voice.<bookId>` (the per-book override decisions #144 introduced at
-  the persistence/resolution layers but no production caller ever wrote — the sheet wrote
-  the global). The sheet's voice dropdown gained a **Use book default** entry, which
-  clears the override.
-- **New per-book engine override**, `book.engine.<bookId>`. Resolution is book-scoped
-  end to end: `EngineSelector.engineIdFor / isDegraded / engine / engineFor /
-  failureReason / resolveVoice / activeCatalog`, the play and resume gates, the
-  pre-generation worker (a per-book gate instead of one pre-loop check) and the offline
-  size estimate all follow the book's engine, defaulting to the global. **This supersedes
-  decisions #144's "no per-book engine override".** Settings and first-run setup keep
-  writing the global engine.
+### Immersive by default, single-tap chrome, word/phrase lookup (#200)
 
-### Pause → resume rewind
+- **The chrome shows on entry, then hides.** `immersive` stays `false` on entry; a
+  `LaunchedEffect(Unit)` shows the chrome for `CHROME_INTRO_MS = 3 s`, then hides it —
+  unless the user already toggled or turned a page. `introDone`/`chromeTouched` are
+  `rememberSaveable`, so a rotation neither re-runs the intro nor lets the timer fight a
+  user action; `setImmersive` keeps the `barsSettled` top-cut hold.
+- **One middle tap toggles; a page turn hides.** The middle-zone double tap is gone; a
+  single middle tap toggles the chrome, and every page turn (swipe, side-zone tap,
+  chapter jump) dismisses it.
+- **Word/phrase lookup.** Long-press selects the word under the finger, drag extends it,
+  and an anchored card offers **Translate** (into the book's display language; the
+  selection must lie wholly inside one Original block — a range spanning the
+  original/translation separator, or in a translation/placeholder block, gets a
+  Copy-only card) and **Copy** (always). Offered only when a display language is set and
+  the layout is interleaved; the selection is the app's own (`TextRange` + drag handles),
+  because Compose's `SelectionContainer`/`Selection` are internal in the pinned
+  foundation 1.11.4. `TranslationService.translateSnippet` decodes a fresh,
+  never-persisted snippet for it.
 
-- **Resuming after a pause rewinds by how long you were paused** — under a minute ≈ 3 s,
-  under an hour ≈ 10 s, under six hours ≈ 20 s, otherwise ≈ 30 s — never before the first
-  passage of the current chapter. `PauseRewind` is a pure policy object, so the curve is
-  one file.
-- The pause instant is persisted per book (`book.pausedAt.<bookId>`); the resume consumes
-  it, and every user-directed move (open, navigate, seek, undo, voice/engine change, stop,
-  an explicit play target) clears it so a stale rewind can never fire.
-- `PlayerStateMachine.notePosition` commits the rewound position without changing the
-  phase or touching the undo ring.
+### The display cutout no longer overlaps the page (#201)
 
-### Two-decimal progress (Phase L)
-
-- **Long-operation progress shows two decimals** (`%.2f%%`) through one shared
-  `formatProgressPercent`: the library pre-generation row, the pre-generation
-  notification, and the export notification text (`k/N passages (42.37%)`).
-- The producers carry a 0..1 fraction rather than an integer percent
-  (`PregenProgress.fraction`, the `progressFraction` transport key, `PregenJobState`).
-  Notification **bars** stay integer — the system draws a bar, not a number.
-
-### Verified
-
-- Host: `core-player`, `core-persistence`, `core-ui`, `feature-player` and
-  `feature-library` suites green (new `PauseRewindTest`, `notePosition`, the open-failure
-  and pause-rewind service tests, per-book `EngineSelector` cases, the bounded open-retry
-  cases, `formatProgressPercent`), plus `ktlintCheck` and `checkFeatureBoundaries`.
-- Device (S22, debug build, staged packs): reopen lands on the page last read — including
-  after a force-stop — with the stored place preserved; a cross-book visit leaves both
-  books' places intact; the reader sheet writes `book.voice.<id>` and `book.engine.<id>`
-  while the globals stay untouched, and a second book shows the globals; pause → resume
-  moved the committed offset 11.16 s → 8.18 s and cleared the pause marker.
-- Instrumented regression on the S22: `ReaderRotationReplayE2eTest`,
-  `OpenChapterE2eTest`, `PlayPositionE2eTest` and `PlaybackE2eTest` all pass.
+- **The camera hole clears the text.** On Android 15+ the app is edge-to-edge
+  (`targetSdk = 36`) with the window forced to `LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS`; in
+  immersive mode the system-bar insets are zero and nothing padded for `displayCutout`,
+  so the floating title overlay and the body text ran into the camera punch-hole/notch.
+  The reader's content root now applies `Modifier.displayCutoutPadding()` gated on
+  `showOverlays`, moving the title overlay, the body and the bottom player overlay clear
+  in one edit; regular mode is untouched (the status bar contains the cutout there). A
+  no-op without a cutout and on Android ≤ 14, where the app is not edge-to-edge.
 
 ---
+
+## 0.2.0 — 2026-09-28
+
+A per-book reading place restored on open — the page last seen, not the chapter's first —
+with an open that says so when it fails instead of hanging; a per-book voice *and* engine
+override; resume after a pause rewinding by how long you were paused; and two-decimal
+long-operation progress. `versionCode` 5 → 6.
+Release body: [`docs/release-notes-0.2.0.md`](docs/release-notes-0.2.0.md) · decisions
+#196–#198.
 
 ## 0.1.4 — 2026-09-23
 

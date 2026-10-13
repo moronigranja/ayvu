@@ -4,6 +4,26 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 202. v0.2.1 prepared (2026-10-13, owner)
+
+Owner: *"prepare a new release"* / *"finish the release prep"*, with *"no Play
+Store"*. Contents are #199, #200 and #201.
+
+- **Version**: `versionCode` 6 → 7, `versionName` 0.2.0 → 0.2.1
+  (`app/build.gradle.kts`).
+- **Changelog**: `CHANGELOG.md` gains the full 0.2.1 section (the long form — the
+  three batches itemized, with the reasoning and the device evidence).
+- **Notes**: `docs/release-notes-0.2.1.md` is the short body in the #197 shape
+  (intro, highlights, the tag-pinned changelog link, the artifact).
+- **README**: the Install section's published version moves to v0.2.1.
+- **Publish sequence** (roadmap §Release readiness): signed build via
+  `tools/release.sh`, draft via `--upload --notes docs/release-notes-0.2.1.md`,
+  the stored asset re-downloaded and hashed, the digest the upload printed
+  pinned (#176 — release bytes are not reproducible), the pin pushed, then the
+  flip live (which cuts the `v0.2.1` tag on the pin commit).
+- **Owed**: the device smoke on the signed artifact (the owner's S22; no cutout
+  device or emulator was available here).
+
 ## 201. Immersive reader pads for the display cutout (2026-10-13, owner plan)
 
 Owner plan, approved and executed. On Android 15+ the app is edge-to-edge
