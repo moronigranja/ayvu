@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -398,7 +399,17 @@ fun ReaderScreen(
         // reflows under a half-faded system bar (top-cut follow-up).
         bottomBar = { if (showChrome) PlayerCard(state, readerCommands) },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    // Android 15+ edge-to-edge: with the system bars hidden the
+                    // display-cutout inset is the only thing left between the page
+                    // (and the floating title overlay) and the camera hole. Gated on
+                    // showOverlays — not immersive — so it flips with the rest of the
+                    // immersive body and never reflows mid bar-fade (top-cut fix #125).
+                    .then(if (showOverlays) Modifier.displayCutoutPadding() else Modifier),
+        ) {
             Column(
                 modifier =
                     Modifier

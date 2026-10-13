@@ -4,6 +4,37 @@ The rationale behind load-bearing decisions. New decisions get an entry here wit
 context, alternatives considered, and consequences. Keep entries short — this is a log,
 not a spec (specs live in architecture.md / feature docs).
 
+## 201. Immersive reader pads for the display cutout (2026-10-13, owner plan)
+
+Owner plan, approved and executed. On Android 15+ the app is edge-to-edge
+(`targetSdk = 36`) and the window mode is forced to
+`LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS`, so content draws under the camera
+punch-hole/notch. Nothing in the reader padded for
+`WindowInsets.Type.displayCutout` (the only inset code was `statusBarsPadding()`
+on the top chrome), and in immersive mode the system-bar insets go to zero — so
+the floating book-title overlay and the body text ran into the cutout. This
+continues #125's immersive top-cut work, for the camera hole rather than the
+title band.
+
+- **Fix**: in `ReaderScreen`, the `Scaffold` content root `Box` gains
+  `Modifier.displayCutoutPadding()` gated on `showOverlays` (`immersive &&
+  barsSettled`), so the title overlay, the body `Column` and the bottom player
+  overlay all move clear in one edit. Gated on `showOverlays`, not `immersive`,
+  so it flips with the rest of the immersive body and never reflows mid
+  bar-fade (#125). `statusBarsPadding()` on the top chrome is untouched —
+  regular mode already clears the cutout (the status bar contains it).
+- **No pagination/reserve change**: `PaginatedChapter` reads its viewport from
+  `BoxWithConstraints`, so the parent padding shrinks the measured viewport and
+  `TextPagination.linesPerPage` re-derives pages; `titleOverlayReservedPx` and
+  the page start shift by the same inset, so the first body line still begins at
+  the band's bottom.
+- **No-op** where there is no cutout (the inset resolves to 0) and on Android
+  ≤ 14 (not edge-to-edge) — identical behavior to today.
+- **Verification**: `:feature-player:testDebugUnitTest`, `checkFeatureBoundaries`
+  and `ktlintCheck` green; `:app:assembleDebug` builds. The visual pass on a
+  cutout device (the plan's device step) is owed to the owner — no cutout
+  device/emulator was available here.
+
 ## 200. Reader immersive-by-default, single-tap chrome, and word/phrase lookup (2026-10-11, owner)
 
 Three reader changes, all in `feature-player/.../ui/ReaderScreen.kt` (+ a small
